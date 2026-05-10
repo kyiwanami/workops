@@ -150,7 +150,8 @@ PowerShellでCognito接続確認用に起動する場合は、`apps/server` で 
 通常のローカル開発では `local` profile を付けるため、Cognitoへリダイレクトしません。
 再度Cognito接続を確認する場合だけ、`local` profile を外して起動します。
 
-M3 で確認する claim は `sub`、`cognito:username` または username 相当、`email`、`email_verified` です。
+M3 で業務利用する Cognito claim は、DB `users` と突合するための `sub` だけです。
+`username`、`email`、`actorType`、`companyId`、`permissionSets` はDB由来の情報として扱います。
 MVP / M3 の OAuth2 scope は `openid` と `email` だけを使います。
 `profile` と `aws.cognito.signin.user.admin` はM3時点では不要です。
 
@@ -180,6 +181,21 @@ agent task を実装した後は、対象の agent task Markdown に次を記録
 
 実装で判明した具体事項はリポジトリ側へ記録します。
 Notion 側の要件、スコープ、ADR を変更する必要がある場合は、リポジトリ側で確定せず、ユーザー確認を挟みます。
+
+## 疎通確認結果の扱い
+
+Cognito など外部連携の疎通確認で得られた値や手順は、以降の実装で再利用できる確認資産として記録します。
+ただし、疎通確認で成功した値をそのまま業務DBやseedへ固定投入してはいけません。
+
+今回の Cognito 疎通確認では、Spring Security OAuth2 Login から Cognito `sub` を取得できることを確認しました。
+将来 `users.cognito_sub` と突合する実装を行う場合は、次を守ります。
+
+- DB突合は別タスクとして扱い、ユーザー合意後に実装する
+- 実Cognito `sub` をリポジトリ管理seedへ入れるか、ローカル専用データとして扱うかを先に確認する
+- 突合キーは `sub` だけにする
+- `username` / `email` / `actorType` / `companyId` / `permissionSets` はDB由来にする
+- Cognito claim 由来の `username` / `email` を業務利用しない
+- `users.status` / `userStatus` は作らず、ログイン可否と無効化はCognito側で制御する
 
 ## MVP の PR 単位
 

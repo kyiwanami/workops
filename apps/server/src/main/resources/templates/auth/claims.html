@@ -8,7 +8,7 @@
     <section class="workops-page-title mb-4">
         <p class="text-secondary mb-1">M3 Cognito</p>
         <h1 class="h3 mb-2">Cognito Claims</h1>
-        <p class="text-secondary mb-0">Spring Security が保持しているログイン済みユーザーのOIDC claimを確認します。</p>
+        <p class="text-secondary mb-0">Cognito sub と最小のLoginUserContextを確認します。</p>
     </section>
 
     <section class="card">
@@ -20,7 +20,7 @@
                 </dl>
 
                 <h2 class="h5 mb-3">LoginUserContext</h2>
-                <div class="table-responsive mb-4">
+                <div th:if="${loginUserContext != null}" class="table-responsive mb-4">
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                         <tr>
@@ -33,16 +33,11 @@
                             <td class="fw-semibold">providerSubject</td>
                             <td th:text="${loginUserContext.providerSubject()}">providerSubject</td>
                         </tr>
-                        <tr>
-                            <td class="fw-semibold">username</td>
-                            <td th:text="${loginUserContext.username()}">username</td>
-                        </tr>
-                        <tr>
-                            <td class="fw-semibold">email</td>
-                            <td th:text="${loginUserContext.email()}">email</td>
-                        </tr>
                         </tbody>
                     </table>
+                </div>
+                <div th:if="${loginUserContext == null}" class="alert alert-warning mb-4">
+                    認証済みユーザーの providerSubject を取得できません。
                 </div>
 
                 <h2 class="h5 mb-3">Raw Claims</h2>

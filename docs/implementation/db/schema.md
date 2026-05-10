@@ -50,7 +50,7 @@ Notion は DB 設計方針、ADR、テーブル群の役割を管理します。
 | --- | --- | --- |
 | `companies` | マスタ | 会社境界を表す |
 | `departments` | マスタ | 会社内の部署を表す |
-| `users` | マスタ | 会社に所属するユーザーを表す |
+| `users` | マスタ | 会社に所属するアプリ利用者情報の正本を表す |
 | `permission_sets` | マスタ | 権限セットの入れ物を表す |
 | `user_permission_sets` | 関連 / 割当 | ユーザーと権限セットの割当を表す |
 | `common_master` | マスタ | 全社共通マスタの種別を表す |
@@ -124,16 +124,20 @@ Phase 2 以降では CloudWatch Logs で確認する前提です。
 
 ## users
 
-会社に所属するユーザーを表します。
+会社に所属するアプリ利用者情報の正本を表します。
+ログイン可否と無効化は Cognito 側で制御し、`users.status` は持ちません。
+Cognito ログイン時は `cognito_sub` で `users` と突合します。
 
 | カラム | 型 | NULL | 既定値 | 説明 |
 | --- | --- | --- | --- | --- |
 | id | BIGINT | NO | AUTO_INCREMENT | 主キー |
 | company_id | BIGINT | NO |  | 所属会社ID |
 | department_id | BIGINT | YES |  | 所属部署ID |
-| login_id | VARCHAR(100) | NO |  | ローカル疑似認証で使うログインID |
+| cognito_sub | VARCHAR(100) | YES |  | Cognito sub |
+| username | VARCHAR(100) | NO |  | アプリ利用者名 |
 | name | VARCHAR(100) | NO |  | ユーザー名 |
 | email | VARCHAR(255) | NO |  | メールアドレス |
+| actor_type | VARCHAR(50) | NO |  | 利用者種別 |
 | is_deleted | BOOLEAN | NO | FALSE | 論理削除フラグ |
 | created_at | DATETIME(6) | NO | CURRENT_TIMESTAMP(6) | 作成日時 |
 | created_by | BIGINT | YES |  | 作成ユーザーID |
@@ -143,7 +147,8 @@ Phase 2 以降では CloudWatch Logs で確認する前提です。
 制約:
 
 - `PRIMARY KEY (id)`
-- `UNIQUE KEY uq_users_company_login_id (company_id, login_id)`
+- `UNIQUE KEY uq_users_cognito_sub (cognito_sub)`
+- `UNIQUE KEY uq_users_company_username (company_id, username)`
 - `UNIQUE KEY uq_users_company_email (company_id, email)`
 - `CONSTRAINT fk_users_company FOREIGN KEY (company_id) REFERENCES companies (id)`
 - `CONSTRAINT fk_users_department FOREIGN KEY (department_id) REFERENCES departments (id)`

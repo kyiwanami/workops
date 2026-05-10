@@ -37,7 +37,7 @@ Cognito テストユーザーでログイン後、Spring Boot アプリへ戻り
 - ブラウザで Cognito Hosted UI / managed login へ遷移する
 - Cognito テストユーザーでログインする
 - localhost callback でアプリへ戻る
-- `sub`、username 相当、`email`、`email_verified` の取得可否を記録する
+- `sub` の取得可否を記録する
 
 ## 実装時の記録
 
@@ -45,7 +45,7 @@ Cognito テストユーザーでログイン後、Spring Boot アプリへ戻り
 
 - AWS SDK は使わず、Spring Security OAuth2 Login が保持する `OidcUser` からclaimを読む。
 - `/auth/claims` をM3確認用URLとして追加する。
-- 確認対象claimは `sub`、`cognito:username`、`email`、`email_verified` に限定する。
+- M3で業務利用するclaimは、DB `users` と突合するための `sub` に限定する。
 - OAuth2 scope は `openid` と `email` だけを使う。
 - `profile` と `aws.cognito.signin.user.admin` はMVP / M3では使わない。
 - DB users との突合、`LoginUserContext`、local代替ユーザーはM3-04以降で扱う。
@@ -64,7 +64,7 @@ Cognito テストユーザーでログイン後、Spring Boot アプリへ戻り
 - `local` profile の起動で `http://localhost:8080/auth/claims` が `200` を返した。
 - `local` profile なしの起動で `http://localhost:8080/auth/claims` が `/oauth2/authorization/cognito` へ `302` を返した。
 - Cognito側の追加変更は不要。既存の callback URL と scope 設定を使う。
-- ブラウザでCognitoテストユーザーとしてログイン後、`/auth/claims` で `sub`、`cognito:username`、`email`、`email_verified` が表示されることを確認した。
+- ブラウザでCognitoテストユーザーとしてログイン後、`/auth/claims` で `sub` が取得できることを確認した。
 
 ### 残課題
 

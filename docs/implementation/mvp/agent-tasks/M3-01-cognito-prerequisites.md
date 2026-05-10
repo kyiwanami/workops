@@ -57,12 +57,10 @@ M3-02 では、実際の Cognito 接続値をリポジトリに固定せず、�
 
 ### 確認する claim
 
-M3 では、Spring Security OAuth2 Login で次の OIDC / Cognito claim を確認する。
+M3 では、Spring Security OAuth2 Login で Cognito `sub` を取得できることを確認する。
+業務利用する Cognito claim は、DB `users` と突合するための `sub` だけに限定する。
 
 - `sub`
-- `cognito:username` または username 相当
-- `email`
-- `email_verified`
 
 ### MVP / Phase 2 境界
 

@@ -1,10 +1,8 @@
 package com.example.workops.common.security;
 
 /**
- * WorkOps内部で扱うログイン済みユーザーの最小コンテキスト。
+ * Spring Securityから取得した認証主体をWorkOps内部へ渡す最小コンテキスト。
  */
 public record LoginUserContext(
-        String providerSubject,
-        String username,
-        String email) {
+        String providerSubject) {
 }

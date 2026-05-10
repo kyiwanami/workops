@@ -63,7 +63,7 @@
 - MySQL 上に `companies` / `departments` / `users` / `permission_sets` / `user_permission_sets` が存在することを確認した
 - `companies` に主キーと `uq_companies_code` が存在することを確認した
 - `departments` に主キー、`uq_departments_company_code`、`fk_departments_company` が存在することを確認した
-- `users` に主キー、`uq_users_company_login_id`、`uq_users_company_email`、`fk_users_company`、`fk_users_department` が存在することを確認した
+- `users` に主キー、`uq_users_cognito_sub`、`uq_users_company_username`、`uq_users_company_email`、`fk_users_company`、`fk_users_department` が存在することを確認した
 - `permission_sets` に主キーと `uq_permission_sets_code` が存在することを確認した
 - `user_permission_sets` に複合主キー、`fk_user_permission_sets_user`、`fk_user_permission_sets_permission_set` が存在することを確認した
 
