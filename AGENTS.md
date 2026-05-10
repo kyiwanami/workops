@@ -1,5 +1,11 @@
 # WorkOps Codex Instructions
 
+## Git Operation Rule
+
+- Codex は `git commit` を実行しない。
+- 作業の区切りや検証完了時には、ユーザーにコミットを促す。
+- コミット対象ファイルやコミットメッセージ案は提示してよい。
+
 ## Technical Term Log Rule
 
 - ユーザーがチャット内で質問した技術用語だけを、root の `TECH_TERMS.md` に記録する。

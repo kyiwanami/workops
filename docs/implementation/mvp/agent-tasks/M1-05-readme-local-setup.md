@@ -42,9 +42,29 @@ README に従って M1 時点のアプリ起動確認ができる。
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 確認結果
-- 残課題
+- ルート `README.md` にM1時点のローカル起動手順をまとめる
+- PowerShell前提のコマンドだけを記載する
+- Spring Bootのlocal profile起動では `"-Dspring-boot.run.profiles=local"` のように引用符付きで記載する
+- 業務機能、AWS、Cognito、Spring Security OAuth2 Login の手順は記載しない
+- Codexがコミットを実行しない運用を `AGENTS.md` に記録する
+
+### 変更ファイル
+
+- `README.md`
+- `AGENTS.md`
+- `docs/implementation/mvp/agent-tasks/M1-05-readme-local-setup.md`
+
+### 確認結果
+
+- `docker compose up -d workops-mysql` が成功した
+- `docker compose ps` で `workops-mysql` が `healthy` であることを確認した
+- `cd apps/server && .\mvnw.cmd test` が成功した
+- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
+- `http://localhost:8080/` が HTTP 200 を返した
+- 起動確認用の Java プロセスが残っていないことを確認した
+
+### 残課題
+
+- なし

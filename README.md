@@ -1,0 +1,140 @@
+# WorkOps
+
+WorkOps は、申請管理と資産管理を扱う業務アプリケーションのMVPです。
+M1時点では、Maven / Spring Boot / Thymeleaf / MyBatis / Docker Compose MySQL の最小構成だけを用意しています。
+
+## M1 時点の技術スタック
+
+- Java 25 LTS
+- Maven Wrapper
+- Spring Boot 4.0.6
+- Thymeleaf
+- Bootstrap 5.3.8 CDN
+- MyBatis Spring Boot Starter 4.0.1
+- Flyway
+- MySQL 9.7.0
+- Docker Compose
+
+## 生成方針
+
+Spring Bootアプリ本体は、公式 Spring Initializr 相当の最小構成から `apps/server` に生成しています。
+
+次の完成済みサンプルは流用していません。
+
+- CRUDサンプル
+- JPA Quickstart
+- Spring Securityログインサンプル
+- 会社や個人のテンプレート
+
+## リポジトリ構成
+
+```text
+workops/
+├─ apps/
+│  └─ server/
+│     ├─ pom.xml
+│     ├─ mvnw
+│     ├─ mvnw.cmd
+│     └─ src/
+├─ docs/
+│  └─ implementation/
+├─ infra/
+│  └─ cdk/
+├─ compose.yaml
+└─ README.md
+```
+
+## 前提ツール
+
+- Java 25 LTS
+- Docker Desktop
+- PowerShell
+
+Mavenは `apps/server/mvnw.cmd` が取得するため、ローカルにMavenを直接インストールする必要はありません。
+
+## MySQL 起動
+
+PowerShellでリポジトリルートへ移動します。
+
+```powershell
+cd C:\git\workops
+docker compose up -d workops-mysql
+docker compose ps
+```
+
+`workops-mysql` が `healthy` になればMySQL起動は完了です。
+
+## テスト
+
+```powershell
+cd C:\git\workops\apps\server
+.\mvnw.cmd test
+```
+
+## Spring Boot 起動
+
+```powershell
+cd C:\git\workops\apps\server
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
+PowerShellでは `-Dspring-boot.run.profiles=local` を引用符で囲んでください。
+
+## HTTP 確認
+
+別のPowerShellで確認します。
+
+```powershell
+curl.exe -i http://localhost:8080/
+```
+
+ステータスコードだけ確認する場合は次を使います。
+
+```powershell
+curl.exe -s -o NUL -w "%{http_code}" http://localhost:8080/
+```
+
+`200` が返ればM1時点の起動確認は完了です。
+ブラウザでは次のURLを開きます。
+
+```text
+http://localhost:8080/
+```
+
+## 停止
+
+Spring Bootは起動中のPowerShellで `Ctrl + C` を押して停止します。
+
+MySQLを停止する場合はリポジトリルートで次を実行します。
+
+```powershell
+cd C:\git\workops
+docker compose stop workops-mysql
+```
+
+MySQLのデータボリュームも削除する場合は次を実行します。
+
+```powershell
+docker compose down -v
+```
+
+## M1 時点で未実装の範囲
+
+- 業務テーブル
+- Flyway初期DDL本体
+- seed
+- 申請管理
+- 資産管理
+- マスタ管理
+- 認証・認可
+- Spring Security
+- Cognito
+- AWS連携
+- CDK実装
+- GitHub Actions deploy
+
+## 実装ドキュメント
+
+- `docs/implementation/README.md`
+- `docs/implementation/mvp/phases.md`
+- `docs/implementation/mvp/agent-tasks/`
