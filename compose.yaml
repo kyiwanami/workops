@@ -1,0 +1,27 @@
+services:
+  workops-mysql:
+    image: mysql:9.7.0
+    container_name: workops-mysql
+    environment:
+      MYSQL_DATABASE: workops
+      MYSQL_USER: workops
+      MYSQL_PASSWORD: workops
+      MYSQL_ROOT_PASSWORD: workops_root
+      TZ: Asia/Tokyo
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+09:00
+    ports:
+      - "3306:3306"
+    volumes:
+      - workops_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  workops_mysql_data:

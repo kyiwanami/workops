@@ -1,0 +1,28 @@
+### Java / Maven ###
+target/
+*.class
+
+### Spring Boot ###
+*.log
+
+### Maven Wrapper ###
+!mvnw
+!mvnw.cmd
+!.mvn/wrapper/maven-wrapper.properties
+
+### IDE ###
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+### OS ###
+.DS_Store
+Thumbs.db
+
+### Local environment ###
+.env
+.env.*
+!.env.example
