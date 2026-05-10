@@ -137,6 +137,8 @@ Logout URL:   http://localhost:8080/
 
 M3-02 以降、アプリは Cognito 接続値を環境変数で受け取ります。
 実値はリポジトリに書きません。
+ローカル開発ではルート `.env.local` に実値を書き、`.env.local` は git 管理しません。
+キー名とダミー値だけを `.env.example` に置きます。
 
 ```text
 WORKOPS_COGNITO_ISSUER_URI
@@ -144,7 +146,13 @@ WORKOPS_COGNITO_CLIENT_ID
 WORKOPS_COGNITO_REDIRECT_URI
 ```
 
+PowerShellでCognito接続確認用に起動する場合は、`apps/server` で `.\mvnw.cmd spring-boot:run` を実行します。
+通常のローカル開発では `local` profile を付けるため、Cognitoへリダイレクトしません。
+再度Cognito接続を確認する場合だけ、`local` profile を外して起動します。
+
 M3 で確認する claim は `sub`、`cognito:username` または username 相当、`email`、`email_verified` です。
+MVP / M3 の OAuth2 scope は `openid` と `email` だけを使います。
+`profile` と `aws.cognito.signin.user.admin` はM3時点では不要です。
 
 ## Notion へ戻す判断
 

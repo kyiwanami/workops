@@ -115,6 +115,43 @@ cd C:\git\workops\apps\server
 
 PowerShellでは `-Dspring-boot.run.profiles=local` を引用符で囲んでください。
 
+## Cognito 接続値のローカル管理
+
+Cognito 接続値はルート `.env.local` に書きます。
+`.env.local` は git 管理しません。
+キー名とダミー値は `.env.example` を参照してください。
+
+```powershell
+cd C:\git\workops
+Copy-Item .env.example .env.local
+notepad .env.local
+```
+
+`.env.local` に書くキーは次の3つです。
+
+```text
+WORKOPS_COGNITO_ISSUER_URI
+WORKOPS_COGNITO_CLIENT_ID
+WORKOPS_COGNITO_REDIRECT_URI
+```
+
+Codex はローカルの `.env.local` を参照できますが、`.env.local` は git に載せません。
+
+## Spring Boot Cognito 起動
+
+`.env.local` 作成後、Cognito接続を確認する場合は `local` profile を付けずに起動します。
+
+```powershell
+cd C:\git\workops\apps\server
+.\mvnw.cmd spring-boot:run
+```
+
+通常のローカル開発では `local` profile を付けるため、Cognitoへリダイレクトしません。
+再度Cognito接続を確認したい場合だけ、`local` profile を外して起動します。
+
+MVP / M3 の OAuth2 scope は `openid` と `email` だけを使います。
+`profile` と `aws.cognito.signin.user.admin` はM3時点では不要です。
+
 ## HTTP 確認
 
 別のPowerShellで確認します。
@@ -158,9 +195,8 @@ docker compose down -v
 - 申請管理
 - 資産管理
 - マスタ管理
-- 認証・認可
-- Spring Security
-- Cognito
+- 業務機能向け認証・認可
+- Cognito claim とDBユーザーの突合
 - AWS連携
 - CDK実装
 - GitHub Actions deploy
