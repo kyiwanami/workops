@@ -62,6 +62,8 @@ M4 以降の申請管理、M5 以降の資産管理、M6 以降のマスタ管�
 - 業務操作・調査用ログは RDB ではなくアプリケーションログへ出力する
 - 有効期間管理は全体共通では入れない
 - `created_by` / `updated_by` は M2 時点では外部キーを張らない
+- `generic_master` は会社別ではなく汎用マスタ種別を表す
+- `generic_master_values` に `company_id` を持たせ、会社別の値を表す
 - `requests` は現在状態を持つトランザクションとして定義し、物理削除しないため `is_deleted` を持たせない
 - `assets` は業務マスタ / 台帳として定義し、論理削除用の `is_deleted` を持たせる
 - MVP で不要な資産詳細項目、利用者、設置場所、メーカー、シリアル番号、申請種別値、理由、完了日時は M2-03 の物理カラムに含めない
@@ -81,6 +83,8 @@ M4 以降の申請管理、M5 以降の資産管理、M6 以降のマスタ管�
 - `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で Flyway migration が成功することを確認した
 - `flyway_schema_history` に `V1__create_mvp_schema.sql` が success として登録されたことを確認した
 - MySQL 上に `common_master` / `common_master_values` / `generic_master` / `generic_master_values` / `requests` / `assets` が存在することを確認した
+- `generic_master` に `company_id` が存在しないことを確認した
+- `generic_master_values` に `company_id` が存在することを確認した
 - MySQL 上に `request_histories` / `asset_status_histories` / `audit_logs` が存在しないことを確認した
 - `assets` に `assigned_user_id` / `location_value_id` / `manufacturer_value_id` / `serial_number` が存在しないことを確認した
 - `requests` に `request_type_value_id` / `reason` / `completed_at` が存在しないことを確認した

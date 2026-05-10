@@ -94,7 +94,6 @@ CREATE TABLE common_master_values (
 
 CREATE TABLE generic_master (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    company_id BIGINT NOT NULL,
     code VARCHAR(50) NOT NULL,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(255) NULL,
@@ -103,13 +102,13 @@ CREATE TABLE generic_master (
     created_by BIGINT NULL,
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     updated_by BIGINT NULL,
-    UNIQUE KEY uq_generic_master_company_code (company_id, code),
-    CONSTRAINT fk_generic_master_company FOREIGN KEY (company_id) REFERENCES companies (id)
+    UNIQUE KEY uq_generic_master_code (code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE generic_master_values (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     generic_master_id BIGINT NOT NULL,
+    company_id BIGINT NOT NULL,
     code VARCHAR(50) NOT NULL,
     name VARCHAR(100) NOT NULL,
     sort_order INT NOT NULL DEFAULT 0,
@@ -118,8 +117,9 @@ CREATE TABLE generic_master_values (
     created_by BIGINT NULL,
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     updated_by BIGINT NULL,
-    UNIQUE KEY uq_generic_master_values_master_code (generic_master_id, code),
-    CONSTRAINT fk_generic_master_values_master FOREIGN KEY (generic_master_id) REFERENCES generic_master (id)
+    UNIQUE KEY uq_generic_master_values_master_company_code (generic_master_id, company_id, code),
+    CONSTRAINT fk_generic_master_values_master FOREIGN KEY (generic_master_id) REFERENCES generic_master (id),
+    CONSTRAINT fk_generic_master_values_company FOREIGN KEY (company_id) REFERENCES companies (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE assets (

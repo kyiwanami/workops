@@ -55,7 +55,7 @@ Notion は DB 設計方針、ADR、テーブル群の役割を管理します。
 | `user_permission_sets` | 関連 / 割当 | ユーザーと権限セットの割当を表す |
 | `common_master` | マスタ | 全社共通マスタの種別を表す |
 | `common_master_values` | マスタ | 全社共通マスタの値を表す |
-| `generic_master` | マスタ | 会社別汎用マスタの種別を表す |
+| `generic_master` | マスタ | 汎用マスタの種別を表す |
 | `generic_master_values` | マスタ | 会社別汎用マスタの値を表す |
 | `requests` | トランザクション | 申請の現在状態を表す |
 | `assets` | 業務マスタ / 台帳 | 資産台帳として現在状態を表す |
@@ -232,12 +232,12 @@ Phase 2 以降では CloudWatch Logs で確認する前提です。
 
 ## generic_master
 
-会社別汎用マスタの種別を表します。
+汎用マスタの種別を表します。
+種別自体は会社別に分けず、会社ごとの差は `generic_master_values` で表現します。
 
 | カラム | 型 | NULL | 既定値 | 説明 |
 | --- | --- | --- | --- | --- |
 | id | BIGINT | NO | AUTO_INCREMENT | 主キー |
-| company_id | BIGINT | NO |  | 会社ID |
 | code | VARCHAR(50) | NO |  | 汎用マスタ種別コード |
 | name | VARCHAR(100) | NO |  | 汎用マスタ種別名 |
 | description | VARCHAR(255) | YES |  | 説明 |
@@ -250,8 +250,7 @@ Phase 2 以降では CloudWatch Logs で確認する前提です。
 制約:
 
 - `PRIMARY KEY (id)`
-- `UNIQUE KEY uq_generic_master_company_code (company_id, code)`
-- `CONSTRAINT fk_generic_master_company FOREIGN KEY (company_id) REFERENCES companies (id)`
+- `UNIQUE KEY uq_generic_master_code (code)`
 
 ## generic_master_values
 
@@ -261,6 +260,7 @@ Phase 2 以降では CloudWatch Logs で確認する前提です。
 | --- | --- | --- | --- | --- |
 | id | BIGINT | NO | AUTO_INCREMENT | 主キー |
 | generic_master_id | BIGINT | NO |  | 汎用マスタ種別ID |
+| company_id | BIGINT | NO |  | 会社ID |
 | code | VARCHAR(50) | NO |  | 汎用マスタ値コード |
 | name | VARCHAR(100) | NO |  | 汎用マスタ値名 |
 | sort_order | INT | NO | 0 | 表示順 |
@@ -273,8 +273,9 @@ Phase 2 以降では CloudWatch Logs で確認する前提です。
 制約:
 
 - `PRIMARY KEY (id)`
-- `UNIQUE KEY uq_generic_master_values_master_code (generic_master_id, code)`
+- `UNIQUE KEY uq_generic_master_values_master_company_code (generic_master_id, company_id, code)`
 - `CONSTRAINT fk_generic_master_values_master FOREIGN KEY (generic_master_id) REFERENCES generic_master (id)`
+- `CONSTRAINT fk_generic_master_values_company FOREIGN KEY (company_id) REFERENCES companies (id)`
 
 ## assets
 

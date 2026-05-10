@@ -47,9 +47,44 @@
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 確認結果
-- 残課題
+- `V2__insert_local_seed.sql` として、Flyway で `V1` の後に local seed を投入する
+- 2社は架空会社だが業態とデータ粒度を具体化し、適当な `サンプル株式会社A/B` は使わない
+- 北浜精密機器株式会社は製造業として部署と資産カテゴリを多めにする
+- 青葉ケアサービス株式会社は介護・生活支援サービスとして部署と資産カテゴリを少なめにする
+- 汎用マスタ種別 `ASSET_CATEGORY` は `generic_master` に1件だけ投入する
+- 会社ごとの資産カテゴリ差分は `generic_master_values.company_id` で表現する
+- seed は明示 ID で投入する
+- bootstrap seed のため `created_by` / `updated_by` は `NULL` にする
+- 申請・資産・履歴・監査ログのサンプルデータは投入しない
+
+### 変更ファイル
+
+- `apps/server/src/main/resources/db/migration/V2__insert_local_seed.sql`
+- `docs/implementation/mvp/agent-tasks/M2-04-local-seed.md`
+
+### 確認結果
+
+- `docker compose down -v` で local DB を初期化した
+- `docker compose up -d workops-mysql` で MySQL を起動した
+- `docker compose ps` で `workops-mysql` が `healthy` であることを確認した
+- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で `V1` と `V2` の Flyway migration が成功することを確認した
+- `flyway_schema_history` に `V2__insert_local_seed.sql` が success として登録されたことを確認した
+- `companies` が2件であることを確認した
+- `departments` が5件であることを確認した
+- `users` が6件であることを確認した
+- `permission_sets` が3件であることを確認した
+- `user_permission_sets` が6件であることを確認した
+- `common_master` が3件であることを確認した
+- `common_master_values` が12件であることを確認した
+- `generic_master` が1件であることを確認した
+- `generic_master_values` が9件であることを確認した
+- `ASSET_CATEGORY` の種別は1件で、会社別の値は `generic_master_values.company_id` で分かれていることを確認した
+- `requests` が0件であることを確認した
+- `assets` が0件であることを確認した
+- `cd apps/server && .\mvnw.cmd test` が成功した
+
+### 残課題
+
+- なし
