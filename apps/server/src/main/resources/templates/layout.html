@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(pageTitle)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${pageTitle}">WorkOps</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link th:href="@{/css/app.css}" rel="stylesheet">
+</head>
+<body>
+<header th:fragment="header" class="workops-header border-bottom bg-white">
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-semibold" th:href="@{/}">WorkOps</a>
+            <div class="d-flex align-items-center gap-2 text-secondary small">
+                <span>Local MVP</span>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<footer th:fragment="footer" class="border-top bg-white">
+    <div class="container-fluid px-4 py-3 text-secondary small">
+        WorkOps MVP
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+</footer>
+</body>
+</html>

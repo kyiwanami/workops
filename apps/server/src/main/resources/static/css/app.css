@@ -1,0 +1,15 @@
+body {
+    min-height: 100vh;
+}
+
+.workops-header {
+    min-height: 64px;
+}
+
+.workops-page-title {
+    max-width: 960px;
+}
+
+.card {
+    border-radius: 8px;
+}

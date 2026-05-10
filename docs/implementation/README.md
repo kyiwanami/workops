@@ -40,7 +40,7 @@ Notion 側では、次を管理します。
 - Controller / Service / Mapper の実装詳細
 - Form / DTO / Model の具体フィールド
 - Thymeleaf テンプレート
-- Tailwind CSS の具体クラス
+- Bootstrap のコンポーネント / クラス詳細
 
 ## agent task 作成ルール
 
@@ -79,7 +79,7 @@ MVP 開始時点の方針は次の通りです。
 - Spring Boot は最新安定版を使う
 - Thymeleaf / Flyway / JUnit / Mockito / Testcontainers は Spring Boot 管理バージョンを使う
 - Spring Boot 管理外の依存は、採用時点の最新安定版を明示する
-- Tailwind CSS は導入時点の最新安定版を使う
+- Bootstrap は導入時点の最新安定版を使う
 - AWS CDK v2 は Phase 2 着手時点の最新安定版を使う
 
 採用する生成方針は次の通りです。
