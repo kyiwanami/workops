@@ -42,9 +42,31 @@
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 確認結果
-- 残課題
+- `companies` / `departments` / `users` / `permission_sets` / `user_permission_sets` を作成する
+- Notion 側で了承された論理削除方針に従い、`is_deleted BOOLEAN NOT NULL DEFAULT FALSE` のみを採用する
+- `active`、`deleted_at`、`delete_token` は採用しない
+- MVP では削除済みコードの再利用を許可しないため、一意制約は削除済み行も含めて維持する
+- 権限セットはテーブルだけ作成し、`TENANT_VIEWER` などの seed は M2-04 で投入する
+- テーブル定義の読み取り用文書を `docs/implementation/db/schema.md` に作成する
+
+### 変更ファイル
+
+- `apps/server/src/main/resources/db/migration/V1__create_mvp_schema.sql`
+- `docs/implementation/db/schema.md`
+- `docs/implementation/mvp/agent-tasks/M2-01-flyway-migration-structure.md`
+- `docs/implementation/mvp/agent-tasks/M2-02-tenant-user-permission-schema.md`
+
+### 確認結果
+
+- MySQL 上に `companies` / `departments` / `users` / `permission_sets` / `user_permission_sets` が存在することを確認した
+- `companies` に主キーと `uq_companies_code` が存在することを確認した
+- `departments` に主キー、`uq_departments_company_code`、`fk_departments_company` が存在することを確認した
+- `users` に主キー、`uq_users_company_login_id`、`uq_users_company_email`、`fk_users_company`、`fk_users_department` が存在することを確認した
+- `permission_sets` に主キーと `uq_permission_sets_code` が存在することを確認した
+- `user_permission_sets` に複合主キー、`fk_user_permission_sets_user`、`fk_user_permission_sets_permission_set` が存在することを確認した
+
+### 残課題
+
+- なし
