@@ -119,6 +119,33 @@ Service 層は Cognito に直接依存せず、`CurrentUserProvider` へ依存�
 
 Cognito 本格連携、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、CDK による Cognito 構築、AWS dev 環境デプロイは Phase 2 で扱います。
 
+### M3 Cognito 最小接続の前提
+
+M3 では、ユーザーが AWS マネジメントコンソールで次を用意します。
+
+- ダミー Cognito User Pool
+- client secret なしの App Client
+- Hosted UI / managed login domain
+- Cognito テストユーザー
+
+Callback URL と logout URL は次を使います。
+
+```text
+Callback URL: http://localhost:8080/login/oauth2/code/cognito
+Logout URL:   http://localhost:8080/
+```
+
+M3-02 以降、アプリは Cognito 接続値を環境変数で受け取ります。
+実値はリポジトリに書きません。
+
+```text
+WORKOPS_COGNITO_ISSUER_URI
+WORKOPS_COGNITO_CLIENT_ID
+WORKOPS_COGNITO_REDIRECT_URI
+```
+
+M3 で確認する claim は `sub`、`cognito:username` または username 相当、`email`、`email_verified` です。
+
 ## Notion へ戻す判断
 
 次の判断はコーディングエージェント側で確定しません。
