@@ -66,7 +66,7 @@
 ### 確認結果
 
 - `cd apps/server && .\mvnw.cmd test` が成功した
-- `cd apps/server && .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local` で起動した
+- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
 - `http://localhost:8080/` が HTTP 200 を返した
 - レスポンスに `WorkOps` と `bootstrap@5.3.8` が含まれることを確認した
 

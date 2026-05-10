@@ -40,9 +40,28 @@ MyBatis を使うための依存関係と配置方針がリポジトリ上にで
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 確認結果
-- 残課題
+- `mybatis-spring-boot-starter 4.0.1` は既存の依存関係を維持する
+- `@Mapper` が付いた interface だけを MyBatis Mapper として検出する
+- Mapper interface は `com.example.workops.<module>.mapper` 配下に置く方針にする
+- Mapper XML は `classpath*:mapper/**/*.xml` で読み込む
+- 業務 Mapper、業務 SQL、Mapper XML 本体は追加しない
+
+### 変更ファイル
+
+- `apps/server/src/main/java/com/example/workops/common/config/MyBatisConfig.java`
+- `apps/server/src/main/resources/application.yml`
+- `apps/server/src/main/resources/mapper/.gitkeep`
+- `docs/implementation/mvp/agent-tasks/M1-04-mybatis-setup.md`
+
+### 確認結果
+
+- `cd apps/server && .\mvnw.cmd test` が成功した
+- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
+- `http://localhost:8080/` が HTTP 200 を返した
+- `apps/server/src/main/resources/mapper/.gitkeep` が存在することを確認した
+
+### 残課題
+
+- なし
