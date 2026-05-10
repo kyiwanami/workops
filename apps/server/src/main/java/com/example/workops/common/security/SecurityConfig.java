@@ -3,7 +3,6 @@ package com.example.workops.common.security;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
@@ -18,12 +17,14 @@ public class SecurityConfig {
 
     @Bean
     @Profile("!local")
-    public SecurityFilterChain cognitoSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain cognitoSecurityFilterChain(
+            HttpSecurity http,
+            CognitoAuthenticationSuccessHandler cognitoAuthenticationSuccessHandler) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/css/**", "/favicon.ico").permitAll()
                         .anyRequest().authenticated())
-                .oauth2Login(Customizer.withDefaults())
+                .oauth2Login(oauth2 -> oauth2.successHandler(cognitoAuthenticationSuccessHandler))
                 .logout(logout -> logout.logoutSuccessUrl("/"));
 
         return http.build();
