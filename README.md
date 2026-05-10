@@ -64,6 +64,41 @@ docker compose ps
 
 `workops-mysql` が `healthy` になればMySQL起動は完了です。
 
+## MySQL 接続情報
+
+A5M2などのDBクライアントから接続する場合は、次を使います。
+
+```text
+種類: MySQL
+ホスト: localhost
+ポート: 3306
+データベース: workops
+ユーザー: workops
+パスワード: workops
+```
+
+JDBC URL形式:
+
+```text
+jdbc:mysql://localhost:3306/workops?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Tokyo
+```
+
+## DB 再構築確認
+
+local DBを空から作り直し、FlywayでDDLとseedを再適用する場合は次を実行します。
+
+```powershell
+cd C:\git\workops
+docker compose down -v
+docker compose up -d workops-mysql
+docker compose ps
+
+cd C:\git\workops\apps\server
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
+Spring Bootが起動すれば、`V1__create_mvp_schema.sql` と `V2__insert_local_seed.sql` が適用されています。
+
 ## テスト
 
 ```powershell
@@ -118,11 +153,8 @@ MySQLのデータボリュームも削除する場合は次を実行します。
 docker compose down -v
 ```
 
-## M1 時点で未実装の範囲
+## M2 時点で未実装の範囲
 
-- 業務テーブル
-- Flyway初期DDL本体
-- seed
 - 申請管理
 - 資産管理
 - マスタ管理

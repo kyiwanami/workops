@@ -44,9 +44,111 @@ README 手順で local DB を作り直し、Flyway で MVP テーブルと local
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 確認結果
-- 残課題
+- README 手順で local DB を空から作り直し、Flyway の `V1` / `V2` が再現できることを確認する
+- M2 対象テーブルの存在、作成しないテーブルの不存在、local seed 件数を SQL で確認する
+- `generic_master` は会社別ではなく、`generic_master_values.company_id` で会社別値を表すことを確認する
+- DDL、seed、Mapper、Service、Controller、画面は追加しない
+
+### 変更ファイル
+
+- `README.md`
+- `docs/implementation/mvp/agent-tasks/M2-05-db-verification.md`
+
+### 確認SQL
+
+Flyway migration 履歴:
+
+```sql
+SELECT installed_rank, version, description, success
+FROM flyway_schema_history
+ORDER BY installed_rank;
+```
+
+M2 対象テーブル:
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'workops'
+ORDER BY table_name;
+```
+
+作成しないテーブル:
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'workops'
+  AND table_name IN ('request_histories', 'asset_status_histories', 'audit_logs')
+ORDER BY table_name;
+```
+
+seed 件数:
+
+```sql
+SELECT 'companies' AS table_name, COUNT(*) AS row_count FROM companies
+UNION ALL SELECT 'departments', COUNT(*) FROM departments
+UNION ALL SELECT 'users', COUNT(*) FROM users
+UNION ALL SELECT 'permission_sets', COUNT(*) FROM permission_sets
+UNION ALL SELECT 'user_permission_sets', COUNT(*) FROM user_permission_sets
+UNION ALL SELECT 'common_master', COUNT(*) FROM common_master
+UNION ALL SELECT 'common_master_values', COUNT(*) FROM common_master_values
+UNION ALL SELECT 'generic_master', COUNT(*) FROM generic_master
+UNION ALL SELECT 'generic_master_values', COUNT(*) FROM generic_master_values
+UNION ALL SELECT 'requests', COUNT(*) FROM requests
+UNION ALL SELECT 'assets', COUNT(*) FROM assets;
+```
+
+generic master の会社スコープ:
+
+```sql
+SELECT table_name, column_name
+FROM information_schema.columns
+WHERE table_schema = 'workops'
+  AND table_name IN ('generic_master', 'generic_master_values')
+ORDER BY table_name, ordinal_position;
+
+SELECT gm.code AS master_code, c.code AS company_code, gmv.code AS value_code
+FROM generic_master gm
+JOIN generic_master_values gmv ON gmv.generic_master_id = gm.id
+JOIN companies c ON c.id = gmv.company_id
+ORDER BY c.id, gmv.sort_order;
+```
+
+### 確認結果
+
+- `docker compose down -v` で local DB を初期化した
+- `docker compose up -d workops-mysql` で MySQL を起動した
+- `docker compose ps` で `workops-mysql` が `healthy` であることを確認した
+- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で `V1` / `V2` の Flyway migration が成功することを確認した
+- `flyway_schema_history` に `V1__create_mvp_schema.sql` と `V2__insert_local_seed.sql` が success として登録されたことを確認した
+- M2 対象テーブルが存在することを確認した
+- `request_histories` / `asset_status_histories` / `audit_logs` が存在しないことを確認した
+- `generic_master` に `company_id` が存在しないことを確認した
+- `generic_master_values` に `company_id` が存在することを確認した
+- `generic_master` が1件、`generic_master_values` が9件であることを確認した
+- `requests` と `assets` が0件であることを確認した
+- `cd apps/server && .\mvnw.cmd test` が成功した
+- 起動確認用 Java プロセスが残っていないことを確認した
+
+seed 件数:
+
+| テーブル | 件数 |
+| --- | ---: |
+| companies | 2 |
+| departments | 5 |
+| users | 6 |
+| permission_sets | 3 |
+| user_permission_sets | 6 |
+| common_master | 3 |
+| common_master_values | 12 |
+| generic_master | 1 |
+| generic_master_values | 9 |
+| requests | 0 |
+| assets | 0 |
+
+### 残課題
+
+- なし
