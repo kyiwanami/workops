@@ -19,6 +19,33 @@
                     <dd class="col-sm-9 mb-0" th:text="${principalName}">principal</dd>
                 </dl>
 
+                <h2 class="h5 mb-3">LoginUserContext</h2>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th scope="col">Field</th>
+                            <th scope="col">Value</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td class="fw-semibold">providerSubject</td>
+                            <td th:text="${loginUserContext.providerSubject()}">providerSubject</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-semibold">username</td>
+                            <td th:text="${loginUserContext.username()}">username</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-semibold">email</td>
+                            <td th:text="${loginUserContext.email()}">email</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2 class="h5 mb-3">Raw Claims</h2>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
                         <thead>
