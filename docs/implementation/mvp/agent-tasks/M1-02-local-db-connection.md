@@ -16,8 +16,8 @@ local profile と Docker Compose MySQL の前提を作る。
 ## 対応ファイル
 
 - `compose.yaml`
-- `apps/server/src/main/resources/application-local.yml`
-- `apps/server/pom.xml`
+- `apps/web/src/main/resources/application-local.yml`
+- `apps/web/pom.xml`
 
 ## 除外範囲
 
@@ -56,7 +56,7 @@ Flyway は有効化したが、このタスクでは migration ファイルと s
 ## 変更ファイル
 
 - `compose.yaml`
-- `apps/server/src/main/resources/application-local.yml`
+- `apps/web/src/main/resources/application-local.yml`
 
 ## 確認結果
 
@@ -64,8 +64,8 @@ Flyway は有効化したが、このタスクでは migration ファイルと s
 - `docker manifest inspect mysql:9.7.0` で MySQL 9.7.0 イメージの存在を確認した。
 - `docker compose up -d workops-mysql` が成功した。
 - `workops-mysql` は `healthy` になった。
-- `apps/server` で `.\mvnw.cmd test` が成功した。
-- `apps/server` で `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Dspring.main.web-application-type=none"` が成功した。
+- `apps/web` で `.\mvnw.cmd test` が成功した。
+- `apps/web` で `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.jvmArguments=-Dspring.main.web-application-type=none"` が成功した。
 - `db/migration` と `db/seed` 配下のファイルは作成していない。
 
 ## 残課題

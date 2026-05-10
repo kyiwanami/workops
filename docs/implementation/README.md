@@ -63,7 +63,11 @@ Notion 側では、Phase 内の大きな実装フェーズまでを定義しま�
 ## Spring Boot アプリ生成ルール
 
 Git リポジトリはゼロから作成します。
-ただし、Spring Boot アプリ本体は公式 Spring Initializr 相当の最小構成で `apps/server` に生成します。
+ただし、Spring Boot アプリ本体は公式 Spring Initializr 相当の最小構成で `apps/web` に生成します。
+
+MVP の実装対象は `apps/web` の Spring Boot + Thymeleaf Web 業務アプリです。
+`apps/api` と `apps/batch` は後続 Phase の配置先として予約しますが、MVP では実装を置きません。
+Java package 名は配置変更では変更しません。
 
 ## バージョン選定ルール
 
@@ -146,7 +150,7 @@ WORKOPS_COGNITO_CLIENT_ID
 WORKOPS_COGNITO_REDIRECT_URI
 ```
 
-PowerShellでCognito接続確認用に起動する場合は、`apps/server` で `.\mvnw.cmd spring-boot:run` を実行します。
+PowerShellでCognito接続確認用に起動する場合は、`apps/web` で `.\mvnw.cmd spring-boot:run` を実行します。
 通常のローカル開発では `local` profile を付けるため、Cognitoへリダイレクトしません。
 再度Cognito接続を確認する場合だけ、`local` profile を外して起動します。
 

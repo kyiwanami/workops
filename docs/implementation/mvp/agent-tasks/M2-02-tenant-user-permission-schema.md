@@ -16,7 +16,7 @@
 
 ## 対応ファイル
 
-- `apps/server/src/main/resources/db/migration/V1__create_mvp_schema.sql`
+- `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
 - `docs/implementation/mvp/agent-tasks/M2-02-tenant-user-permission-schema.md`
 
 ## 除外範囲
@@ -53,7 +53,7 @@
 
 ### 変更ファイル
 
-- `apps/server/src/main/resources/db/migration/V1__create_mvp_schema.sql`
+- `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
 - `docs/implementation/db/schema.md`
 - `docs/implementation/mvp/agent-tasks/M2-01-flyway-migration-structure.md`
 - `docs/implementation/mvp/agent-tasks/M2-02-tenant-user-permission-schema.md`

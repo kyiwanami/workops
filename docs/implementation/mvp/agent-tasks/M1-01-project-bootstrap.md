@@ -2,11 +2,11 @@
 
 ## 目的
 
-`apps/server` に公式 Spring Initializr 相当の Maven ベース Spring Boot アプリを作り、最小起動できる状態にする。
+`apps/web` に公式 Spring Initializr 相当の Maven ベース Spring Boot アプリを作り、最小起動できる状態にする。
 
 ## 対応範囲
 
-- `apps/server` 配下に Spring Initializr 相当の Maven プロジェクトを作成する
+- `apps/web` 配下に Spring Initializr 相当の Maven プロジェクトを作成する
 - Spring Boot 4 系のアプリケーションエントリポイントを作成する
 - Java 25 LTS を前提にする
 - Maven Wrapper を含める
@@ -40,19 +40,19 @@ Spring Initializr 相当の生成では、次の依存関係を含める。
 ## 対応ファイル
 
 - `.gitignore`
-- `apps/server/pom.xml`
-- `apps/server/mvnw`
-- `apps/server/mvnw.cmd`
-- `apps/server/.mvn/`
-- `apps/server/src/main/java/com/example/workops/WorkOpsApplication.java`
-- `apps/server/src/main/java/com/example/workops/common/`
-- `apps/server/src/main/java/com/example/workops/request/`
-- `apps/server/src/main/java/com/example/workops/asset/`
-- `apps/server/src/main/java/com/example/workops/master/`
-- `apps/server/src/main/java/com/example/workops/audit/`
-- `apps/server/src/main/resources/application.yml`
-- `apps/server/src/main/resources/application-dev.yml`
-- `apps/server/src/main/resources/application-prod.yml`
+- `apps/web/pom.xml`
+- `apps/web/mvnw`
+- `apps/web/mvnw.cmd`
+- `apps/web/.mvn/`
+- `apps/web/src/main/java/com/example/workops/WorkOpsApplication.java`
+- `apps/web/src/main/java/com/example/workops/common/`
+- `apps/web/src/main/java/com/example/workops/request/`
+- `apps/web/src/main/java/com/example/workops/asset/`
+- `apps/web/src/main/java/com/example/workops/master/`
+- `apps/web/src/main/java/com/example/workops/audit/`
+- `apps/web/src/main/resources/application.yml`
+- `apps/web/src/main/resources/application-dev.yml`
+- `apps/web/src/main/resources/application-prod.yml`
 - `infra/cdk/README.md`
 - `.github/workflows/`
 
@@ -73,12 +73,12 @@ Spring Initializr 相当の生成では、次の依存関係を含める。
 
 ## 完了条件
 
-`apps/server` で Maven build が通り、Spring Boot アプリの起動前提ができている。
+`apps/web` で Maven build が通り、Spring Boot アプリの起動前提ができている。
 リポジトリには、MVP のアプリ実装と Phase 2 以降の置き場を追加できる最小構成ができている。
 
 ## 確認方法
 
-- `apps/server` で Maven Wrapper による build を実行する
+- `apps/web` で Maven Wrapper による build を実行する
 - Spring Boot アプリケーションがコンパイル対象として認識されることを確認する
 - 完成済み CRUD サンプル、JPA Quickstart、Spring Security ログインサンプル由来の不要コードがないことを確認する
 
@@ -93,7 +93,7 @@ Spring Initializr 相当の生成では、次の依存関係を含める。
 
 ## 実装方針
 
-Spring Initializr 公式 API から Spring Boot 4.0.6 の Maven プロジェクトを生成し、`apps/server` に配置した。
+Spring Initializr 公式 API から Spring Boot 4.0.6 の Maven プロジェクトを生成し、`apps/web` に配置した。
 Java はユーザー方針に従い Java 25 LTS を前提にした。
 生成後、WorkOps の単一リポジトリ構成に合わせてアプリケーション名、設定ファイル、パッケージ置き場、Phase 2 用ディレクトリを整えた。
 
@@ -101,20 +101,20 @@ Java はユーザー方針に従い Java 25 LTS を前提にした。
 
 - `.gitignore`
 - `.github/workflows/.gitkeep`
-- `apps/server/pom.xml`
-- `apps/server/mvnw`
-- `apps/server/mvnw.cmd`
-- `apps/server/.mvn/wrapper/maven-wrapper.properties`
-- `apps/server/src/main/java/com/example/workops/WorkOpsApplication.java`
-- `apps/server/src/main/java/com/example/workops/common/.gitkeep`
-- `apps/server/src/main/java/com/example/workops/request/.gitkeep`
-- `apps/server/src/main/java/com/example/workops/asset/.gitkeep`
-- `apps/server/src/main/java/com/example/workops/master/.gitkeep`
-- `apps/server/src/main/java/com/example/workops/audit/.gitkeep`
-- `apps/server/src/main/resources/application.yml`
-- `apps/server/src/main/resources/application-dev.yml`
-- `apps/server/src/main/resources/application-prod.yml`
-- `apps/server/src/test/java/com/example/workops/WorkOpsApplicationTests.java`
+- `apps/web/pom.xml`
+- `apps/web/mvnw`
+- `apps/web/mvnw.cmd`
+- `apps/web/.mvn/wrapper/maven-wrapper.properties`
+- `apps/web/src/main/java/com/example/workops/WorkOpsApplication.java`
+- `apps/web/src/main/java/com/example/workops/common/.gitkeep`
+- `apps/web/src/main/java/com/example/workops/request/.gitkeep`
+- `apps/web/src/main/java/com/example/workops/asset/.gitkeep`
+- `apps/web/src/main/java/com/example/workops/master/.gitkeep`
+- `apps/web/src/main/java/com/example/workops/audit/.gitkeep`
+- `apps/web/src/main/resources/application.yml`
+- `apps/web/src/main/resources/application-dev.yml`
+- `apps/web/src/main/resources/application-prod.yml`
+- `apps/web/src/test/java/com/example/workops/WorkOpsApplicationTests.java`
 - `infra/cdk/README.md`
 - `docs/implementation/README.md`
 - `docs/implementation/mvp/agent-tasks/M1-01-project-bootstrap.md`

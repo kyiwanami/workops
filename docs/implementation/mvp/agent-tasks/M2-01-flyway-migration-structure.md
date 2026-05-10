@@ -6,7 +6,7 @@ MVP の DB schema を Flyway で再現できる migration 構成を作る。
 
 ## 対応範囲
 
-- `apps/server/src/main/resources/db/migration/` を作成する
+- `apps/web/src/main/resources/db/migration/` を作成する
 - MVP 初期 DDL 用の `V1__create_mvp_schema.sql` を作成する
 - MySQL 9.7.0 向けの DDL として作成する
 - M2 で作る全テーブルの DDL を1つの migration にまとめる
@@ -14,7 +14,7 @@ MVP の DB schema を Flyway で再現できる migration 構成を作る。
 
 ## 対応ファイル
 
-- `apps/server/src/main/resources/db/migration/V1__create_mvp_schema.sql`
+- `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
 - `docs/implementation/mvp/agent-tasks/M2-01-flyway-migration-structure.md`
 
 ## 除外範囲
@@ -35,7 +35,7 @@ MVP の DB schema を Flyway で再現できる migration 構成を作る。
 
 - `docker compose down -v` で local DB を初期化する
 - `docker compose up -d workops-mysql` で MySQL を起動する
-- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動する
+- `cd apps/web && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動する
 - Flyway migration が成功することを確認する
 
 ## 実装時の記録
@@ -50,7 +50,7 @@ MVP の DB schema を Flyway で再現できる migration 構成を作る。
 
 ### 変更ファイル
 
-- `apps/server/src/main/resources/db/migration/V1__create_mvp_schema.sql`
+- `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
 - `docs/implementation/db/schema.md`
 - `docs/implementation/mvp/agent-tasks/M2-01-flyway-migration-structure.md`
 - `docs/implementation/mvp/agent-tasks/M2-02-tenant-user-permission-schema.md`
@@ -60,10 +60,10 @@ MVP の DB schema を Flyway で再現できる migration 構成を作る。
 - `docker compose down -v` で local DB を初期化した
 - `docker compose up -d workops-mysql` で MySQL を起動した
 - `docker compose ps` で `workops-mysql` が `healthy` であることを確認した
-- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
+- `cd apps/web && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
 - `http://localhost:8080/` が HTTP 200 を返した
 - `flyway_schema_history` に `V1__create_mvp_schema.sql` が success として登録されたことを確認した
-- `cd apps/server && .\mvnw.cmd test` が成功した
+- `cd apps/web && .\mvnw.cmd test` が成功した
 - 起動確認用の Java プロセスが残っていないことを確認した
 
 ### 残課題

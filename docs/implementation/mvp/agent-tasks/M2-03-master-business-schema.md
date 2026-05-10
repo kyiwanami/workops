@@ -18,7 +18,7 @@ MVP のマスタ管理、申請管理、資産管理で使う業務テーブル�
 
 ## 対応ファイル
 
-- `apps/server/src/main/resources/db/migration/V1__create_mvp_schema.sql`
+- `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
 - `docs/implementation/db/schema.md`
 - `docs/implementation/mvp/phases.md`
 - `docs/implementation/mvp/agent-tasks/M2-03-master-business-schema.md`
@@ -70,7 +70,7 @@ M4 以降の申請管理、M5 以降の資産管理、M6 以降のマスタ管�
 
 ### 変更ファイル
 
-- `apps/server/src/main/resources/db/migration/V1__create_mvp_schema.sql`
+- `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
 - `docs/implementation/db/schema.md`
 - `docs/implementation/mvp/phases.md`
 - `docs/implementation/mvp/agent-tasks/M2-03-master-business-schema.md`
@@ -80,7 +80,7 @@ M4 以降の申請管理、M5 以降の資産管理、M6 以降のマスタ管�
 - `docker compose down -v` で local DB を初期化した
 - `docker compose up -d workops-mysql` で MySQL を起動した
 - `docker compose ps` で `workops-mysql` が `healthy` であることを確認した
-- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で Flyway migration が成功することを確認した
+- `cd apps/web && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で Flyway migration が成功することを確認した
 - `flyway_schema_history` に `V1__create_mvp_schema.sql` が success として登録されたことを確認した
 - MySQL 上に `common_master` / `common_master_values` / `generic_master` / `generic_master_values` / `requests` / `assets` が存在することを確認した
 - `generic_master` に `company_id` が存在しないことを確認した
@@ -90,7 +90,7 @@ M4 以降の申請管理、M5 以降の資産管理、M6 以降のマスタ管�
 - `requests` に `request_type_value_id` / `reason` / `completed_at` が存在しないことを確認した
 - 主要テーブルに `created_by` / `updated_by` が存在することを確認した
 - 対象テーブルの主キー、一意制約、外部キーが存在することを確認した
-- `cd apps/server && .\mvnw.cmd test` が成功した
+- `cd apps/web && .\mvnw.cmd test` が成功した
 
 ### 残課題
 

@@ -38,7 +38,7 @@ README 手順で local DB を作り直し、Flyway で MVP テーブルと local
 - `docker compose down -v` を実行する
 - `docker compose up -d workops-mysql` を実行する
 - `docker compose ps` で `workops-mysql` が `healthy` であることを確認する
-- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` を実行する
+- `cd apps/web && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` を実行する
 - MySQL で M2 対象テーブルの存在を確認する
 - MySQL で seed 件数を確認する
 
@@ -122,7 +122,7 @@ ORDER BY c.id, gmv.sort_order;
 - `docker compose down -v` で local DB を初期化した
 - `docker compose up -d workops-mysql` で MySQL を起動した
 - `docker compose ps` で `workops-mysql` が `healthy` であることを確認した
-- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で `V1` / `V2` の Flyway migration が成功することを確認した
+- `cd apps/web && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で `V1` / `V2` の Flyway migration が成功することを確認した
 - `flyway_schema_history` に `V1__create_mvp_schema.sql` と `V2__insert_local_seed.sql` が success として登録されたことを確認した
 - M2 対象テーブルが存在することを確認した
 - `request_histories` / `asset_status_histories` / `audit_logs` が存在しないことを確認した
@@ -130,7 +130,7 @@ ORDER BY c.id, gmv.sort_order;
 - `generic_master_values` に `company_id` が存在することを確認した
 - `generic_master` が1件、`generic_master_values` が9件であることを確認した
 - `requests` と `assets` が0件であることを確認した
-- `cd apps/server && .\mvnw.cmd test` が成功した
+- `cd apps/web && .\mvnw.cmd test` が成功した
 - 起動確認用 Java プロセスが残っていないことを確認した
 
 seed 件数:

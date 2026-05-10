@@ -17,9 +17,9 @@ Spring Security OAuth2 Login を最小構成で導入し、Cognito Hosted UI / m
 
 - `.env.example`
 - `.gitignore`
-- `apps/server/pom.xml`
-- `apps/server/src/main/resources/application.yml`
-- `apps/server/src/main/java/com/example/workops/common/security/`
+- `apps/web/pom.xml`
+- `apps/web/src/main/resources/application.yml`
+- `apps/web/src/main/java/com/example/workops/common/security/`
 - `README.md`
 - `docs/implementation/README.md`
 - `docs/implementation/mvp/agent-tasks/M3-02-spring-security-oauth2-minimal.md`
@@ -39,9 +39,9 @@ Spring Security OAuth2 Login を最小構成で導入し、Cognito Hosted UI / m
 
 ## 確認方法
 
-- `cd apps/server && .\mvnw.cmd test` が成功する
-- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` が起動する
-- `.env.local` 作成後に `cd apps/server && .\mvnw.cmd spring-boot:run` が起動する
+- `cd apps/web && .\mvnw.cmd test` が成功する
+- `cd apps/web && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` が起動する
+- `.env.local` 作成後に `cd apps/web && .\mvnw.cmd spring-boot:run` が起動する
 - ブラウザで保護対象URLへアクセスし、Cognito 側へリダイレクトされることを確認する
 
 ## 実装時の記録
@@ -61,17 +61,17 @@ Spring Security OAuth2 Login を最小構成で導入し、Cognito Hosted UI / m
 
 - `.env.example`
 - `.gitignore`
-- `apps/server/pom.xml`
-- `apps/server/src/main/resources/application.yml`
-- `apps/server/src/main/resources/application-local.yml`
-- `apps/server/src/main/java/com/example/workops/common/security/SecurityConfig.java`
+- `apps/web/pom.xml`
+- `apps/web/src/main/resources/application.yml`
+- `apps/web/src/main/resources/application-local.yml`
+- `apps/web/src/main/java/com/example/workops/common/security/SecurityConfig.java`
 - `README.md`
 - `docs/implementation/README.md`
 - `docs/implementation/mvp/agent-tasks/M3-02-spring-security-oauth2-minimal.md`
 
 ### 確認結果
 
-- `cd apps/server && .\mvnw.cmd test` が成功した。
+- `cd apps/web && .\mvnw.cmd test` が成功した。
 - `local` profile の起動で `http://localhost:8080/` が `200` を返した。
 - `local` profile の起動ではCognito issuerへの接続が発生しないことを確認した。
 - `local` profile なしの起動で `http://localhost:8080/` が `/oauth2/authorization/cognito` へ `302` を返した。

@@ -15,8 +15,8 @@ Service 層で会社境界と権限セットに基づく簡易認可を行う土
 
 ## 対応ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/security/`
-- `apps/server/src/main/java/com/example/workops/common/exception/`
+- `apps/web/src/main/java/com/example/workops/common/security/`
+- `apps/web/src/main/java/com/example/workops/common/exception/`
 - `docs/implementation/mvp/agent-tasks/M3-06-service-authorization-foundation.md`
 
 ## 除外範囲
@@ -79,20 +79,20 @@ public void approve(Long requestId) {
 
 ### 変更ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/security/SecurityConfig.java`
-- `apps/server/src/main/java/com/example/workops/common/security/PermissionSetCode.java`
-- `apps/server/src/main/java/com/example/workops/common/security/WorkOpsAuthenticationFactory.java`
-- `apps/server/src/main/java/com/example/workops/common/security/LocalAuthenticationFilter.java`
-- `apps/server/src/main/java/com/example/workops/common/security/CurrentUserProvider.java`
-- `apps/server/src/main/java/com/example/workops/common/web/AuthAuthorizationController.java`
-- `apps/server/src/main/resources/templates/auth/authorization-manager.html`
-- `apps/server/src/main/resources/templates/index.html`
-- `apps/server/src/test/java/com/example/workops/common/security/MethodSecurityPreAuthorizeTests.java`
+- `apps/web/src/main/java/com/example/workops/common/security/SecurityConfig.java`
+- `apps/web/src/main/java/com/example/workops/common/security/PermissionSetCode.java`
+- `apps/web/src/main/java/com/example/workops/common/security/WorkOpsAuthenticationFactory.java`
+- `apps/web/src/main/java/com/example/workops/common/security/LocalAuthenticationFilter.java`
+- `apps/web/src/main/java/com/example/workops/common/security/CurrentUserProvider.java`
+- `apps/web/src/main/java/com/example/workops/common/web/AuthAuthorizationController.java`
+- `apps/web/src/main/resources/templates/auth/authorization-manager.html`
+- `apps/web/src/main/resources/templates/index.html`
+- `apps/web/src/test/java/com/example/workops/common/security/MethodSecurityPreAuthorizeTests.java`
 - `docs/implementation/mvp/agent-tasks/M3-06-service-authorization-foundation.md`
 
 ### 確認結果
 
-- `cd apps/server && .\mvnw.cmd test` が成功した。
+- `cd apps/web && .\mvnw.cmd test` が成功した。
 - `MethodSecurityPreAuthorizeTests` で `TENANT_MANAGER` authority を持つ `Authentication` が `@PreAuthorize("hasAuthority('TENANT_MANAGER')")` 付きメソッドを通過することを確認した。
 - `MethodSecurityPreAuthorizeTests` で `TENANT_VIEWER` authority のみを持つ `Authentication` が `AccessDeniedException` になることを確認した。
 - local profile 起動で、既定ユーザー `kthm-manager` の `permission_sets.code` が `GrantedAuthority` の `TENANT_MANAGER` に変換されることを `/auth/claims` で確認した。

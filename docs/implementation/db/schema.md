@@ -7,7 +7,7 @@
 
 正本:
 
-- `apps/server/src/main/resources/db/migration/V1__create_mvp_schema.sql`
+- `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
 
 Notion は DB 設計方針、ADR、テーブル群の役割を管理します。
 リポジトリは Flyway migration SQL、カラム、型、NULL 可否、制約、seed SQL、確認 SQL を管理します。

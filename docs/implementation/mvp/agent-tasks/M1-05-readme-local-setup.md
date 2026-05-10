@@ -60,8 +60,8 @@ README に従って M1 時点のアプリ起動確認ができる。
 
 - `docker compose up -d workops-mysql` が成功した
 - `docker compose ps` で `workops-mysql` が `healthy` であることを確認した
-- `cd apps/server && .\mvnw.cmd test` が成功した
-- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
+- `cd apps/web && .\mvnw.cmd test` が成功した
+- `cd apps/web && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
 - `http://localhost:8080/` が HTTP 200 を返した
 - 起動確認用の Java プロセスが残っていないことを確認した
 

@@ -14,10 +14,10 @@
 
 ## 対応ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/web/HomeController.java`
-- `apps/server/src/main/resources/templates/index.html`
-- `apps/server/src/main/resources/templates/layout.html`
-- `apps/server/src/main/resources/static/css/app.css`
+- `apps/web/src/main/java/com/example/workops/common/web/HomeController.java`
+- `apps/web/src/main/resources/templates/index.html`
+- `apps/web/src/main/resources/templates/layout.html`
+- `apps/web/src/main/resources/static/css/app.css`
 
 ## 除外範囲
 
@@ -52,10 +52,10 @@
 
 - `docs/implementation/README.md`
 - `docs/implementation/mvp/agent-tasks/M1-03-thymeleaf-bootstrap.md`
-- `apps/server/src/main/java/com/example/workops/common/web/HomeController.java`
-- `apps/server/src/main/resources/templates/index.html`
-- `apps/server/src/main/resources/templates/layout.html`
-- `apps/server/src/main/resources/static/css/app.css`
+- `apps/web/src/main/java/com/example/workops/common/web/HomeController.java`
+- `apps/web/src/main/resources/templates/index.html`
+- `apps/web/src/main/resources/templates/layout.html`
+- `apps/web/src/main/resources/static/css/app.css`
 
 ### 実装結果
 
@@ -65,8 +65,8 @@
 
 ### 確認結果
 
-- `cd apps/server && .\mvnw.cmd test` が成功した
-- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
+- `cd apps/web && .\mvnw.cmd test` が成功した
+- `cd apps/web && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
 - `http://localhost:8080/` が HTTP 200 を返した
 - レスポンスに `WorkOps` と `bootstrap@5.3.8` が含まれることを確認した
 

@@ -17,7 +17,7 @@
 
 ## 対応ファイル
 
-- `apps/server/src/main/resources/db/migration/V2__insert_local_seed.sql`
+- `apps/web/src/main/resources/db/migration/V2__insert_local_seed.sql`
 - `docs/implementation/mvp/agent-tasks/M2-04-local-seed.md`
 
 ## 除外範囲
@@ -61,7 +61,7 @@
 
 ### 変更ファイル
 
-- `apps/server/src/main/resources/db/migration/V2__insert_local_seed.sql`
+- `apps/web/src/main/resources/db/migration/V2__insert_local_seed.sql`
 - `docs/implementation/mvp/agent-tasks/M2-04-local-seed.md`
 
 ### 確認結果
@@ -69,7 +69,7 @@
 - `docker compose down -v` で local DB を初期化した
 - `docker compose up -d workops-mysql` で MySQL を起動した
 - `docker compose ps` で `workops-mysql` が `healthy` であることを確認した
-- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で `V1` と `V2` の Flyway migration が成功することを確認した
+- `cd apps/web && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で `V1` と `V2` の Flyway migration が成功することを確認した
 - `flyway_schema_history` に `V2__insert_local_seed.sql` が success として登録されたことを確認した
 - `companies` が2件であることを確認した
 - `departments` が5件であることを確認した
@@ -83,7 +83,7 @@
 - `ASSET_CATEGORY` の種別は1件で、会社別の値は `generic_master_values.company_id` で分かれていることを確認した
 - `requests` が0件であることを確認した
 - `assets` が0件であることを確認した
-- `cd apps/server && .\mvnw.cmd test` が成功した
+- `cd apps/web && .\mvnw.cmd test` が成功した
 
 ### 残課題
 

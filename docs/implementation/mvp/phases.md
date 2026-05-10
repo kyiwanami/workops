@@ -19,7 +19,7 @@ Maven / Spring Boot / Thymeleaf / MyBatis / Docker Compose MySQL の最小構成
 ### 成果物
 
 - Maven ベースの Spring Boot アプリ
-- Spring Initializr 相当で生成した `apps/server`
+- Spring Initializr 相当で生成した `apps/web`
 - Maven Wrapper
 - `.gitignore`
 - ローカル起動できる最小構成
@@ -27,6 +27,7 @@ Maven / Spring Boot / Thymeleaf / MyBatis / Docker Compose MySQL の最小構成
 - Thymeleaf 画面表示の前提
 - MyBatis 利用の前提
 - Phase 2 用の `infra/cdk` 置き場
+- 後続 Phase 用の `apps/api` / `apps/batch` 置き場
 - `.github/workflows` 置き場
 
 ### 除外範囲
@@ -38,6 +39,7 @@ Maven / Spring Boot / Thymeleaf / MyBatis / Docker Compose MySQL の最小構成
 - 資産管理
 - 認証・認可
 - Spring Security
+- `apps/api` / `apps/batch` の実装
 - AWS 連携
 - CDK 実装
 - GitHub Actions deploy

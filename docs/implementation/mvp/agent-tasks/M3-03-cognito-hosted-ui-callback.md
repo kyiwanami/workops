@@ -14,9 +14,9 @@ Cognito テストユーザーでログインし、localhost callback で Spring 
 
 ## 対応ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/security/`
-- `apps/server/src/main/java/com/example/workops/common/web/`
-- `apps/server/src/main/resources/templates/`
+- `apps/web/src/main/java/com/example/workops/common/security/`
+- `apps/web/src/main/java/com/example/workops/common/web/`
+- `apps/web/src/main/resources/templates/`
 - `docs/implementation/mvp/agent-tasks/M3-03-cognito-hosted-ui-callback.md`
 
 ## 除外範囲
@@ -52,14 +52,14 @@ Cognito テストユーザーでログイン後、Spring Boot アプリへ戻り
 
 ### 変更ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/web/AuthClaimsController.java`
-- `apps/server/src/main/resources/templates/auth/claims.html`
-- `apps/server/src/main/resources/templates/index.html`
+- `apps/web/src/main/java/com/example/workops/common/web/AuthClaimsController.java`
+- `apps/web/src/main/resources/templates/auth/claims.html`
+- `apps/web/src/main/resources/templates/index.html`
 - `docs/implementation/mvp/agent-tasks/M3-03-cognito-hosted-ui-callback.md`
 
 ### 確認結果
 
-- `cd apps/server && .\mvnw.cmd test` が成功した。
+- `cd apps/web && .\mvnw.cmd test` が成功した。
 - `local` profile の起動で `http://localhost:8080/` が `200` を返した。
 - `local` profile の起動で `http://localhost:8080/auth/claims` が `200` を返した。
 - `local` profile なしの起動で `http://localhost:8080/auth/claims` が `/oauth2/authorization/cognito` へ `302` を返した。

@@ -15,9 +15,9 @@ Spring Security OAuth2 Login から Cognito `sub` を取得し、WorkOps 側の�
 
 ## 対応ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/security/`
-- `apps/server/src/main/java/com/example/workops/common/web/AuthClaimsController.java`
-- `apps/server/src/main/resources/templates/auth/claims.html`
+- `apps/web/src/main/java/com/example/workops/common/security/`
+- `apps/web/src/main/java/com/example/workops/common/web/AuthClaimsController.java`
+- `apps/web/src/main/resources/templates/auth/claims.html`
 - `docs/implementation/mvp/agent-tasks/M3-04-login-user-context-security-provider.md`
 
 ## 除外範囲
@@ -41,7 +41,7 @@ Cognitoログイン後、Spring Security の `OidcUser` から `sub` を取得�
 
 ## 確認方法
 
-- `cd apps/server && .\mvnw.cmd test`
+- `cd apps/web && .\mvnw.cmd test`
 - profile なし起動で未ログイン時に `/auth/claims` が Cognito OAuth2 Login へ `302` する
 - ブラウザでCognitoログイン後、`/auth/claims` に Raw Claim `sub` と `LoginUserContext.providerSubject` が表示される
 - `email_verified`、`userStatus`、`users.status` がコードと画面に存在しないことを確認する
@@ -69,11 +69,11 @@ Cognitoログイン後、Spring Security の `OidcUser` から `sub` を取得�
 
 ### 変更ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/security/LoginUserContext.java`
-- `apps/server/src/main/java/com/example/workops/common/security/CurrentUserProvider.java`
-- `apps/server/src/main/java/com/example/workops/common/security/SecurityCurrentUserProvider.java`
-- `apps/server/src/main/java/com/example/workops/common/web/AuthClaimsController.java`
-- `apps/server/src/main/resources/templates/auth/claims.html`
+- `apps/web/src/main/java/com/example/workops/common/security/LoginUserContext.java`
+- `apps/web/src/main/java/com/example/workops/common/security/CurrentUserProvider.java`
+- `apps/web/src/main/java/com/example/workops/common/security/SecurityCurrentUserProvider.java`
+- `apps/web/src/main/java/com/example/workops/common/web/AuthClaimsController.java`
+- `apps/web/src/main/resources/templates/auth/claims.html`
 - `docs/implementation/mvp/agent-tasks/M3-04-login-user-context-security-provider.md`
 
 ### 確認結果

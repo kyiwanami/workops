@@ -15,9 +15,9 @@ local profile でCognito claimを疑似再現せず、ローカル確認用に�
 
 ## 対応ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/security/`
-- `apps/server/src/main/java/com/example/workops/master/mapper/`
-- `apps/server/src/main/resources/mapper/master/UserAccountMapper.xml`
+- `apps/web/src/main/java/com/example/workops/common/security/`
+- `apps/web/src/main/java/com/example/workops/master/mapper/`
+- `apps/web/src/main/resources/mapper/master/UserAccountMapper.xml`
 - `docs/implementation/mvp/agent-tasks/M3-05-local-current-user-provider.md`
 
 ## 除外範囲
@@ -56,17 +56,17 @@ local profile で、選択したseedユーザーからDB由来の `LoginUserCont
 
 ### 変更ファイル
 
-- `apps/server/src/main/resources/db/migration/V1__create_mvp_schema.sql`
-- `apps/server/src/main/resources/db/migration/V2__insert_local_seed.sql`
-- `apps/server/src/main/java/com/example/workops/common/security/`
-- `apps/server/src/main/java/com/example/workops/master/mapper/`
-- `apps/server/src/main/resources/mapper/master/UserAccountMapper.xml`
-- `apps/server/src/main/resources/templates/auth/claims.html`
+- `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
+- `apps/web/src/main/resources/db/migration/V2__insert_local_seed.sql`
+- `apps/web/src/main/java/com/example/workops/common/security/`
+- `apps/web/src/main/java/com/example/workops/master/mapper/`
+- `apps/web/src/main/resources/mapper/master/UserAccountMapper.xml`
+- `apps/web/src/main/resources/templates/auth/claims.html`
 - `docs/implementation/db/schema.md`
 
 ### 確認結果
 
-- `cd apps/server && .\mvnw.cmd test` が成功した。
+- `cd apps/web && .\mvnw.cmd test` が成功した。
 - `docker compose down -v` から `docker compose up -d workops-mysql` でDBを再構築した。
 - `flyway_schema_history` で V1 / V2 の成功を確認した。
 - `users.cognito_sub` が `CHAR(36)` で作成されていることを確認した。

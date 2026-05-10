@@ -15,8 +15,8 @@ Cognito OAuth2 Login 後も local profile と同じく、Spring Security の `Au
 
 ## 対応ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/security/CognitoAuthenticationSuccessHandler.java`
-- `apps/server/src/main/java/com/example/workops/common/security/SecurityConfig.java`
+- `apps/web/src/main/java/com/example/workops/common/security/CognitoAuthenticationSuccessHandler.java`
+- `apps/web/src/main/java/com/example/workops/common/security/SecurityConfig.java`
 - `docs/implementation/mvp/agent-tasks/M3-07-cognito-authentication.md`
 
 ## 除外範囲
@@ -39,7 +39,7 @@ Cognito OAuth2 Login 後も local profile と同じく、Spring Security の `Au
 
 ## 確認方法
 
-- `cd apps/server && .\mvnw.cmd test`
+- `cd apps/web && .\mvnw.cmd test`
 - local profileで既存の `/auth/claims` と `/auth/authorization/manager` が動作することを確認する
 - 実Cognitoユーザーの `sub` に対応する `users` 行を手動SQLで投入する
 - profileなし起動でCognitoログインする
@@ -144,13 +144,13 @@ COMMIT;
 
 ### 変更ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/security/CognitoAuthenticationSuccessHandler.java`
-- `apps/server/src/main/java/com/example/workops/common/security/SecurityConfig.java`
+- `apps/web/src/main/java/com/example/workops/common/security/CognitoAuthenticationSuccessHandler.java`
+- `apps/web/src/main/java/com/example/workops/common/security/SecurityConfig.java`
 - `docs/implementation/mvp/agent-tasks/M3-07-cognito-authentication.md`
 
 ### 確認結果
 
-- `cd apps/server && .\mvnw.cmd test` が成功した。
+- `cd apps/web && .\mvnw.cmd test` が成功した。
 - local profileで `/auth/claims` が `200` を返すことを確認した。
 - local profileで既定ユーザー `kthm-manager` が `/auth/authorization/manager` にアクセスすると `200` を返すことを確認した。
 - 起動確認後、Spring Bootプロセスを停止した。

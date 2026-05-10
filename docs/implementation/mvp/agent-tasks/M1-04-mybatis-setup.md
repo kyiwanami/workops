@@ -13,10 +13,10 @@ MyBatis Mapper を追加できる前提を作る。
 
 ## 対応ファイル
 
-- `apps/server/pom.xml`
-- `apps/server/src/main/java/com/example/workops/common/config/MyBatisConfig.java`
-- `apps/server/src/main/resources/application.yml`
-- `apps/server/src/main/resources/mapper/.gitkeep`
+- `apps/web/pom.xml`
+- `apps/web/src/main/java/com/example/workops/common/config/MyBatisConfig.java`
+- `apps/web/src/main/resources/application.yml`
+- `apps/web/src/main/resources/mapper/.gitkeep`
 
 ## 除外範囲
 
@@ -50,17 +50,17 @@ MyBatis を使うための依存関係と配置方針がリポジトリ上にで
 
 ### 変更ファイル
 
-- `apps/server/src/main/java/com/example/workops/common/config/MyBatisConfig.java`
-- `apps/server/src/main/resources/application.yml`
-- `apps/server/src/main/resources/mapper/.gitkeep`
+- `apps/web/src/main/java/com/example/workops/common/config/MyBatisConfig.java`
+- `apps/web/src/main/resources/application.yml`
+- `apps/web/src/main/resources/mapper/.gitkeep`
 - `docs/implementation/mvp/agent-tasks/M1-04-mybatis-setup.md`
 
 ### 確認結果
 
-- `cd apps/server && .\mvnw.cmd test` が成功した
-- `cd apps/server && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
+- `cd apps/web && .\mvnw.cmd test` が成功した
+- `cd apps/web && .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` で起動した
 - `http://localhost:8080/` が HTTP 200 を返した
-- `apps/server/src/main/resources/mapper/.gitkeep` が存在することを確認した
+- `apps/web/src/main/resources/mapper/.gitkeep` が存在することを確認した
 
 ### 残課題
 

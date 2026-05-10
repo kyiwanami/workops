@@ -1,6 +1,6 @@
 spring:
   application:
-    name: workops-server
+    name: workops-web
   config:
     import: optional:file:../../.env.local[.properties]
   datasource:

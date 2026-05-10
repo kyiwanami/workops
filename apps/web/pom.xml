@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.example</groupId>
-	<artifactId>workops-server</artifactId>
+	<artifactId>workops-web</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>workops-server</name>
+	<name>workops-web</name>
 	<description/>
 	<url/>
 	<licenses>

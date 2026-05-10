@@ -17,7 +17,7 @@ M1時点では、Maven / Spring Boot / Thymeleaf / MyBatis / Docker Compose MySQ
 
 ## 生成方針
 
-Spring Bootアプリ本体は、公式 Spring Initializr 相当の最小構成から `apps/server` に生成しています。
+Spring Bootアプリ本体は、公式 Spring Initializr 相当の最小構成から `apps/web` に生成しています。
 
 次の完成済みサンプルは流用していません。
 
@@ -31,11 +31,15 @@ Spring Bootアプリ本体は、公式 Spring Initializr 相当の最小構成�
 ```text
 workops/
 ├─ apps/
-│  └─ server/
-│     ├─ pom.xml
-│     ├─ mvnw
-│     ├─ mvnw.cmd
-│     └─ src/
+│  ├─ web/
+│  │  ├─ pom.xml
+│  │  ├─ mvnw
+│  │  ├─ mvnw.cmd
+│  │  └─ src/
+│  ├─ api/
+│  │  └─ .gitkeep
+│  └─ batch/
+│     └─ .gitkeep
 ├─ docs/
 │  └─ implementation/
 ├─ infra/
@@ -44,13 +48,16 @@ workops/
 └─ README.md
 ```
 
+MVPのSpring Boot + Thymeleaf Web業務アプリは `apps/web` に置きます。
+`apps/api` と `apps/batch` は後続Phase用の置き場だけで、MVPでは実装しません。
+
 ## 前提ツール
 
 - Java 25 LTS
 - Docker Desktop
 - PowerShell
 
-Mavenは `apps/server/mvnw.cmd` が取得するため、ローカルにMavenを直接インストールする必要はありません。
+Mavenは `apps/web/mvnw.cmd` が取得するため、ローカルにMavenを直接インストールする必要はありません。
 
 ## MySQL 起動
 
@@ -93,7 +100,7 @@ docker compose down -v
 docker compose up -d workops-mysql
 docker compose ps
 
-cd C:\git\workops\apps\server
+cd C:\git\workops\apps\web
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
@@ -102,14 +109,14 @@ Spring Bootが起動すれば、`V1__create_mvp_schema.sql` と `V2__insert_loca
 ## テスト
 
 ```powershell
-cd C:\git\workops\apps\server
+cd C:\git\workops\apps\web
 .\mvnw.cmd test
 ```
 
 ## Spring Boot 起動
 
 ```powershell
-cd C:\git\workops\apps\server
+cd C:\git\workops\apps\web
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
@@ -142,7 +149,7 @@ Codex はローカルの `.env.local` を参照できますが、`.env.local` �
 `.env.local` 作成後、Cognito接続を確認する場合は `local` profile を付けずに起動します。
 
 ```powershell
-cd C:\git\workops\apps\server
+cd C:\git\workops\apps\web
 .\mvnw.cmd spring-boot:run
 ```
 
