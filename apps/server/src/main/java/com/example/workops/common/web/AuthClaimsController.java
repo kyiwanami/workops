@@ -25,10 +25,11 @@ public class AuthClaimsController {
 
     @GetMapping("/auth/claims")
     public String claims(Authentication authentication, Model model) {
+        LoginUserContext loginUserContext = currentUserProvider.currentUser().orElse(null);
+
         if (authentication != null && authentication.getPrincipal() instanceof OidcUser oidcUser) {
             List<ClaimRow> claimRows = List.of(
                     new ClaimRow("sub", oidcUser.getSubject()));
-            LoginUserContext loginUserContext = currentUserProvider.currentUser().orElse(null);
 
             model.addAttribute("authenticated", true);
             model.addAttribute("principalName", authentication.getName());
@@ -37,10 +38,10 @@ public class AuthClaimsController {
             return "auth/claims";
         }
 
-        model.addAttribute("authenticated", false);
+        model.addAttribute("authenticated", loginUserContext != null);
         model.addAttribute("principalName", "");
         model.addAttribute("claimRows", List.of());
-        model.addAttribute("loginUserContext", null);
+        model.addAttribute("loginUserContext", loginUserContext);
         return "auth/claims";
     }
 

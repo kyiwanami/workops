@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.workops.master.mapper.UserAccountMapper">
+    <resultMap id="UserAccountRowMap" type="com.example.workops.master.mapper.UserAccountRow">
+        <constructor>
+            <arg column="user_id" javaType="java.lang.Long"/>
+            <arg column="username" javaType="java.lang.String"/>
+            <arg column="email" javaType="java.lang.String"/>
+            <arg column="actor_type" javaType="java.lang.String"/>
+            <arg column="company_id" javaType="java.lang.Long"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="PermissionSetRowMap" type="com.example.workops.master.mapper.PermissionSetRow">
+        <constructor>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findByCognitoSub" parameterType="string" resultMap="UserAccountRowMap">
+        SELECT
+            u.id AS user_id,
+            u.username AS username,
+            u.email AS email,
+            u.actor_type AS actor_type,
+            u.company_id AS company_id
+        FROM users u
+        WHERE u.cognito_sub = #{cognitoSub}
+            AND u.is_deleted = FALSE
+    </select>
+
+    <select id="findPermissionSetsByUserId" parameterType="long" resultMap="PermissionSetRowMap">
+        SELECT
+            ps.code AS code,
+            ps.name AS name
+        FROM user_permission_sets ups
+        INNER JOIN permission_sets ps
+            ON ps.id = ups.permission_set_id
+            AND ps.is_deleted = FALSE
+        WHERE ups.user_id = #{userId}
+        ORDER BY ps.id
+    </select>
+</mapper>

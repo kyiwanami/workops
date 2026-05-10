@@ -11,12 +11,12 @@ INSERT INTO departments (id, company_id, code, name, is_deleted, created_by, upd
     (5, 2, 'OPS', '運営部', FALSE, NULL, NULL);
 
 INSERT INTO users (id, company_id, department_id, cognito_sub, username, name, email, actor_type, is_deleted, created_by, updated_by) VALUES
-    (1, 1, 2, NULL, 'kthm-viewer', '北浜 閲覧者', 'kthm-viewer@example.local', 'TENANT', FALSE, NULL, NULL),
-    (2, 1, 2, NULL, 'kthm-editor', '北浜 編集者', 'kthm-editor@example.local', 'TENANT', FALSE, NULL, NULL),
-    (3, 1, 1, NULL, 'kthm-manager', '北浜 管理者', 'kthm-manager@example.local', 'TENANT', FALSE, NULL, NULL),
-    (4, 2, 5, NULL, 'aoba-viewer', '青葉 閲覧者', 'aoba-viewer@example.local', 'TENANT', FALSE, NULL, NULL),
-    (5, 2, 5, NULL, 'aoba-editor', '青葉 編集者', 'aoba-editor@example.local', 'TENANT', FALSE, NULL, NULL),
-    (6, 2, 5, NULL, 'aoba-manager', '青葉 管理者', 'aoba-manager@example.local', 'TENANT', FALSE, NULL, NULL);
+    (1, 1, 2, '00000000-0000-0000-0000-000000000001', 'kthm-viewer', '北浜 閲覧者', 'kthm-viewer@example.local', 'TENANT', FALSE, NULL, NULL),
+    (2, 1, 2, '00000000-0000-0000-0000-000000000002', 'kthm-editor', '北浜 編集者', 'kthm-editor@example.local', 'TENANT', FALSE, NULL, NULL),
+    (3, 1, 1, '00000000-0000-0000-0000-000000000003', 'kthm-manager', '北浜 管理者', 'kthm-manager@example.local', 'TENANT', FALSE, NULL, NULL),
+    (4, 2, 5, '00000000-0000-0000-0000-000000000004', 'aoba-viewer', '青葉 閲覧者', 'aoba-viewer@example.local', 'TENANT', FALSE, NULL, NULL),
+    (5, 2, 5, '00000000-0000-0000-0000-000000000005', 'aoba-editor', '青葉 編集者', 'aoba-editor@example.local', 'TENANT', FALSE, NULL, NULL),
+    (6, 2, 5, '00000000-0000-0000-0000-000000000006', 'aoba-manager', '青葉 管理者', 'aoba-manager@example.local', 'TENANT', FALSE, NULL, NULL);
 
 INSERT INTO permission_sets (id, code, name, description, is_deleted, created_by, updated_by) VALUES
     (1, 'TENANT_VIEWER', '閲覧者', '参照操作のみを行うテナント利用者', FALSE, NULL, NULL),

@@ -28,7 +28,7 @@ CREATE TABLE users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     company_id BIGINT NOT NULL,
     department_id BIGINT NULL,
-    cognito_sub VARCHAR(100) NULL,
+    cognito_sub CHAR(36) NULL,
     username VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL,

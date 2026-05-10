@@ -5,13 +5,21 @@ import java.util.Optional;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
- * Spring Securityの認証情報からCognito subだけを取得するProvider。
+ * Spring SecurityのCognito subからDB由来の現在ユーザーを取得するProvider。
  */
 @Component
+@Profile("!local")
 public class SecurityCurrentUserProvider implements CurrentUserProvider {
+
+    private final DbLoginUserContextFactory dbLoginUserContextFactory;
+
+    public SecurityCurrentUserProvider(DbLoginUserContextFactory dbLoginUserContextFactory) {
+        this.dbLoginUserContextFactory = dbLoginUserContextFactory;
+    }
 
     @Override
     public Optional<LoginUserContext> currentUser() {
@@ -20,6 +28,6 @@ public class SecurityCurrentUserProvider implements CurrentUserProvider {
             return Optional.empty();
         }
 
-        return Optional.of(new LoginUserContext(oidcUser.getSubject()));
+        return dbLoginUserContextFactory.fromCognitoSub(oidcUser.getSubject());
     }
 }

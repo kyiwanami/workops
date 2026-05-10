@@ -1,8 +1,19 @@
 package com.example.workops.common.security;
 
+import java.util.List;
+
 /**
- * Spring Securityから取得した認証主体をWorkOps内部へ渡す最小コンテキスト。
+ * DB由来のアプリ利用者情報をControllerやServiceへ渡す現在ユーザーコンテキスト。
  */
 public record LoginUserContext(
-        String providerSubject) {
+        Long userId,
+        String username,
+        String email,
+        String actorType,
+        Long companyId,
+        List<PermissionSetContext> permissionSets) {
+
+    public LoginUserContext {
+        permissionSets = List.copyOf(permissionSets);
+    }
 }

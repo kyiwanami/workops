@@ -25,6 +25,7 @@ Notion は DB 設計方針、ADR、テーブル群の役割を管理します。
 - 論理削除は `is_deleted BOOLEAN NOT NULL DEFAULT FALSE` で表現する
 - MVP では `active`、`deleted_at`、`delete_token` は使わない
 - MVP では削除済みコードの再利用を許可しない
+- Cognito sub は論理的には UUID として扱い、MySQL では読みやすさを優先して `CHAR(36)` で保持する
 - 履歴テーブルは作らず、申請と資産は現在状態を対象行に保持する
 - 監査ログテーブルは作らず、業務操作・調査用ログはアプリケーションログへ出力する
 - 有効期間管理は全体共通では入れず、業務上必要になった対象だけで検討する
@@ -133,7 +134,7 @@ Cognito ログイン時は `cognito_sub` で `users` と突合します。
 | id | BIGINT | NO | AUTO_INCREMENT | 主キー |
 | company_id | BIGINT | NO |  | 所属会社ID |
 | department_id | BIGINT | YES |  | 所属部署ID |
-| cognito_sub | VARCHAR(100) | YES |  | Cognito sub |
+| cognito_sub | CHAR(36) | YES |  | Cognito sub |
 | username | VARCHAR(100) | NO |  | アプリ利用者名 |
 | name | VARCHAR(100) | NO |  | ユーザー名 |
 | email | VARCHAR(255) | NO |  | メールアドレス |
