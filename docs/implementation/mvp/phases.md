@@ -93,33 +93,50 @@ Flyway でローカル DB を構築でき、2 社 seed で会社境界と権限�
 この M フェーズの具体的な agent task 分割は、M2 着手前にコーディングエージェントが提案する。
 Notion 側では、この時点で M2-01 / M2-02 のような具体タスク粒度は固定しない。
 
-## M3. local 疑似認証 / 簡易認可
+## M3. 認証境界 / Cognito 接続確認 / local 代替
 
 ### 目的
 
-Cognito なしで会社境界と権限セットを実装に組み込む。
+Cognito OAuth2 Login の最小接続を先に確認し、OIDC / Cognito claim を前提に LoginUserContext を定義する。
+そのうえで、local profile では同じ LoginUserContext を返す local 代替を作り、会社境界と権限セットを実装に組み込む。
 
 ### 成果物
 
+- Spring Security OAuth2 Login 最小設定
+- Cognito Hosted UI / managed login へのリダイレクト確認
+- localhost callback 確認
+- Cognito テストユーザーによるログイン確認
+- OIDC / Cognito claim 取得確認
 - CurrentUserProvider
 - LoginUserContext
+- SecurityCurrentUserProvider
 - LocalCurrentUserProvider
-- TENANT_VIEWER / TENANT_EDITOR / TENANT_MANAGER の疑似ユーザー
+- TENANT_VIEWER / TENANT_EDITOR / TENANT_MANAGER の local 代替ユーザー
 - company_id 境界条件
 - Service 層認可チェック
 
 ### 除外範囲
 
-- Cognito Hosted UI
-- Spring Security OAuth2 Login
+- client secret を前提にした設定
 - Cognito Trigger
 - Pre Token Generation
+- PLATFORM / TENANT App Client 分離
 - ユーザー管理画面
 - 権限割当画面
+- 本番用 Cognito 構成
+- CDK による Cognito 構築
+- AWS dev 環境デプロイ
 
 ### 完了条件
 
-疑似ユーザーを切り替え、会社境界と権限セットに応じて操作可否が変わる。
+- ローカル Spring Boot から Cognito Hosted UI / managed login へ遷移できる
+- Cognito 上のテストユーザーでログインできる
+- localhost callback でアプリへ戻れる
+- Spring Security OAuth2 Login で OIDC / Cognito claim を取得できる
+- OIDC / Cognito claim とアプリ DB の users を突合する方針を確認できる
+- LoginUserContext を定義できる
+- local 代替ユーザーでも同じ LoginUserContext を返せる
+- Service 層で会社境界と権限セットに応じて操作可否を判定できる
 
 ### agent task 分割方針
 
@@ -296,7 +313,7 @@ Notion 側では、この時点で M8-01 / M8-02 のような具体タスク粒�
 
 ## MVP では扱わないもの
 
-- Cognito ログイン
+- Cognito 本格ログイン / 本格連携
 - AWS dev 環境
 - ECS
 - RDS

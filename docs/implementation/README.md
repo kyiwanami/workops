@@ -105,11 +105,19 @@ MVP で使う Spring Boot アプリの依存関係は次を基本とします。
 - Spring Boot Test
 - Testcontainers
 - Testcontainers MySQL
+- Spring Security OAuth2 Login
 - DevTools
 
-MVP では Cognito ログイン画面を作らないため、Spring Security は最初から導入しません。
-認証済み利用者コンテキストは、M3 で `CurrentUserProvider` と local 疑似認証として作ります。
-Spring Security OAuth2 Login と Cognito 連携は Phase 2 で扱います。
+MVP では、業務機能としてのログイン画面は作りません。
+ただし、認証境界の手戻りを防ぐため、M3 で Cognito OAuth2 Login の最小接続を確認します。
+M3 では、ユーザーが AWS マネジメントコンソールで作成したダミー Cognito User Pool、client secret なしの App Client、Hosted UI / managed login domain、テストユーザーを使います。
+Callback URL は Spring Security OAuth2 Login のデフォルトに合わせて `http://localhost:8080/login/oauth2/code/cognito` を使います。
+
+M3 で OIDC / Cognito claim を確認したうえで `LoginUserContext` を定義します。
+local profile では、同じ `LoginUserContext` を返す `LocalCurrentUserProvider` を使い、日常の業務機能開発を進めます。
+Service 層は Cognito に直接依存せず、`CurrentUserProvider` へ依存します。
+
+Cognito 本格連携、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、CDK による Cognito 構築、AWS dev 環境デプロイは Phase 2 で扱います。
 
 ## Notion へ戻す判断
 
