@@ -41,9 +41,31 @@ Cognito テストユーザーでログイン後、Spring Boot アプリへ戻り
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 確認結果
-- 残課題
+- AWS SDK は使わず、Spring Security OAuth2 Login が保持する `OidcUser` からclaimを読む。
+- `/auth/claims` をM3確認用URLとして追加する。
+- 確認対象claimは `sub`、`cognito:username`、`email`、`email_verified` に限定する。
+- OAuth2 scope は `openid` と `email` だけを使う。
+- `profile` と `aws.cognito.signin.user.admin` はMVP / M3では使わない。
+- DB users との突合、`LoginUserContext`、local代替ユーザーはM3-04以降で扱う。
+
+### 変更ファイル
+
+- `apps/server/src/main/java/com/example/workops/common/web/AuthClaimsController.java`
+- `apps/server/src/main/resources/templates/auth/claims.html`
+- `apps/server/src/main/resources/templates/index.html`
+- `docs/implementation/mvp/agent-tasks/M3-03-cognito-hosted-ui-callback.md`
+
+### 確認結果
+
+- `cd apps/server && .\mvnw.cmd test` が成功した。
+- `local` profile の起動で `http://localhost:8080/` が `200` を返した。
+- `local` profile の起動で `http://localhost:8080/auth/claims` が `200` を返した。
+- `local` profile なしの起動で `http://localhost:8080/auth/claims` が `/oauth2/authorization/cognito` へ `302` を返した。
+- Cognito側の追加変更は不要。既存の callback URL と scope 設定を使う。
+- ブラウザでCognitoテストユーザーとしてログイン後、`/auth/claims` で `sub`、`cognito:username`、`email`、`email_verified` が表示されることを確認した。
+
+### 残課題
+
+- DB users との突合、`LoginUserContext`、local代替ユーザーはM3-04以降で扱う。
