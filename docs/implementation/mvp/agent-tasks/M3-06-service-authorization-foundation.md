@@ -104,7 +104,7 @@ public void approve(Long requestId) {
 ### 残課題
 
 - M4 / M5 の業務 Service 実装時に、Mapper SQL の `company_id` 条件を具体実装する。
-- Cognito OAuth2 Login 側も、後続タスクでDB由来 `LoginUserContext` と `GrantedAuthority` を `Authentication` に反映する。
+- Cognito OAuth2 Login 側のDB由来 `LoginUserContext` / `GrantedAuthority` 反映は M3-07 で完了済み。
 
 ### Notion へ反映する方針変更
 
@@ -113,6 +113,6 @@ public void approve(Long requestId) {
 - `permission_sets.code` は `GrantedAuthority` として保持する。
 - 業務機能認可は `@PreAuthorize("hasAuthority('TENANT_MANAGER')")` のように Spring Security 標準の authority 判定を使う。
 - local profile では `LocalAuthenticationFilter` が local sub からDBユーザーを取得し、`Authentication` を作成する。
-- Cognito OAuth2 Login 側も後続タスクで `OidcUser.sub -> users.cognito_sub -> LoginUserContext / GrantedAuthority` の流れへ寄せる。
+- Cognito OAuth2 Login 側も M3-07 で `OidcUser.sub -> users.cognito_sub -> LoginUserContext / GrantedAuthority` の流れへ寄せる。
 - `CurrentUserAuthorization` / `WorkOpsAuthorization` のような独自認可Beanを業務認可の中心にしない。
 - 会社境界は引き続き M4 / M5 の Mapper SQL で `company_id` を WHERE 句に入れて守る。

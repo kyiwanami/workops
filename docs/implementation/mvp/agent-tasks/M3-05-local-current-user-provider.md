@@ -1,5 +1,11 @@
 # M3-05 LocalCurrentUserProvider
 
+## 最終状態補足
+
+このファイルはM3-05実施時点のタスク名と記録を残す。
+その後のM3-06で local profile は `LocalAuthenticationFilter` 方式へ変更した。
+最終状態では `LocalCurrentUserProvider` を使わず、local用 `cognito_sub` からDB由来の `LoginUserContext` / `GrantedAuthority` を作り、Spring Security の `Authentication` に保持する。
+
 ## 目的
 
 local profile でCognito claimを疑似再現せず、ローカル確認用に選択したDBユーザーから `LoginUserContext` を作る。

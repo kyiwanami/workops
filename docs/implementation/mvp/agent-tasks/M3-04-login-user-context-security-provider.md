@@ -1,5 +1,11 @@
 # M3-04 LoginUserContext / SecurityCurrentUserProvider
 
+## 最終状態補足
+
+このファイルはM3-04実施時点のタスク名と記録を残す。
+その後のM3-06 / M3-07で、現在ユーザー管理は Spring Security の `Authentication` へ寄せた。
+最終状態では `SecurityCurrentUserProvider` を使わず、DB由来の `LoginUserContext` を `Authentication.principal` として扱う。
+
 ## 目的
 
 Spring Security OAuth2 Login から Cognito `sub` を取得し、WorkOps 側の認証境界へ渡せることを確認する。

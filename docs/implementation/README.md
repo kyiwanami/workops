@@ -117,9 +117,9 @@ MVP では、業務機能としてのログイン画面は作りません。
 M3 では、ユーザーが AWS マネジメントコンソールで作成したダミー Cognito User Pool、client secret なしの App Client、Hosted UI / managed login domain、テストユーザーを使います。
 Callback URL は Spring Security OAuth2 Login のデフォルトに合わせて `http://localhost:8080/login/oauth2/code/cognito` を使います。
 
-M3 で OIDC / Cognito claim を確認したうえで `LoginUserContext` を定義します。
-local profile では、同じ `LoginUserContext` を返す `LocalCurrentUserProvider` を使い、日常の業務機能開発を進めます。
-Service 層は Cognito に直接依存せず、`CurrentUserProvider` へ依存します。
+M3 では Cognito `sub` と `users.cognito_sub` の突合を確認し、DB由来の `LoginUserContext` を Spring Security の `Authentication.principal` として保持します。
+local profile では `LocalAuthenticationFilter` がローカル用 `cognito_sub` から同じDB由来の `LoginUserContext` / `GrantedAuthority` を作ります。
+Service 層は Cognito に直接依存せず、Spring Security の現在ユーザー、またはそれを読む `CurrentUserProvider` へ依存します。
 
 Cognito 本格連携、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、CDK による Cognito 構築、AWS dev 環境デプロイは Phase 2 で扱います。
 

@@ -95,12 +95,12 @@ Flyway でローカル DB を構築でき、2 社 seed で会社境界と権限�
 この M フェーズの具体的な agent task 分割は、M2 着手前にコーディングエージェントが提案する。
 Notion 側では、この時点で M2-01 / M2-02 のような具体タスク粒度は固定しない。
 
-## M3. 認証境界 / Cognito 接続確認 / local 代替
+## M3. 認証境界 / Cognito 接続確認 / local 代替 / 認可基盤
 
 ### 目的
 
-Cognito OAuth2 Login の最小接続を先に確認し、OIDC / Cognito claim を前提に LoginUserContext を定義する。
-そのうえで、local profile では同じ LoginUserContext を返す local 代替を作り、会社境界と権限セットを実装に組み込む。
+Cognito OAuth2 Login の最小接続を先に確認し、Cognito `sub` とアプリ DB の `users.cognito_sub` を突合する認証境界を作る。
+そのうえで、local profile でも同じ DB 由来の `LoginUserContext` / `GrantedAuthority` を `Authentication` に保持し、M4 以降の業務機能認可の土台を作る。
 
 ### 成果物
 
@@ -108,14 +108,18 @@ Cognito OAuth2 Login の最小接続を先に確認し、OIDC / Cognito claim �
 - Cognito Hosted UI / managed login へのリダイレクト確認
 - localhost callback 確認
 - Cognito テストユーザーによるログイン確認
-- OIDC / Cognito claim 取得確認
+- Cognito `sub` 取得確認
+- Cognito `sub` と `users.cognito_sub` の突合確認
 - CurrentUserProvider
 - LoginUserContext
-- SecurityCurrentUserProvider
-- LocalCurrentUserProvider
-- TENANT_VIEWER / TENANT_EDITOR / TENANT_MANAGER の local 代替ユーザー
-- company_id 境界条件
-- Service 層認可チェック
+- DbLoginUserContextFactory
+- LocalAuthenticationFilter
+- CognitoAuthenticationSuccessHandler
+- `Authentication.principal` としての `LoginUserContext`
+- `permission_sets.code` 由来の `GrantedAuthority`
+- `@PreAuthorize("hasAuthority('TENANT_MANAGER')")` によるWebページ単位の認可確認
+- TENANT_VIEWER / TENANT_EDITOR / TENANT_MANAGER の local 確認ユーザー
+- M4 / M5 のSQLで `company_id` 条件を必須にする会社境界方針
 
 ### 除外範囲
 
@@ -135,10 +139,11 @@ Cognito OAuth2 Login の最小接続を先に確認し、OIDC / Cognito claim �
 - Cognito 上のテストユーザーでログインできる
 - localhost callback でアプリへ戻れる
 - Spring Security OAuth2 Login で OIDC / Cognito claim を取得できる
-- OIDC / Cognito claim とアプリ DB の users を突合する方針を確認できる
-- LoginUserContext を定義できる
-- local 代替ユーザーでも同じ LoginUserContext を返せる
-- Service 層で会社境界と権限セットに応じて操作可否を判定できる
+- Cognito `sub` とアプリ DB の `users.cognito_sub` を突合できる
+- DB 由来の `LoginUserContext` を `Authentication.principal` として保持できる
+- DB 由来の権限セットを `GrantedAuthority` として保持できる
+- local profile でもDB由来の `LoginUserContext` / `GrantedAuthority` を保持できる
+- `@PreAuthorize("hasAuthority('TENANT_MANAGER')")` で画面アクセス可否を確認できる
 
 ### agent task 分割方針
 
@@ -164,7 +169,6 @@ Notion 側では、この時点で M3-01 / M3-02 のような具体タスク粒�
 - 差戻し
 - 取下げ
 - 却下・差戻し理由の記録
-- 申請履歴
 
 ### 除外範囲
 
@@ -172,10 +176,12 @@ Notion 側では、この時点で M3-01 / M3-02 のような具体タスク粒�
 - メール通知
 - 外部承認連携
 - 複雑な承認ルート設定
+- 申請履歴テーブル
+- 監査ログテーブル
 
 ### 完了条件
 
-DRAFT から SUBMITTED、SUBMITTED から APPROVED / REJECTED / DRAFT / WITHDRAWN の操作が画面から実行でき、履歴が残る。
+DRAFT から SUBMITTED、SUBMITTED から APPROVED / REJECTED / DRAFT / WITHDRAWN の操作が画面から実行でき、申請の現在状態と理由項目が更新される。
 
 ### agent task 分割方針
 
@@ -198,7 +204,6 @@ Notion 側では、この時点で M4-01 / M4-02 のような具体タスク粒�
 - 資産検索
 - 資産絞り込み
 - 資産ステータス変更
-- 資産ステータス履歴
 
 ### 除外範囲
 
@@ -208,10 +213,12 @@ Notion 側では、この時点で M4-01 / M4-02 のような具体タスク粒�
 - バーコード管理
 - QR コード管理
 - 棚卸バッチ
+- 資産ステータス履歴テーブル
+- 監査ログテーブル
 
 ### 完了条件
 
-資産を登録、編集、検索、ステータス変更、論理削除でき、履歴が残る。
+資産を登録、編集、検索、ステータス変更、論理削除でき、資産の現在状態が更新される。
 
 ### agent task 分割方針
 
@@ -315,7 +322,8 @@ Notion 側では、この時点で M8-01 / M8-02 のような具体タスク粒�
 
 ## MVP では扱わないもの
 
-- Cognito 本格ログイン / 本格連携
+- Cognitoユーザー登録時の `users` 自動登録
+- Cognito Trigger / Pre Token Generation
 - AWS dev 環境
 - ECS
 - RDS

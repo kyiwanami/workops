@@ -154,10 +154,10 @@ COMMIT;
 - local profileで `/auth/claims` が `200` を返すことを確認した。
 - local profileで既定ユーザー `kthm-manager` が `/auth/authorization/manager` にアクセスすると `200` を返すことを確認した。
 - 起動確認後、Spring Bootプロセスを停止した。
-- profileなしCognitoログイン確認は、実Cognitoユーザー投入SQLの実行後にブラウザで確認する。
+- 実Cognitoユーザー投入SQLをローカルDBへ反映した。
+- profileなし起動でCognitoログイン後、DB由来の `LoginUserContext` と `TENANT_MANAGER` authority を画面で確認した。
+- M3-07 は完了済み。
 
 ### 残課題
 
-- 実Cognitoユーザー投入SQLをユーザーがローカルDBへ実行する。
-- profileなし起動でCognitoログイン後の画面確認を行う。
 - Cognitoユーザー登録時の `users` 自動登録はPhase 2で扱う。
