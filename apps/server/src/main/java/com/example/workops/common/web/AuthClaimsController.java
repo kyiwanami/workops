@@ -3,7 +3,6 @@ package com.example.workops.common.web;
 import java.util.List;
 
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,19 +26,18 @@ public class AuthClaimsController {
     public String claims(Authentication authentication, Model model) {
         LoginUserContext loginUserContext = currentUserProvider.currentUser().orElse(null);
 
-        if (authentication != null && authentication.getPrincipal() instanceof OidcUser oidcUser) {
-            List<ClaimRow> claimRows = List.of(
-                    new ClaimRow("sub", oidcUser.getSubject()));
-
+        if (loginUserContext != null) {
             model.addAttribute("authenticated", true);
             model.addAttribute("principalName", authentication.getName());
-            model.addAttribute("claimRows", claimRows);
+            model.addAttribute("authorities", authentication.getAuthorities());
+            model.addAttribute("claimRows", List.of());
             model.addAttribute("loginUserContext", loginUserContext);
             return "auth/claims";
         }
 
         model.addAttribute("authenticated", loginUserContext != null);
         model.addAttribute("principalName", "");
+        model.addAttribute("authorities", List.of());
         model.addAttribute("claimRows", List.of());
         model.addAttribute("loginUserContext", loginUserContext);
         return "auth/claims";

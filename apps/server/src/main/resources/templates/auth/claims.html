@@ -8,7 +8,7 @@
     <section class="workops-page-title mb-4">
         <p class="text-secondary mb-1">M3 Cognito</p>
         <h1 class="h3 mb-2">Cognito Claims</h1>
-        <p class="text-secondary mb-0">Cognito sub とDB由来のLoginUserContextを確認します。</p>
+        <p class="text-secondary mb-0">Spring Security Authentication とDB由来のLoginUserContextを確認します。</p>
     </section>
 
     <section class="card">
@@ -18,6 +18,17 @@
                     <dt class="col-sm-3 text-secondary">Principal</dt>
                     <dd class="col-sm-9 mb-0" th:text="${principalName}">principal</dd>
                 </dl>
+
+                <h2 class="h5 mb-3">Granted Authorities</h2>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm align-middle mb-0">
+                        <tbody>
+                        <tr th:each="authority : ${authorities}">
+                            <td th:text="${authority.authority}">authority</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
 
                 <h2 class="h5 mb-3">LoginUserContext</h2>
                 <div th:if="${loginUserContext != null}" class="table-responsive mb-4">

@@ -4,13 +4,16 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * local起動では認証を通さず、それ以外の起動ではCognito OAuth2 Loginを使うSecurity設定。
  */
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
@@ -28,8 +31,12 @@ public class SecurityConfig {
 
     @Bean
     @Profile("local")
-    public SecurityFilterChain localSecurityFilterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());
+    public SecurityFilterChain localSecurityFilterChain(
+            HttpSecurity http,
+            LocalAuthenticationFilter localAuthenticationFilter) throws Exception {
+        http
+                .addFilterBefore(localAuthenticationFilter, AnonymousAuthenticationFilter.class)
+                .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());
         return http.build();
     }
 }
