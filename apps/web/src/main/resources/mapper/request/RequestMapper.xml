@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.workops.request.mapper.RequestMapper">
+    <resultMap id="RequestListItemMap" type="com.example.workops.request.model.RequestListItem">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="requester_name" javaType="java.lang.String"/>
+            <arg column="process_type_code" javaType="java.lang.String"/>
+            <arg column="process_type_name" javaType="java.lang.String"/>
+            <arg column="status_code" javaType="java.lang.String"/>
+            <arg column="status_name" javaType="java.lang.String"/>
+            <arg column="title" javaType="java.lang.String"/>
+            <arg column="submitted_at" javaType="java.time.LocalDateTime"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="RequestDetailMap" type="com.example.workops.request.model.RequestDetail">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="requester_user_id" javaType="java.lang.Long"/>
+            <arg column="asset_id" javaType="java.lang.Long"/>
+            <arg column="requester_name" javaType="java.lang.String"/>
+            <arg column="process_type_code" javaType="java.lang.String"/>
+            <arg column="process_type_name" javaType="java.lang.String"/>
+            <arg column="status_code" javaType="java.lang.String"/>
+            <arg column="status_name" javaType="java.lang.String"/>
+            <arg column="title" javaType="java.lang.String"/>
+            <arg column="content" javaType="java.lang.String"/>
+            <arg column="review_comment" javaType="java.lang.String"/>
+            <arg column="submitted_at" javaType="java.time.LocalDateTime"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="RequestSelectColumns">
+        r.id AS id,
+        r.requester_user_id AS requester_user_id,
+        r.asset_id AS asset_id,
+        requester.name AS requester_name,
+        r.process_type_code AS process_type_code,
+        process_type.name AS process_type_name,
+        r.status_code AS status_code,
+        request_status.name AS status_name,
+        r.title AS title,
+        r.content AS content,
+        r.review_comment AS review_comment,
+        r.submitted_at AS submitted_at,
+        r.created_at AS created_at,
+        r.updated_at AS updated_at
+    </sql>
+
+    <select id="findListByCompanyId" resultMap="RequestListItemMap">
+        SELECT
+            r.id AS id,
+            requester.name AS requester_name,
+            r.process_type_code AS process_type_code,
+            process_type.name AS process_type_name,
+            r.status_code AS status_code,
+            request_status.name AS status_name,
+            r.title AS title,
+            r.submitted_at AS submitted_at,
+            r.created_at AS created_at,
+            r.updated_at AS updated_at
+        FROM requests r
+        INNER JOIN users requester
+            ON requester.id = r.requester_user_id
+            AND requester.company_id = r.company_id
+            AND requester.is_deleted = FALSE
+        INNER JOIN common_master process_type_master
+            ON process_type_master.code = 'PROCESS_TYPE'
+            AND process_type_master.is_deleted = FALSE
+        INNER JOIN common_master_values process_type
+            ON process_type.common_master_id = process_type_master.id
+            AND process_type.code = r.process_type_code
+            AND process_type.is_deleted = FALSE
+        INNER JOIN common_master request_status_master
+            ON request_status_master.code = 'REQUEST_STATUS'
+            AND request_status_master.is_deleted = FALSE
+        INNER JOIN common_master_values request_status
+            ON request_status.common_master_id = request_status_master.id
+            AND request_status.code = r.status_code
+            AND request_status.is_deleted = FALSE
+        WHERE r.company_id = #{companyId}
+        ORDER BY r.created_at DESC, r.id DESC
+    </select>
+
+    <select id="findDetailByIdAndCompanyId" resultMap="RequestDetailMap">
+        SELECT
+            <include refid="RequestSelectColumns"/>
+        FROM requests r
+        INNER JOIN users requester
+            ON requester.id = r.requester_user_id
+            AND requester.company_id = r.company_id
+            AND requester.is_deleted = FALSE
+        INNER JOIN common_master process_type_master
+            ON process_type_master.code = 'PROCESS_TYPE'
+            AND process_type_master.is_deleted = FALSE
+        INNER JOIN common_master_values process_type
+            ON process_type.common_master_id = process_type_master.id
+            AND process_type.code = r.process_type_code
+            AND process_type.is_deleted = FALSE
+        INNER JOIN common_master request_status_master
+            ON request_status_master.code = 'REQUEST_STATUS'
+            AND request_status_master.is_deleted = FALSE
+        INNER JOIN common_master_values request_status
+            ON request_status.common_master_id = request_status_master.id
+            AND request_status.code = r.status_code
+            AND request_status.is_deleted = FALSE
+        WHERE r.id = #{id}
+            AND r.company_id = #{companyId}
+    </select>
+</mapper>

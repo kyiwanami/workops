@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,5 +20,10 @@ public class CurrentUserProvider {
         }
 
         return Optional.of(loginUserContext);
+    }
+
+    public LoginUserContext requireCurrentUser() {
+        return currentUser()
+                .orElseThrow(() -> new AccessDeniedException("現在ユーザーを取得できません。"));
     }
 }
