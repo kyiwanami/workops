@@ -42,6 +42,12 @@ Notion 側では、次を管理します。
 - Thymeleaf テンプレート
 - Bootstrap のコンポーネント / クラス詳細
 
+## UI フィードバック方針
+
+- 保存・更新・削除など、画面遷移後にユーザーへ完了を知らせる通知は Bootstrap Toast で表示します。
+- フォーム上部の alert は、入力エラーや画面内に残す必要がある警告に使います。
+- MVP では SPA 化せず、SSR の flash message を Toast として表示します。
+
 ## agent task 作成ルール
 
 Notion 側では、Phase 内の大きな実装フェーズまでを定義します。

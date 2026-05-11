@@ -37,6 +37,13 @@
         </constructor>
     </resultMap>
 
+    <resultMap id="RequestProcessTypeOptionMap" type="com.example.workops.request.model.RequestProcessTypeOption">
+        <constructor>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
     <sql id="RequestSelectColumns">
         r.id AS id,
         r.requester_user_id AS requester_user_id,
@@ -114,4 +121,75 @@
         WHERE r.id = #{id}
             AND r.company_id = #{companyId}
     </select>
+
+    <select id="findProcessTypeOptions" resultMap="RequestProcessTypeOptionMap">
+        SELECT
+            process_type.code AS code,
+            process_type.name AS name
+        FROM common_master process_type_master
+        INNER JOIN common_master_values process_type
+            ON process_type.common_master_id = process_type_master.id
+            AND process_type.is_deleted = FALSE
+        WHERE process_type_master.code = 'PROCESS_TYPE'
+            AND process_type_master.is_deleted = FALSE
+            AND process_type.code IN ('PURCHASE', 'REPAIR', 'DISPOSAL')
+        ORDER BY process_type.sort_order ASC, process_type.id ASC
+    </select>
+
+    <select id="existsProcessTypeCode" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM common_master process_type_master
+            INNER JOIN common_master_values process_type
+                ON process_type.common_master_id = process_type_master.id
+                AND process_type.is_deleted = FALSE
+            WHERE process_type_master.code = 'PROCESS_TYPE'
+                AND process_type_master.is_deleted = FALSE
+                AND process_type.code = #{processTypeCode}
+                AND process_type.code IN ('PURCHASE', 'REPAIR', 'DISPOSAL')
+        )
+    </select>
+
+    <insert id="insertDraft"
+            parameterType="com.example.workops.request.mapper.RequestDraftInsertCommand"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO requests (
+            company_id,
+            requester_user_id,
+            asset_id,
+            process_type_code,
+            status_code,
+            title,
+            content,
+            review_comment,
+            submitted_at,
+            created_by,
+            updated_by
+        ) VALUES (
+            #{companyId},
+            #{requesterUserId},
+            NULL,
+            #{processTypeCode},
+            'DRAFT',
+            #{title},
+            #{content},
+            NULL,
+            NULL,
+            #{createdBy},
+            #{updatedBy}
+        )
+    </insert>
+
+    <update id="updateDraftByIdAndCompanyId">
+        UPDATE requests
+        SET process_type_code = #{processTypeCode},
+            title = #{title},
+            content = #{content},
+            updated_by = #{updatedBy}
+        WHERE id = #{id}
+            AND company_id = #{companyId}
+            AND requester_user_id = #{requesterUserId}
+            AND status_code = 'DRAFT'
+    </update>
 </mapper>

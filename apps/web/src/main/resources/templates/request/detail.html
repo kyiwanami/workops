@@ -18,7 +18,10 @@
                     <span class="badge text-bg-secondary" th:text="${request.statusName()}">ステータス</span>
                     <span class="badge text-bg-light border ms-2" th:text="${request.processTypeName()}">処理タイプ</span>
                 </div>
-                <a class="btn btn-outline-secondary btn-sm" th:href="@{/requests}">一覧へ戻る</a>
+                <div class="d-flex gap-2">
+                    <a th:if="${canEdit}" class="btn btn-primary btn-sm" th:href="@{/requests/{id}/edit(id=${request.id()})}">編集</a>
+                    <a class="btn btn-outline-secondary btn-sm" th:href="@{/requests}">一覧へ戻る</a>
+                </div>
             </div>
 
             <dl class="row mb-0">
@@ -60,8 +63,27 @@
             </dl>
         </div>
     </section>
+
+    <div th:if="${message}" class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="request-save-toast" class="toast text-bg-success border-0" role="status" data-bs-delay="4000">
+            <div class="d-flex">
+                <div class="toast-body" th:text="${message}">
+                    申請を下書き保存しました。
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
 </main>
 
 <footer th:replace="~{layout :: footer}"></footer>
+<script th:if="${message}">
+    document.addEventListener('DOMContentLoaded', () => {
+        const toastElement = document.getElementById('request-save-toast');
+        if (toastElement) {
+            bootstrap.Toast.getOrCreateInstance(toastElement).show();
+        }
+    });
+</script>
 </body>
 </html>

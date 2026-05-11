@@ -85,10 +85,52 @@ TENANT_VIEWER、他人の申請、DRAFT 以外の申請は編集・下書き保�
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- 申請作成・編集は `RequestCommandService` に集約し、現在ユーザーは `CurrentUserProvider.requireCurrentUser()` から取得する。
+- 作成・編集系Controllerメソッドは `TENANT_EDITOR` / `TENANT_MANAGER` のみ許可する。
+- 編集対象は `id + company_id` で取得し、申請者本人かつ `DRAFT` の場合だけ編集できる。
+- 他社または存在しない申請は `ResponseStatusException(HttpStatus.NOT_FOUND)`、他人または `DRAFT` 以外の編集は `AccessDeniedException` とする。
+- `PROCESS_TYPE` は M2 seed 済みの `PURCHASE` / `REPAIR` / `DISPOSAL` を参照し、申請種別管理は作らない。
+- `asset_id` はフォームに出さず、作成時は `NULL`、編集時も変更しない。
+- 保存後の完了通知は、SSR の flash message を Bootstrap Toast として表示する。
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/request/web/RequestController.java`
+- `apps/web/src/main/java/com/example/workops/request/form/RequestForm.java`
+- `apps/web/src/main/java/com/example/workops/request/service/RequestCommandService.java`
+- `apps/web/src/main/java/com/example/workops/request/service/RequestQueryService.java`
+- `apps/web/src/main/java/com/example/workops/request/mapper/RequestMapper.java`
+- `apps/web/src/main/java/com/example/workops/request/mapper/RequestDraftInsertCommand.java`
+- `apps/web/src/main/java/com/example/workops/request/model/RequestProcessTypeOption.java`
+- `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
+- `apps/web/src/main/resources/templates/request/form.html`
+- `apps/web/src/main/resources/templates/request/list.html`
+- `apps/web/src/main/resources/templates/request/detail.html`
+- `docs/implementation/README.md`
+- `docs/implementation/mvp/agent-tasks/M4-02-request-draft-create-edit.md`
+
+### 実装結果
+
+- `GET /requests/new`、`POST /requests`、`GET /requests/{id}/edit`、`POST /requests/{id}` を追加した。
+- 新規作成時は `status_code = 'DRAFT'`、`company_id` / `requester_user_id` / `created_by` / `updated_by` は現在ユーザーから設定する。
+- 編集時は本人かつ `DRAFT` の申請だけを更新し、`updated_by` を現在ユーザーに更新する。
+- 一覧画面に作成可能ユーザー向けの「新規作成」リンクを追加した。
+- 詳細画面に編集可能な DRAFT 申請だけ「編集」リンクを表示する。
+- フォームは `processTypeCode`、`title`、`content` のみ入力させる。
+- 保存完了メッセージは詳細画面右下の Bootstrap Toast で表示する。
+- 通知方針として、完了通知は Bootstrap Toast、入力エラーや残す警告は alert を使うことを `docs/implementation/README.md` に記録した。
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功。
+- local profile の Spring Boot を `http://localhost:8080` で起動済み。
+- 申請一覧画面で「新規作成」リンクの表示位置を一覧カード内右上へ調整した。
+- 保存完了通知を alert から Bootstrap Toast へ変更した。
+
+### 残課題
+
+- 申請提出、取下げ、承認、却下、差戻しは M4-03 / M4-04 で扱う。
+- Service の状態遷移テストは M4-05 で扱う。
+- Mapper / Testcontainers 強化は M8 で扱う。
