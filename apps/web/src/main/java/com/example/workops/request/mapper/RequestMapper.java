@@ -1,5 +1,6 @@
 package com.example.workops.request.mapper;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,6 +51,7 @@ public interface RequestMapper {
             @Param("id") Long id,
             @Param("companyId") Long companyId,
             @Param("requesterUserId") Long requesterUserId,
+            @Param("submittedAt") LocalDateTime submittedAt,
             @Param("updatedBy") Long updatedBy);
 
     int withdrawSubmittedByIdAndCompanyId(

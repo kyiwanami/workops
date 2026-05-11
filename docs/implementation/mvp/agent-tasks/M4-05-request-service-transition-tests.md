@@ -81,10 +81,45 @@ Mapper / Testcontainers 強化、DB変更、README変更、`phases.md` の modif
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- `RequestCommandService` の状態遷移、本人条件、権限、ステータス条件を Mockito ベースの Service テストで確認する。
+- Mapper / Testcontainers 強化は M8 に寄せ、M4-05 では DB / Flyway / Testcontainers を使わない。
+- Service 単体でも権限を確認できるよう、`RequestCommandService` の public 操作メソッドに `@PreAuthorize` を付ける。
+- 作成・編集・提出・取下げは `TENANT_EDITOR` / `TENANT_MANAGER`、承認・却下・差戻しは `TENANT_MANAGER` のみ許可する。
+- MVP では Service の事前取得・業務チェックを正とし、更新件数による競合対策は入れない。
+- 提出日時は Service で `LocalDateTime.now()` を作り、Mapper へ渡す。
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/request/service/RequestCommandService.java`
+- `apps/web/src/main/java/com/example/workops/request/mapper/RequestMapper.java`
+- `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
+- `apps/web/src/test/java/com/example/workops/request/service/RequestCommandServiceTests.java`
+- `docs/implementation/mvp/agent-tasks/M4-02-request-draft-create-edit.md`
+- `docs/implementation/mvp/agent-tasks/M4-03-request-submit-withdraw.md`
+- `docs/implementation/mvp/agent-tasks/M4-05-request-service-transition-tests.md`
+
+### 実装結果
+
+- `RequestCommandService` の作成・編集・提出・取下げ・承認・却下・差戻しに `@PreAuthorize` を追加した。
+- `updateDraft` に残っていた更新件数チェックを削除した。
+- `submitDraft` で `LocalDateTime.now()` を作り、`submitDraftByIdAndCompanyId` へ渡すようにした。
+- Mapper XML の提出更新SQLを `submitted_at = #{submittedAt}` に変更した。
+- `RequestCommandServiceTests` を追加し、Spring method security 有効のテストContextで Service 実Beanと Mapper mock を使う構成にした。
+- M4-01 から M4-04 の agent task Markdown に `実装方針` / `変更ファイル` / `実装結果` / `確認結果` / `残課題` が記録済みであることを確認した。
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功。
+- Service テストで DRAFT 作成、DRAFT 編集、提出、取下げ、承認、却下、差戻しの正常系を確認した。
+- Service テストで `submittedAt` が Mapper へ渡ることを確認した。
+- Service テストで却下理由・差戻し理由が `review_comment` として Mapper へ渡ることを確認した。
+- Service テストで TENANT_VIEWER の更新系操作拒否を確認した。
+- Service テストで TENANT_EDITOR の承認・却下・差戻し拒否を確認した。
+- Service テストで他人、ステータス不一致、他社申請の拒否を確認した。
+
+### 残課題
+
+- Mapper / Testcontainers 強化は M8 で扱う。
+- DB変更、README変更、`docs/implementation/mvp/phases.md` の modified 表示対応は M4-05 では扱っていない。

@@ -1,9 +1,11 @@
 package com.example.workops.request.service;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,6 +35,7 @@ public class RequestCommandService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public RequestDetail findDraftForEdit(Long id) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
@@ -42,6 +45,7 @@ public class RequestCommandService {
     }
 
     @Transactional
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public Long createDraft(RequestForm requestForm) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         assertSelectableProcessType(requestForm.processTypeCode());
@@ -58,6 +62,7 @@ public class RequestCommandService {
     }
 
     @Transactional
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public void updateDraft(Long id, RequestForm requestForm) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
@@ -65,7 +70,7 @@ public class RequestCommandService {
         assertEditableDraft(requestDetail, currentUser);
         assertSelectableProcessType(requestForm.processTypeCode());
 
-        int updatedCount = requestMapper.updateDraftByIdAndCompanyId(
+        requestMapper.updateDraftByIdAndCompanyId(
                 id,
                 currentUser.companyId(),
                 currentUser.userId(),
@@ -73,12 +78,10 @@ public class RequestCommandService {
                 requestForm.title(),
                 requestForm.content(),
                 currentUser.userId());
-        if (updatedCount != 1) {
-            throw new AccessDeniedException("この申請は編集できません。");
-        }
     }
 
     @Transactional
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public void submitDraft(Long id) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
@@ -89,10 +92,12 @@ public class RequestCommandService {
                 id,
                 currentUser.companyId(),
                 currentUser.userId(),
+                LocalDateTime.now(),
                 currentUser.userId());
     }
 
     @Transactional
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public void withdrawSubmitted(Long id) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
@@ -107,6 +112,7 @@ public class RequestCommandService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public RequestDetail findSubmittedForReject(Long id) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
@@ -116,6 +122,7 @@ public class RequestCommandService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public RequestDetail findSubmittedForRemand(Long id) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
@@ -125,6 +132,7 @@ public class RequestCommandService {
     }
 
     @Transactional
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void approveSubmitted(Long id) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
@@ -138,6 +146,7 @@ public class RequestCommandService {
     }
 
     @Transactional
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void rejectSubmitted(Long id, RequestReviewForm requestReviewForm) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
@@ -152,6 +161,7 @@ public class RequestCommandService {
     }
 
     @Transactional
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void remandSubmitted(Long id, RequestReviewForm requestReviewForm) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())

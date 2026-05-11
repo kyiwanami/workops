@@ -106,7 +106,7 @@ TENANT_VIEWER、他人の申請、ステータス不一致の申請は提出・�
 
 - `POST /requests/{id}/submit` を追加した。
 - `POST /requests/{id}/withdraw` を追加した。
-- 提出時は `status_code = 'SUBMITTED'`、`submitted_at = CURRENT_TIMESTAMP(6)`、`updated_by = currentUser.userId` に更新する。
+- 提出時は Service で現在日時を作り、`status_code = 'SUBMITTED'`、`submitted_at = submittedAt`、`updated_by = currentUser.userId` に更新する。
 - 取下げ時は `status_code = 'WITHDRAWN'`、`updated_by = currentUser.userId` に更新する。
 - Mapper SQL の提出・取下げ更新では、`id`、`company_id`、`requester_user_id`、現在ステータスを条件にした。
 - 詳細画面に、操作可能な場合だけ「提出」または「取下げ」ボタンを表示するようにした。

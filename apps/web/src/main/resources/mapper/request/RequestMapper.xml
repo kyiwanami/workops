@@ -197,7 +197,7 @@
     <update id="submitDraftByIdAndCompanyId">
         UPDATE requests
         SET status_code = 'SUBMITTED',
-            submitted_at = CURRENT_TIMESTAMP(6),
+            submitted_at = #{submittedAt},
             updated_by = #{updatedBy}
         WHERE id = #{id}
             AND company_id = #{companyId}
