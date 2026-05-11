@@ -26,7 +26,16 @@ public interface RequestMapper {
 
     boolean existsProcessTypeCode(@Param("processTypeCode") String processTypeCode);
 
-    int insertDraft(RequestDraftInsertCommand command);
+    int insertDraft(
+            @Param("companyId") Long companyId,
+            @Param("requesterUserId") Long requesterUserId,
+            @Param("processTypeCode") String processTypeCode,
+            @Param("title") String title,
+            @Param("content") String content,
+            @Param("createdBy") Long createdBy,
+            @Param("updatedBy") Long updatedBy);
+
+    Long findLastInsertId();
 
     int updateDraftByIdAndCompanyId(
             @Param("id") Long id,
@@ -47,5 +56,22 @@ public interface RequestMapper {
             @Param("id") Long id,
             @Param("companyId") Long companyId,
             @Param("requesterUserId") Long requesterUserId,
+            @Param("updatedBy") Long updatedBy);
+
+    int approveSubmittedByIdAndCompanyId(
+            @Param("id") Long id,
+            @Param("companyId") Long companyId,
+            @Param("updatedBy") Long updatedBy);
+
+    int rejectSubmittedByIdAndCompanyId(
+            @Param("id") Long id,
+            @Param("companyId") Long companyId,
+            @Param("reviewComment") String reviewComment,
+            @Param("updatedBy") Long updatedBy);
+
+    int remandSubmittedByIdAndCompanyId(
+            @Param("id") Long id,
+            @Param("companyId") Long companyId,
+            @Param("reviewComment") String reviewComment,
             @Param("updatedBy") Long updatedBy);
 }

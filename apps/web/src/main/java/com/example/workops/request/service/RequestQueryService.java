@@ -77,10 +77,23 @@ public class RequestQueryService {
                 .orElse(false);
     }
 
+    public boolean canReview(RequestDetail requestDetail) {
+        return currentUserProvider.currentUser()
+                .map(currentUser -> hasManagerPermission(currentUser)
+                        && SUBMITTED_STATUS_CODE.equals(requestDetail.statusCode()))
+                .orElse(false);
+    }
+
     private boolean hasApplicantOperationPermission(LoginUserContext currentUser) {
         return currentUser.permissionSets()
                 .stream()
                 .anyMatch(permissionSet -> PermissionSetCode.TENANT_EDITOR.name().equals(permissionSet.code())
                         || PermissionSetCode.TENANT_MANAGER.name().equals(permissionSet.code()));
+    }
+
+    private boolean hasManagerPermission(LoginUserContext currentUser) {
+        return currentUser.permissionSets()
+                .stream()
+                .anyMatch(permissionSet -> PermissionSetCode.TENANT_MANAGER.name().equals(permissionSet.code()));
     }
 }

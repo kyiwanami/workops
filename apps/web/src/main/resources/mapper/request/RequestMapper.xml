@@ -150,10 +150,7 @@
         )
     </select>
 
-    <insert id="insertDraft"
-            parameterType="com.example.workops.request.mapper.RequestDraftInsertCommand"
-            useGeneratedKeys="true"
-            keyProperty="id">
+    <insert id="insertDraft">
         INSERT INTO requests (
             company_id,
             requester_user_id,
@@ -180,6 +177,10 @@
             #{updatedBy}
         )
     </insert>
+
+    <select id="findLastInsertId" resultType="java.lang.Long">
+        SELECT LAST_INSERT_ID()
+    </select>
 
     <update id="updateDraftByIdAndCompanyId">
         UPDATE requests
@@ -211,6 +212,35 @@
         WHERE id = #{id}
             AND company_id = #{companyId}
             AND requester_user_id = #{requesterUserId}
+            AND status_code = 'SUBMITTED'
+    </update>
+
+    <update id="approveSubmittedByIdAndCompanyId">
+        UPDATE requests
+        SET status_code = 'APPROVED',
+            updated_by = #{updatedBy}
+        WHERE id = #{id}
+            AND company_id = #{companyId}
+            AND status_code = 'SUBMITTED'
+    </update>
+
+    <update id="rejectSubmittedByIdAndCompanyId">
+        UPDATE requests
+        SET status_code = 'REJECTED',
+            review_comment = #{reviewComment},
+            updated_by = #{updatedBy}
+        WHERE id = #{id}
+            AND company_id = #{companyId}
+            AND status_code = 'SUBMITTED'
+    </update>
+
+    <update id="remandSubmittedByIdAndCompanyId">
+        UPDATE requests
+        SET status_code = 'DRAFT',
+            review_comment = #{reviewComment},
+            updated_by = #{updatedBy}
+        WHERE id = #{id}
+            AND company_id = #{companyId}
             AND status_code = 'SUBMITTED'
     </update>
 </mapper>

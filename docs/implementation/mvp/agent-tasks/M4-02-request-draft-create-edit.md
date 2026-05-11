@@ -102,7 +102,6 @@ TENANT_VIEWER、他人の申請、DRAFT 以外の申請は編集・下書き保�
 - `apps/web/src/main/java/com/example/workops/request/service/RequestCommandService.java`
 - `apps/web/src/main/java/com/example/workops/request/service/RequestQueryService.java`
 - `apps/web/src/main/java/com/example/workops/request/mapper/RequestMapper.java`
-- `apps/web/src/main/java/com/example/workops/request/mapper/RequestDraftInsertCommand.java`
 - `apps/web/src/main/java/com/example/workops/request/model/RequestProcessTypeOption.java`
 - `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
 - `apps/web/src/main/resources/templates/request/form.html`
@@ -116,6 +115,8 @@ TENANT_VIEWER、他人の申請、DRAFT 以外の申請は編集・下書き保�
 - `GET /requests/new`、`POST /requests`、`GET /requests/{id}/edit`、`POST /requests/{id}` を追加した。
 - 新規作成時は `status_code = 'DRAFT'`、`company_id` / `requester_user_id` / `created_by` / `updated_by` は現在ユーザーから設定する。
 - 編集時は本人かつ `DRAFT` の申請だけを更新し、`updated_by` を現在ユーザーに更新する。
+- Form は record とし、手書き getter / setter は作らない。
+- DRAFT 作成後の詳細リダイレクト用IDは、insert後に `LAST_INSERT_ID()` で取得する。
 - 一覧画面に作成可能ユーザー向けの「新規作成」リンクを追加した。
 - 詳細画面に編集可能な DRAFT 申請だけ「編集」リンクを表示する。
 - フォームは `processTypeCode`、`title`、`content` のみ入力させる。

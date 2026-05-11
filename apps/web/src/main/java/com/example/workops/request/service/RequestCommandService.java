@@ -11,7 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
 import com.example.workops.request.form.RequestForm;
-import com.example.workops.request.mapper.RequestDraftInsertCommand;
+import com.example.workops.request.form.RequestReviewForm;
 import com.example.workops.request.mapper.RequestMapper;
 import com.example.workops.request.model.RequestDetail;
 
@@ -44,18 +44,17 @@ public class RequestCommandService {
     @Transactional
     public Long createDraft(RequestForm requestForm) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
-        assertSelectableProcessType(requestForm.getProcessTypeCode());
+        assertSelectableProcessType(requestForm.processTypeCode());
 
-        RequestDraftInsertCommand command = new RequestDraftInsertCommand(
+        requestMapper.insertDraft(
                 currentUser.companyId(),
                 currentUser.userId(),
-                requestForm.getProcessTypeCode(),
-                requestForm.getTitle(),
-                requestForm.getContent(),
+                requestForm.processTypeCode(),
+                requestForm.title(),
+                requestForm.content(),
                 currentUser.userId(),
                 currentUser.userId());
-        requestMapper.insertDraft(command);
-        return command.getId();
+        return requestMapper.findLastInsertId();
     }
 
     @Transactional
@@ -64,15 +63,15 @@ public class RequestCommandService {
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
         assertEditableDraft(requestDetail, currentUser);
-        assertSelectableProcessType(requestForm.getProcessTypeCode());
+        assertSelectableProcessType(requestForm.processTypeCode());
 
         int updatedCount = requestMapper.updateDraftByIdAndCompanyId(
                 id,
                 currentUser.companyId(),
                 currentUser.userId(),
-                requestForm.getProcessTypeCode(),
-                requestForm.getTitle(),
-                requestForm.getContent(),
+                requestForm.processTypeCode(),
+                requestForm.title(),
+                requestForm.content(),
                 currentUser.userId());
         if (updatedCount != 1) {
             throw new AccessDeniedException("この申請は編集できません。");
@@ -107,6 +106,65 @@ public class RequestCommandService {
                 currentUser.userId());
     }
 
+    @Transactional(readOnly = true)
+    public RequestDetail findSubmittedForReject(Long id) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
+        assertRejectableSubmitted(requestDetail);
+        return requestDetail;
+    }
+
+    @Transactional(readOnly = true)
+    public RequestDetail findSubmittedForRemand(Long id) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
+        assertRemandableSubmitted(requestDetail);
+        return requestDetail;
+    }
+
+    @Transactional
+    public void approveSubmitted(Long id) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
+        assertApprovableSubmitted(requestDetail);
+
+        requestMapper.approveSubmittedByIdAndCompanyId(
+                id,
+                currentUser.companyId(),
+                currentUser.userId());
+    }
+
+    @Transactional
+    public void rejectSubmitted(Long id, RequestReviewForm requestReviewForm) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
+        assertRejectableSubmitted(requestDetail);
+
+        requestMapper.rejectSubmittedByIdAndCompanyId(
+                id,
+                currentUser.companyId(),
+                requestReviewForm.reviewComment(),
+                currentUser.userId());
+    }
+
+    @Transactional
+    public void remandSubmitted(Long id, RequestReviewForm requestReviewForm) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
+        assertRemandableSubmitted(requestDetail);
+
+        requestMapper.remandSubmittedByIdAndCompanyId(
+                id,
+                currentUser.companyId(),
+                requestReviewForm.reviewComment(),
+                currentUser.userId());
+    }
+
     private void assertEditableDraft(RequestDetail requestDetail, LoginUserContext currentUser) {
         if (!Objects.equals(requestDetail.requesterUserId(), currentUser.userId())
                 || !DRAFT_STATUS_CODE.equals(requestDetail.statusCode())) {
@@ -125,6 +183,24 @@ public class RequestCommandService {
         if (!Objects.equals(requestDetail.requesterUserId(), currentUser.userId())
                 || !SUBMITTED_STATUS_CODE.equals(requestDetail.statusCode())) {
             throw new AccessDeniedException("この申請は取下げできません。");
+        }
+    }
+
+    private void assertApprovableSubmitted(RequestDetail requestDetail) {
+        if (!SUBMITTED_STATUS_CODE.equals(requestDetail.statusCode())) {
+            throw new AccessDeniedException("この申請は承認できません。");
+        }
+    }
+
+    private void assertRejectableSubmitted(RequestDetail requestDetail) {
+        if (!SUBMITTED_STATUS_CODE.equals(requestDetail.statusCode())) {
+            throw new AccessDeniedException("この申請は却下できません。");
+        }
+    }
+
+    private void assertRemandableSubmitted(RequestDetail requestDetail) {
+        if (!SUBMITTED_STATUS_CODE.equals(requestDetail.statusCode())) {
+            throw new AccessDeniedException("この申請は差戻しできません。");
         }
     }
 

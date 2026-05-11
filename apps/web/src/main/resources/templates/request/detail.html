@@ -28,6 +28,12 @@
                         <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                         <button type="submit" class="btn btn-warning btn-sm">取下げ</button>
                     </form>
+                    <form th:if="${canReview}" method="post" th:action="@{/requests/{id}/approve(id=${request.id()})}">
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" class="btn btn-success btn-sm">承認</button>
+                    </form>
+                    <a th:if="${canReview}" class="btn btn-outline-danger btn-sm" th:href="@{/requests/{id}/reject(id=${request.id()})}">却下</a>
+                    <a th:if="${canReview}" class="btn btn-outline-warning btn-sm" th:href="@{/requests/{id}/remand(id=${request.id()})}">差戻し</a>
                     <a class="btn btn-outline-secondary btn-sm" th:href="@{/requests}">一覧へ戻る</a>
                 </div>
             </div>
