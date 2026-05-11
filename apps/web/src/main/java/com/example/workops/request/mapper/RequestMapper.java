@@ -36,4 +36,16 @@ public interface RequestMapper {
             @Param("title") String title,
             @Param("content") String content,
             @Param("updatedBy") Long updatedBy);
+
+    int submitDraftByIdAndCompanyId(
+            @Param("id") Long id,
+            @Param("companyId") Long companyId,
+            @Param("requesterUserId") Long requesterUserId,
+            @Param("updatedBy") Long updatedBy);
+
+    int withdrawSubmittedByIdAndCompanyId(
+            @Param("id") Long id,
+            @Param("companyId") Long companyId,
+            @Param("requesterUserId") Long requesterUserId,
+            @Param("updatedBy") Long updatedBy);
 }

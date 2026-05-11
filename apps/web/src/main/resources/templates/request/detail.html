@@ -20,6 +20,14 @@
                 </div>
                 <div class="d-flex gap-2">
                     <a th:if="${canEdit}" class="btn btn-primary btn-sm" th:href="@{/requests/{id}/edit(id=${request.id()})}">編集</a>
+                    <form th:if="${canSubmit}" method="post" th:action="@{/requests/{id}/submit(id=${request.id()})}">
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" class="btn btn-success btn-sm">提出</button>
+                    </form>
+                    <form th:if="${canWithdraw}" method="post" th:action="@{/requests/{id}/withdraw(id=${request.id()})}">
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" class="btn btn-warning btn-sm">取下げ</button>
+                    </form>
                     <a class="btn btn-outline-secondary btn-sm" th:href="@{/requests}">一覧へ戻る</a>
                 </div>
             </div>

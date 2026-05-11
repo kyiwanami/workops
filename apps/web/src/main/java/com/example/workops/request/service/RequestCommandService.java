@@ -22,6 +22,7 @@ import com.example.workops.request.model.RequestDetail;
 public class RequestCommandService {
 
     private static final String DRAFT_STATUS_CODE = "DRAFT";
+    private static final String SUBMITTED_STATUS_CODE = "SUBMITTED";
 
     private final CurrentUserProvider currentUserProvider;
     private final RequestMapper requestMapper;
@@ -78,10 +79,52 @@ public class RequestCommandService {
         }
     }
 
+    @Transactional
+    public void submitDraft(Long id) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
+        assertSubmittableDraft(requestDetail, currentUser);
+
+        requestMapper.submitDraftByIdAndCompanyId(
+                id,
+                currentUser.companyId(),
+                currentUser.userId(),
+                currentUser.userId());
+    }
+
+    @Transactional
+    public void withdrawSubmitted(Long id) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
+        assertWithdrawableSubmitted(requestDetail, currentUser);
+
+        requestMapper.withdrawSubmittedByIdAndCompanyId(
+                id,
+                currentUser.companyId(),
+                currentUser.userId(),
+                currentUser.userId());
+    }
+
     private void assertEditableDraft(RequestDetail requestDetail, LoginUserContext currentUser) {
         if (!Objects.equals(requestDetail.requesterUserId(), currentUser.userId())
                 || !DRAFT_STATUS_CODE.equals(requestDetail.statusCode())) {
             throw new AccessDeniedException("この申請は編集できません。");
+        }
+    }
+
+    private void assertSubmittableDraft(RequestDetail requestDetail, LoginUserContext currentUser) {
+        if (!Objects.equals(requestDetail.requesterUserId(), currentUser.userId())
+                || !DRAFT_STATUS_CODE.equals(requestDetail.statusCode())) {
+            throw new AccessDeniedException("この申請は提出できません。");
+        }
+    }
+
+    private void assertWithdrawableSubmitted(RequestDetail requestDetail, LoginUserContext currentUser) {
+        if (!Objects.equals(requestDetail.requesterUserId(), currentUser.userId())
+                || !SUBMITTED_STATUS_CODE.equals(requestDetail.statusCode())) {
+            throw new AccessDeniedException("この申請は取下げできません。");
         }
     }
 

@@ -22,6 +22,7 @@ import com.example.workops.request.model.RequestProcessTypeOption;
 public class RequestQueryService {
 
     private static final String DRAFT_STATUS_CODE = "DRAFT";
+    private static final String SUBMITTED_STATUS_CODE = "SUBMITTED";
 
     private final CurrentUserProvider currentUserProvider;
     private final RequestMapper requestMapper;
@@ -48,19 +49,35 @@ public class RequestQueryService {
 
     public boolean canCreateDraft() {
         return currentUserProvider.currentUser()
-                .map(this::hasDraftAuthorPermission)
+                .map(this::hasApplicantOperationPermission)
                 .orElse(false);
     }
 
     public boolean canEditDraft(RequestDetail requestDetail) {
         return currentUserProvider.currentUser()
-                .map(currentUser -> hasDraftAuthorPermission(currentUser)
+                .map(currentUser -> hasApplicantOperationPermission(currentUser)
                         && Objects.equals(requestDetail.requesterUserId(), currentUser.userId())
                         && DRAFT_STATUS_CODE.equals(requestDetail.statusCode()))
                 .orElse(false);
     }
 
-    private boolean hasDraftAuthorPermission(LoginUserContext currentUser) {
+    public boolean canSubmit(RequestDetail requestDetail) {
+        return currentUserProvider.currentUser()
+                .map(currentUser -> hasApplicantOperationPermission(currentUser)
+                        && Objects.equals(requestDetail.requesterUserId(), currentUser.userId())
+                        && DRAFT_STATUS_CODE.equals(requestDetail.statusCode()))
+                .orElse(false);
+    }
+
+    public boolean canWithdraw(RequestDetail requestDetail) {
+        return currentUserProvider.currentUser()
+                .map(currentUser -> hasApplicantOperationPermission(currentUser)
+                        && Objects.equals(requestDetail.requesterUserId(), currentUser.userId())
+                        && SUBMITTED_STATUS_CODE.equals(requestDetail.statusCode()))
+                .orElse(false);
+    }
+
+    private boolean hasApplicantOperationPermission(LoginUserContext currentUser) {
         return currentUser.permissionSets()
                 .stream()
                 .anyMatch(permissionSet -> PermissionSetCode.TENANT_EDITOR.name().equals(permissionSet.code())

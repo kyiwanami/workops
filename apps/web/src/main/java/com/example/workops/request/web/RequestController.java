@@ -70,6 +70,8 @@ public class RequestController {
         RequestDetail request = requestQueryService.findDetail(id);
         model.addAttribute("request", request);
         model.addAttribute("canEdit", requestQueryService.canEditDraft(request));
+        model.addAttribute("canSubmit", requestQueryService.canSubmit(request));
+        model.addAttribute("canWithdraw", requestQueryService.canWithdraw(request));
         return "request/detail";
     }
 
@@ -98,6 +100,22 @@ public class RequestController {
 
         requestCommandService.updateDraft(id, requestForm);
         redirectAttributes.addFlashAttribute("message", "申請を下書き保存しました。");
+        return "redirect:/requests/" + id;
+    }
+
+    @PostMapping("/requests/{id}/submit")
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
+    public String submit(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        requestCommandService.submitDraft(id);
+        redirectAttributes.addFlashAttribute("message", "申請を提出しました。");
+        return "redirect:/requests/" + id;
+    }
+
+    @PostMapping("/requests/{id}/withdraw")
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
+    public String withdraw(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        requestCommandService.withdrawSubmitted(id);
+        redirectAttributes.addFlashAttribute("message", "申請を取下げました。");
         return "redirect:/requests/" + id;
     }
 
