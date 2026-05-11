@@ -76,10 +76,49 @@ local profile でログイン中の DB 由来ユーザーの `companyId` に紐�
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- M4 の申請参照実装と同じ Controller / QueryService / Mapper / record / Thymeleaf 構成で、資産参照の縦スライスを追加した。
+- 会社境界と論理削除除外は Mapper SQL の `assets.company_id = #{companyId}` と `assets.is_deleted = FALSE` に固定した。
+- 資産カテゴリ、管理部署、資産ステータスの表示名は SQL JOIN で取得し、M5-01 では登録・編集・検索・状態変更・削除・申請連携のUIを置かない。
+- M4 での指摘を踏まえ、画面確認できる件数の資産 seed を Flyway で追加した。
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/asset/web/AssetController.java`
+- `apps/web/src/main/java/com/example/workops/asset/service/AssetQueryService.java`
+- `apps/web/src/main/java/com/example/workops/asset/mapper/AssetMapper.java`
+- `apps/web/src/main/java/com/example/workops/asset/model/AssetListItem.java`
+- `apps/web/src/main/java/com/example/workops/asset/model/AssetDetail.java`
+- `apps/web/src/main/resources/mapper/asset/AssetMapper.xml`
+- `apps/web/src/main/resources/templates/asset/list.html`
+- `apps/web/src/main/resources/templates/asset/detail.html`
+- `apps/web/src/main/resources/templates/index.html`
+- `apps/web/src/main/resources/db/migration/V4__insert_asset_sample_seed.sql`
+- `docs/implementation/mvp/agent-tasks/M5-01-asset-list-detail.md`
+
+### 実装結果
+
+- `GET /assets` で、ログイン中ユーザーの所属会社に紐づく未削除資産一覧を表示できるようにした。
+- `GET /assets/{id}` で、同一会社かつ未削除の資産詳細を表示できるようにした。
+- `TENANT_VIEWER` / `TENANT_EDITOR` / `TENANT_MANAGER` が資産一覧・詳細を参照できるようにした。
+- 会社1に未削除8件と論理削除1件、会社2に未削除6件の資産 seed を追加した。
+- トップ画面に「資産一覧」リンクを追加した。
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功。
+- local profile 起動中の `http://localhost:8080/assets` が `200` を返すことを確認した。
+- 会社1ローカルユーザーで `/assets` に会社1の未削除資産8件が表示されることを確認した。
+- `/assets/1` が `200` を返すことを確認した。
+- 会社2資産の `/assets/10` が `404` を返すことを確認した。
+- 論理削除済み資産の `/assets/9` が `404` を返すことを確認した。
+
+### 残課題
+
+- 資産登録・編集は M5-02 で扱う。
+- 資産検索・絞り込みは M5-03 で扱う。
+- 資産ステータス変更は M5-04 で扱う。
+- 資産論理削除操作は M5-05 で扱う。
+- 申請との資産紐づけは M5-06 で扱う。
+- Service テストと M5 全体確認は M5-07 で扱う。

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.workops.asset.mapper.AssetMapper">
+    <resultMap id="AssetListItemMap" type="com.example.workops.asset.model.AssetListItem">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="asset_category_code" javaType="java.lang.String"/>
+            <arg column="asset_category_name" javaType="java.lang.String"/>
+            <arg column="department_name" javaType="java.lang.String"/>
+            <arg column="status_code" javaType="java.lang.String"/>
+            <arg column="status_name" javaType="java.lang.String"/>
+            <arg column="note" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="AssetDetailMap" type="com.example.workops.asset.model.AssetDetail">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="asset_category_value_id" javaType="java.lang.Long"/>
+            <arg column="department_id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="asset_category_code" javaType="java.lang.String"/>
+            <arg column="asset_category_name" javaType="java.lang.String"/>
+            <arg column="department_name" javaType="java.lang.String"/>
+            <arg column="status_code" javaType="java.lang.String"/>
+            <arg column="status_name" javaType="java.lang.String"/>
+            <arg column="note" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="AssetSelectColumns">
+        a.id AS id,
+        a.asset_category_value_id AS asset_category_value_id,
+        a.department_id AS department_id,
+        a.code AS code,
+        a.name AS name,
+        asset_category.code AS asset_category_code,
+        asset_category.name AS asset_category_name,
+        department.name AS department_name,
+        a.status_code AS status_code,
+        asset_status.name AS status_name,
+        a.note AS note,
+        a.created_at AS created_at,
+        a.updated_at AS updated_at
+    </sql>
+
+    <sql id="AssetReferenceJoins">
+        INNER JOIN generic_master asset_category_master
+            ON asset_category_master.code = 'ASSET_CATEGORY'
+            AND asset_category_master.is_deleted = FALSE
+        INNER JOIN generic_master_values asset_category
+            ON asset_category.id = a.asset_category_value_id
+            AND asset_category.generic_master_id = asset_category_master.id
+            AND asset_category.company_id = a.company_id
+            AND asset_category.is_deleted = FALSE
+        LEFT JOIN departments department
+            ON department.id = a.department_id
+            AND department.company_id = a.company_id
+            AND department.is_deleted = FALSE
+        INNER JOIN common_master asset_status_master
+            ON asset_status_master.code = 'ASSET_STATUS'
+            AND asset_status_master.is_deleted = FALSE
+        INNER JOIN common_master_values asset_status
+            ON asset_status.common_master_id = asset_status_master.id
+            AND asset_status.code = a.status_code
+            AND asset_status.is_deleted = FALSE
+    </sql>
+
+    <select id="findListByCompanyId" resultMap="AssetListItemMap">
+        SELECT
+            a.id AS id,
+            a.code AS code,
+            a.name AS name,
+            asset_category.code AS asset_category_code,
+            asset_category.name AS asset_category_name,
+            department.name AS department_name,
+            a.status_code AS status_code,
+            asset_status.name AS status_name,
+            a.note AS note,
+            a.created_at AS created_at,
+            a.updated_at AS updated_at
+        FROM assets a
+        <include refid="AssetReferenceJoins"/>
+        WHERE a.company_id = #{companyId}
+            AND a.is_deleted = FALSE
+        ORDER BY a.created_at DESC, a.id DESC
+    </select>
+
+    <select id="findDetailByIdAndCompanyId" resultMap="AssetDetailMap">
+        SELECT
+            <include refid="AssetSelectColumns"/>
+        FROM assets a
+        <include refid="AssetReferenceJoins"/>
+        WHERE a.id = #{id}
+            AND a.company_id = #{companyId}
+            AND a.is_deleted = FALSE
+    </select>
+</mapper>
