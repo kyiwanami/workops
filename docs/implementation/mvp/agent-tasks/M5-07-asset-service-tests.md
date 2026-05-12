@@ -76,10 +76,43 @@ Mapper / Testcontainers 強化、DB変更、README変更、`phases.md` の modif
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- M5-07 では production code を変更せず、Service テスト追加と M5-07 の記録更新だけを行った。
+- DB / Flyway / Testcontainers は使わず、Mockito mock Mapper と実 Service で業務条件を確認した。
+- 更新系 Service は Spring Method Security を有効にしたテストContextで実行し、`@PreAuthorize` による権限境界も確認した。
+- 資産検索条件は Service でマスタ妥当性を検証せず、`companyId` と検索フォームを Mapper へ渡す方針をテストで固定した。
+- M5-01 から M5-06 の agent task Markdown に、実装結果と確認結果が記録済みであることを確認した。
+
+### 変更ファイル
+
+- `apps/web/src/test/java/com/example/workops/asset/service/AssetCommandServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/asset/service/AssetQueryServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/request/service/RequestAssetLinkServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/request/service/RequestQueryServiceTests.java`
+- `docs/implementation/mvp/agent-tasks/M5-07-asset-service-tests.md`
+
+### 実装結果
+
+- `AssetCommandServiceTests` を追加し、資産作成・編集・ステータス変更・論理削除の正常系を確認できるようにした。
+- `AssetCommandServiceTests` で、`TENANT_VIEWER` の更新系拒否、`TENANT_EDITOR` の論理削除拒否、他社資産・論理削除済み資産の `404`、不正カテゴリ・不正部署・不正ステータス・重複コードの `400` を確認できるようにした。
+- `AssetQueryServiceTests` を追加し、検索条件が `companyId` とともに Mapper へ渡されること、詳細 `404`、選択肢取得、UI状態判定を確認できるようにした。
+- `RequestAssetLinkServiceTests` を追加し、申請作成・編集での関連資産未選択、同一会社未削除資産、他社資産・論理削除済み資産の拒否を確認できるようにした。
+- `RequestQueryServiceTests` を追加し、申請一覧・詳細・選択肢取得・UI状態判定を確認できるようにした。
+- 申請の提出・承認など既存ワークフローが関連資産選択検証を行わないことを確認できるようにした。
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功。
+- テスト件数は 48 件、失敗 0 件で完了した。
+- `AssetCommandServiceTests` は 11 件成功。
+- `AssetQueryServiceTests` は 4 件成功。
+- `RequestAssetLinkServiceTests` は 8 件成功。
+- `RequestQueryServiceTests` は 6 件成功。
+- 既存の `RequestCommandServiceTests` は 16 件成功。
+- M5-01 から M5-06 の agent task Markdown に `実装方針` / `変更ファイル` / `実装結果` / `確認結果` / `残課題` が記録済みであることを確認した。
+
+### 残課題
+
+- Mapper / Testcontainers 強化は M8 で扱う。
+- 資産ステータス履歴テーブル、監査ログテーブル、申請承認による資産ステータス自動変更は M5 では扱わない。
