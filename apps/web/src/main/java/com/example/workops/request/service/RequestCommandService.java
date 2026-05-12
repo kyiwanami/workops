@@ -49,10 +49,12 @@ public class RequestCommandService {
     public Long createDraft(RequestForm requestForm) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         assertSelectableProcessType(requestForm.processTypeCode());
+        assertSelectableAsset(requestForm.assetId(), currentUser.companyId());
 
         requestMapper.insertDraft(
                 currentUser.companyId(),
                 currentUser.userId(),
+                requestForm.assetId(),
                 requestForm.processTypeCode(),
                 requestForm.title(),
                 requestForm.content(),
@@ -69,11 +71,13 @@ public class RequestCommandService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
         assertEditableDraft(requestDetail, currentUser);
         assertSelectableProcessType(requestForm.processTypeCode());
+        assertSelectableAsset(requestForm.assetId(), currentUser.companyId());
 
         requestMapper.updateDraftByIdAndCompanyId(
                 id,
                 currentUser.companyId(),
                 currentUser.userId(),
+                requestForm.assetId(),
                 requestForm.processTypeCode(),
                 requestForm.title(),
                 requestForm.content(),
@@ -217,6 +221,12 @@ public class RequestCommandService {
     private void assertSelectableProcessType(String processTypeCode) {
         if (!requestMapper.existsProcessTypeCode(processTypeCode)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "処理タイプが不正です。");
+        }
+    }
+
+    private void assertSelectableAsset(Long assetId, Long companyId) {
+        if (assetId != null && !requestMapper.existsSelectableAssetByIdAndCompanyId(assetId, companyId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "資産が不正です。");
         }
     }
 }

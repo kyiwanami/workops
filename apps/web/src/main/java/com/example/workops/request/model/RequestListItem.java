@@ -8,6 +8,10 @@ import java.time.LocalDateTime;
 public record RequestListItem(
         Long id,
         String requesterName,
+        Long assetId,
+        String assetCode,
+        String assetName,
+        Boolean assetDeleted,
         String processTypeCode,
         String processTypeName,
         String statusCode,

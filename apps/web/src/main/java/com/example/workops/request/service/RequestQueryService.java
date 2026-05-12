@@ -11,6 +11,7 @@ import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
 import com.example.workops.common.security.PermissionSetCode;
 import com.example.workops.request.mapper.RequestMapper;
+import com.example.workops.request.model.RequestAssetOption;
 import com.example.workops.request.model.RequestDetail;
 import com.example.workops.request.model.RequestListItem;
 import com.example.workops.request.model.RequestProcessTypeOption;
@@ -45,6 +46,11 @@ public class RequestQueryService {
 
     public List<RequestProcessTypeOption> findProcessTypeOptions() {
         return requestMapper.findProcessTypeOptions();
+    }
+
+    public List<RequestAssetOption> findAssetOptions() {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        return requestMapper.findAssetOptionsByCompanyId(currentUser.companyId());
     }
 
     public boolean canCreateDraft() {

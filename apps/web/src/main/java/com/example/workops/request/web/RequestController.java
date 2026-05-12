@@ -187,6 +187,7 @@ public class RequestController {
 
     private void prepareFormModel(Model model, boolean edit, Long requestId) {
         model.addAttribute("processTypeOptions", requestQueryService.findProcessTypeOptions());
+        model.addAttribute("assetOptions", requestQueryService.findAssetOptions());
         model.addAttribute("edit", edit);
         model.addAttribute("requestId", requestId);
     }

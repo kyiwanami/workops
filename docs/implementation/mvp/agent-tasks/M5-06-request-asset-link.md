@@ -74,10 +74,54 @@ M5で資産カタログが成立した後、M4の申請作成・編集・参照�
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- 申請作成・編集フォームに任意の関連資産 select を追加し、未選択を許可する。
+- 関連資産の選択肢は、現在ユーザーの会社に属する未削除資産だけにする。
+- 保存時は `assetId == null` を許可し、`assetId != null` の場合は同一会社かつ未削除資産だけを許可する。
+- 申請一覧・詳細では、紐づき資産が論理削除済みでもコード・名称を表示し、末尾に `（削除済み）` を付ける。
+- 申請承認による資産ステータス自動変更は行わない。
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/request/form/RequestForm.java`
+- `apps/web/src/main/java/com/example/workops/request/model/RequestAssetOption.java`
+- `apps/web/src/main/java/com/example/workops/request/model/RequestListItem.java`
+- `apps/web/src/main/java/com/example/workops/request/model/RequestDetail.java`
+- `apps/web/src/main/java/com/example/workops/request/mapper/RequestMapper.java`
+- `apps/web/src/main/java/com/example/workops/request/service/RequestCommandService.java`
+- `apps/web/src/main/java/com/example/workops/request/service/RequestQueryService.java`
+- `apps/web/src/main/java/com/example/workops/request/web/RequestController.java`
+- `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
+- `apps/web/src/main/resources/templates/request/form.html`
+- `apps/web/src/main/resources/templates/request/list.html`
+- `apps/web/src/main/resources/templates/request/detail.html`
+- `apps/web/src/test/java/com/example/workops/request/service/RequestCommandServiceTests.java`
+- `docs/implementation/mvp/agent-tasks/M5-06-request-asset-link.md`
+
+### 実装結果
+
+- `RequestForm` に `assetId` を追加し、作成・編集で `requests.asset_id` を保存できるようにした。
+- `RequestAssetOption` を追加し、申請フォームの資産選択肢として未削除資産を取得できるようにした。
+- `RequestCommandService` で、他社資産・論理削除済み資産のPOSTを `400` として拒否するようにした。
+- 申請一覧・詳細に関連資産列/項目を追加し、未選択は `-`、未削除資産は `コード / 名称`、削除済み紐づき資産は `コード / 名称（削除済み）` と表示するようにした。
+- 既存の申請提出・取下げ・承認・却下・差戻し処理は変更していない。
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功。
+- local profile で申請作成フォームに同一会社の未削除資産が選択肢として表示されることを確認した。
+- 論理削除済み資産が申請作成フォームの選択肢に出ないことを確認した。
+- 申請作成時に同一会社の未削除資産を選択して下書き保存できることを確認した。
+- 申請詳細・一覧に関連資産の `コード / 名称` が表示されることを確認した。
+- 申請編集時に関連資産を未選択へ戻せることを確認した。
+- 資産未選択の申請詳細で関連資産が `-` 表示になることを確認した。
+- 他社資産IDをPOSTした場合に `400` になることを確認した。
+- 論理削除済み資産IDをPOSTした場合に `400` になることを確認した。
+- 紐づき資産を論理削除した申請が、一覧・詳細で `コード / 名称（削除済み）` と表示されることを確認した。
+
+### 残課題
+
+- 資産ステータス自動変更は実装しない。
+- Service テストと M5 全体確認は M5-07 で扱う。
+- Mapper / Testcontainers 強化は M8 で扱う。

@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Size;
 public record RequestForm(
         @NotBlank(message = "処理タイプを選択してください。")
         String processTypeCode,
+        Long assetId,
         @NotBlank(message = "件名を入力してください。")
         @Size(max = 100, message = "件名は100文字以内で入力してください。")
         String title,
@@ -18,12 +19,13 @@ public record RequestForm(
         String content) {
 
     public static RequestForm empty() {
-        return new RequestForm(null, null, null);
+        return new RequestForm(null, null, null, null);
     }
 
     public static RequestForm from(RequestDetail requestDetail) {
         return new RequestForm(
                 requestDetail.processTypeCode(),
+                requestDetail.assetId(),
                 requestDetail.title(),
                 requestDetail.content());
     }

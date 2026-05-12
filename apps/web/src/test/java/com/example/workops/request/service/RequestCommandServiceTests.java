@@ -67,12 +67,13 @@ class RequestCommandServiceTests {
         when(requestMapper.existsProcessTypeCode("PURCHASE")).thenReturn(true);
         when(requestMapper.findLastInsertId()).thenReturn(200L);
 
-        Long createdId = requestCommandService.createDraft(new RequestForm("PURCHASE", "購入申請", "申請内容"));
+        Long createdId = requestCommandService.createDraft(new RequestForm("PURCHASE", null, "購入申請", "申請内容"));
 
         assertThat(createdId).isEqualTo(200L);
         verify(requestMapper).insertDraft(
                 COMPANY_ID,
                 REQUESTER_USER_ID,
+                null,
                 "PURCHASE",
                 "購入申請",
                 "申請内容",
@@ -87,12 +88,13 @@ class RequestCommandServiceTests {
                 .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT", null)));
         when(requestMapper.existsProcessTypeCode("REPAIR")).thenReturn(true);
 
-        requestCommandService.updateDraft(REQUEST_ID, new RequestForm("REPAIR", "修理申請", "修理内容"));
+        requestCommandService.updateDraft(REQUEST_ID, new RequestForm("REPAIR", null, "修理申請", "修理内容"));
 
         verify(requestMapper).updateDraftByIdAndCompanyId(
                 REQUEST_ID,
                 COMPANY_ID,
                 REQUESTER_USER_ID,
+                null,
                 "REPAIR",
                 "修理申請",
                 "修理内容",
@@ -196,9 +198,9 @@ class RequestCommandServiceTests {
     void viewerCannotExecuteApplicantOperations() {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_VIEWER", "閲覧者"));
 
-        assertThatThrownBy(() -> requestCommandService.createDraft(new RequestForm("PURCHASE", "購入申請", null)))
+        assertThatThrownBy(() -> requestCommandService.createDraft(new RequestForm("PURCHASE", null, "購入申請", null)))
                 .isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm("PURCHASE", "購入申請", null)))
+        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm("PURCHASE", null, "購入申請", null)))
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> requestCommandService.submitDraft(REQUEST_ID))
                 .isInstanceOf(AccessDeniedException.class);
@@ -224,7 +226,7 @@ class RequestCommandServiceTests {
         when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
                 .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT", null)));
 
-        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm("PURCHASE", "購入申請", null)))
+        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm("PURCHASE", null, "購入申請", null)))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -308,6 +310,9 @@ class RequestCommandServiceTests {
         return new RequestDetail(
                 id,
                 requesterUserId,
+                null,
+                null,
+                null,
                 null,
                 "申請者",
                 "PURCHASE",

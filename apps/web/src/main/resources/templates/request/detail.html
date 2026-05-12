@@ -57,8 +57,8 @@
                     <span class="text-secondary" th:text="'(' + ${request.statusCode()} + ')'">(DRAFT)</span>
                 </dd>
 
-                <dt class="col-sm-3 text-secondary">関連資産ID</dt>
-                <dd class="col-sm-9" th:text="${request.assetId() != null ? request.assetId() : '-'}">-</dd>
+                <dt class="col-sm-3 text-secondary">関連資産</dt>
+                <dd class="col-sm-9" th:text="${request.assetCode() != null ? request.assetCode() + ' / ' + request.assetName() + (request.assetDeleted() == true ? '（削除済み）' : '') : '-'}">-</dd>
 
                 <dt class="col-sm-3 text-secondary">申請内容</dt>
                 <dd class="col-sm-9" th:text="${request.content() != null && request.content() != '' ? request.content() : '-'}">申請内容</dd>

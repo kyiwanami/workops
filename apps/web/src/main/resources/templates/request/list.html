@@ -27,6 +27,7 @@
                     <tr>
                         <th scope="col">件名</th>
                         <th scope="col">申請者</th>
+                        <th scope="col">関連資産</th>
                         <th scope="col">処理タイプ</th>
                         <th scope="col">ステータス</th>
                         <th scope="col">提出日時</th>
@@ -39,6 +40,7 @@
                     <tr th:each="request : ${requests}">
                         <td th:text="${request.title()}">件名</td>
                         <td th:text="${request.requesterName()}">申請者</td>
+                        <td th:text="${request.assetCode() != null ? request.assetCode() + ' / ' + request.assetName() + (request.assetDeleted() == true ? '（削除済み）' : '') : '-'}">-</td>
                         <td>
                             <span th:text="${request.processTypeName()}">購入</span>
                             <span class="text-secondary d-block small" th:text="${request.processTypeCode()}">PURCHASE</span>

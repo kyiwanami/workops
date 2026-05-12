@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Param;
 
 import com.example.workops.request.model.RequestDetail;
 import com.example.workops.request.model.RequestListItem;
+import com.example.workops.request.model.RequestAssetOption;
 import com.example.workops.request.model.RequestProcessTypeOption;
 
 /**
@@ -25,11 +26,18 @@ public interface RequestMapper {
 
     List<RequestProcessTypeOption> findProcessTypeOptions();
 
+    List<RequestAssetOption> findAssetOptionsByCompanyId(@Param("companyId") Long companyId);
+
     boolean existsProcessTypeCode(@Param("processTypeCode") String processTypeCode);
+
+    boolean existsSelectableAssetByIdAndCompanyId(
+            @Param("assetId") Long assetId,
+            @Param("companyId") Long companyId);
 
     int insertDraft(
             @Param("companyId") Long companyId,
             @Param("requesterUserId") Long requesterUserId,
+            @Param("assetId") Long assetId,
             @Param("processTypeCode") String processTypeCode,
             @Param("title") String title,
             @Param("content") String content,
@@ -42,6 +50,7 @@ public interface RequestMapper {
             @Param("id") Long id,
             @Param("companyId") Long companyId,
             @Param("requesterUserId") Long requesterUserId,
+            @Param("assetId") Long assetId,
             @Param("processTypeCode") String processTypeCode,
             @Param("title") String title,
             @Param("content") String content,

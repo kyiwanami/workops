@@ -33,6 +33,22 @@
                 </div>
 
                 <div class="mb-3">
+                    <label for="assetId" class="form-label">関連資産</label>
+                    <select id="assetId"
+                            class="form-select"
+                            th:field="*{assetId}"
+                            th:classappend="${#fields.hasErrors('assetId')} ? ' is-invalid'">
+                        <option value="">未選択</option>
+                        <option th:each="option : ${assetOptions}"
+                                th:value="${option.id()}"
+                                th:text="${option.code() + ' / ' + option.name()}">KTHM-NB-001 / 営業部ノートPC</option>
+                    </select>
+                    <div class="invalid-feedback" th:if="${#fields.hasErrors('assetId')}" th:errors="*{assetId}">
+                        関連資産が不正です。
+                    </div>
+                </div>
+
+                <div class="mb-3">
                     <label for="title" class="form-label">件名</label>
                     <input id="title"
                            type="text"

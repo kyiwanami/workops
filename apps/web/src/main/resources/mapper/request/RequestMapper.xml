@@ -7,6 +7,10 @@
         <constructor>
             <arg column="id" javaType="java.lang.Long"/>
             <arg column="requester_name" javaType="java.lang.String"/>
+            <arg column="asset_id" javaType="java.lang.Long"/>
+            <arg column="asset_code" javaType="java.lang.String"/>
+            <arg column="asset_name" javaType="java.lang.String"/>
+            <arg column="asset_deleted" javaType="java.lang.Boolean"/>
             <arg column="process_type_code" javaType="java.lang.String"/>
             <arg column="process_type_name" javaType="java.lang.String"/>
             <arg column="status_code" javaType="java.lang.String"/>
@@ -23,6 +27,9 @@
             <arg column="id" javaType="java.lang.Long"/>
             <arg column="requester_user_id" javaType="java.lang.Long"/>
             <arg column="asset_id" javaType="java.lang.Long"/>
+            <arg column="asset_code" javaType="java.lang.String"/>
+            <arg column="asset_name" javaType="java.lang.String"/>
+            <arg column="asset_deleted" javaType="java.lang.Boolean"/>
             <arg column="requester_name" javaType="java.lang.String"/>
             <arg column="process_type_code" javaType="java.lang.String"/>
             <arg column="process_type_name" javaType="java.lang.String"/>
@@ -44,10 +51,21 @@
         </constructor>
     </resultMap>
 
+    <resultMap id="RequestAssetOptionMap" type="com.example.workops.request.model.RequestAssetOption">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
     <sql id="RequestSelectColumns">
         r.id AS id,
         r.requester_user_id AS requester_user_id,
         r.asset_id AS asset_id,
+        linked_asset.code AS asset_code,
+        linked_asset.name AS asset_name,
+        linked_asset.is_deleted AS asset_deleted,
         requester.name AS requester_name,
         r.process_type_code AS process_type_code,
         process_type.name AS process_type_name,
@@ -65,6 +83,10 @@
         SELECT
             r.id AS id,
             requester.name AS requester_name,
+            r.asset_id AS asset_id,
+            linked_asset.code AS asset_code,
+            linked_asset.name AS asset_name,
+            linked_asset.is_deleted AS asset_deleted,
             r.process_type_code AS process_type_code,
             process_type.name AS process_type_name,
             r.status_code AS status_code,
@@ -78,6 +100,9 @@
             ON requester.id = r.requester_user_id
             AND requester.company_id = r.company_id
             AND requester.is_deleted = FALSE
+        LEFT JOIN assets linked_asset
+            ON linked_asset.id = r.asset_id
+            AND linked_asset.company_id = r.company_id
         INNER JOIN common_master process_type_master
             ON process_type_master.code = 'PROCESS_TYPE'
             AND process_type_master.is_deleted = FALSE
@@ -104,6 +129,9 @@
             ON requester.id = r.requester_user_id
             AND requester.company_id = r.company_id
             AND requester.is_deleted = FALSE
+        LEFT JOIN assets linked_asset
+            ON linked_asset.id = r.asset_id
+            AND linked_asset.company_id = r.company_id
         INNER JOIN common_master process_type_master
             ON process_type_master.code = 'PROCESS_TYPE'
             AND process_type_master.is_deleted = FALSE
@@ -136,6 +164,17 @@
         ORDER BY process_type.sort_order ASC, process_type.id ASC
     </select>
 
+    <select id="findAssetOptionsByCompanyId" resultMap="RequestAssetOptionMap">
+        SELECT
+            a.id AS id,
+            a.code AS code,
+            a.name AS name
+        FROM assets a
+        WHERE a.company_id = #{companyId}
+            AND a.is_deleted = FALSE
+        ORDER BY a.code ASC, a.id ASC
+    </select>
+
     <select id="existsProcessTypeCode" resultType="boolean">
         SELECT EXISTS(
             SELECT 1
@@ -147,6 +186,16 @@
                 AND process_type_master.is_deleted = FALSE
                 AND process_type.code = #{processTypeCode}
                 AND process_type.code IN ('PURCHASE', 'REPAIR', 'DISPOSAL')
+        )
+    </select>
+
+    <select id="existsSelectableAssetByIdAndCompanyId" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM assets a
+            WHERE a.id = #{assetId}
+                AND a.company_id = #{companyId}
+                AND a.is_deleted = FALSE
         )
     </select>
 
@@ -166,7 +215,7 @@
         ) VALUES (
             #{companyId},
             #{requesterUserId},
-            NULL,
+            #{assetId},
             #{processTypeCode},
             'DRAFT',
             #{title},
@@ -184,7 +233,8 @@
 
     <update id="updateDraftByIdAndCompanyId">
         UPDATE requests
-        SET process_type_code = #{processTypeCode},
+        SET asset_id = #{assetId},
+            process_type_code = #{processTypeCode},
             title = #{title},
             content = #{content},
             updated_by = #{updatedBy}
