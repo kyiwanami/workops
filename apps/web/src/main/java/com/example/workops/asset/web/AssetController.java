@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.example.workops.asset.form.AssetForm;
+import com.example.workops.asset.form.AssetSearchForm;
 import com.example.workops.asset.model.AssetDetail;
 import com.example.workops.asset.service.AssetCommandService;
 import com.example.workops.asset.service.AssetQueryService;
@@ -33,9 +34,12 @@ public class AssetController {
 
     @GetMapping("/assets")
     @PreAuthorize("hasAnyAuthority('TENANT_VIEWER','TENANT_EDITOR','TENANT_MANAGER')")
-    public String list(Model model) {
-        model.addAttribute("assets", assetQueryService.findList());
+    public String list(@ModelAttribute("assetSearchForm") AssetSearchForm assetSearchForm, Model model) {
+        model.addAttribute("assets", assetQueryService.findList(assetSearchForm));
         model.addAttribute("canCreate", assetQueryService.canCreateAsset());
+        model.addAttribute("assetCategoryOptions", assetQueryService.findAssetCategoryOptions());
+        model.addAttribute("departmentOptions", assetQueryService.findDepartmentOptions());
+        model.addAttribute("statusOptions", assetQueryService.findStatusOptions());
         return "asset/list";
     }
 

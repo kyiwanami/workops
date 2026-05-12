@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.workops.asset.form.AssetSearchForm;
 import com.example.workops.asset.mapper.AssetMapper;
 import com.example.workops.asset.model.AssetCategoryOption;
 import com.example.workops.asset.model.AssetDepartmentOption;
@@ -30,9 +31,9 @@ public class AssetQueryService {
         this.assetMapper = assetMapper;
     }
 
-    public List<AssetListItem> findList() {
+    public List<AssetListItem> findList(AssetSearchForm assetSearchForm) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
-        return assetMapper.findListByCompanyId(currentUser.companyId());
+        return assetMapper.findListByCompanyIdAndSearchForm(currentUser.companyId(), assetSearchForm);
     }
 
     public AssetDetail findDetail(Long id) {

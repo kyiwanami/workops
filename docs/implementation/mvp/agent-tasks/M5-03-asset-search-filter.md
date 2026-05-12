@@ -63,10 +63,49 @@
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- 資産コードと資産名を別々のクエリパラメータ `assetCode` / `assetName` として扱う。
+- `AssetSearchForm` は record で作成し、手書き getter / setter は作らない。
+- 検索条件はすべて Mapper SQL の WHERE 条件として扱い、未指定条件は絞り込みに使わない。
+- 検索条件に対するマスタ妥当性の事前チェックは行わない。現在会社に存在しないカテゴリ・部署・ステータスが指定された場合も、`company_id` と検索 WHERE 条件により空結果にする。
+- 会社境界と論理削除除外は `assets.company_id = #{companyId}` と `assets.is_deleted = FALSE` で守る。
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/asset/form/AssetSearchForm.java`
+- `apps/web/src/main/java/com/example/workops/asset/web/AssetController.java`
+- `apps/web/src/main/java/com/example/workops/asset/service/AssetQueryService.java`
+- `apps/web/src/main/java/com/example/workops/asset/mapper/AssetMapper.java`
+- `apps/web/src/main/resources/mapper/asset/AssetMapper.xml`
+- `apps/web/src/main/resources/templates/asset/list.html`
+- `docs/implementation/mvp/agent-tasks/M5-03-asset-search-filter.md`
+
+### 実装結果
+
+- `GET /assets` で `assetCode` / `assetName` / `assetCategoryValueId` / `departmentId` / `statusCode` を受け取れるようにした。
+- 資産一覧を、資産コード・資産名・資産カテゴリ・管理部署・ステータスでAND検索できるようにした。
+- 検索フォームに資産カテゴリ、管理部署、ステータスの選択肢を表示するようにした。
+- 検索後も入力済み条件を保持するようにした。
+- クリアリンクで検索条件なしの `/assets` に戻れるようにした。
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功。
+- `cd apps/web && .\mvnw.cmd -DskipTests package` 成功。
+- local profile の一時起動ポートで `/assets?assetCode=KTHM-NB` により資産コード部分一致検索できることを確認した。
+- `/assets?assetName=ノートPC` により資産名部分一致検索できることを確認した。
+- `/assets?assetCategoryValueId=1` により資産カテゴリで絞り込めることを確認した。
+- `/assets?departmentId=2` により管理部署で絞り込めることを確認した。
+- `/assets?statusCode=AVAILABLE` によりステータスで絞り込めることを確認した。
+- `/assets?assetCode=KTHM&assetName=ノートPC&assetCategoryValueId=1&departmentId=4&statusCode=AVAILABLE` により複数条件をAND検索できることを確認した。
+- 検索後もフォームに入力済み条件が残ることを確認した。
+- 他社資産と論理削除済み資産が検索結果に出ないことを確認した。
+- 他社カテゴリ、他社部署、不正ステータスをクエリパラメータ指定した場合、`400` ではなく `200` の空結果になることを確認した。
+
+### 残課題
+
+- 資産ステータス変更専用操作は M5-04 で扱う。
+- 資産論理削除は M5-05 で扱う。
+- 申請との資産紐づけは M5-06 で扱う。
+- Service テストと M5 全体確認は M5-07 で扱う。

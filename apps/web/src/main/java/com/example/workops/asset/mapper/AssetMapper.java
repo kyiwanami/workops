@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import com.example.workops.asset.form.AssetSearchForm;
 import com.example.workops.asset.model.AssetDetail;
 import com.example.workops.asset.model.AssetListItem;
 import com.example.workops.asset.model.AssetCategoryOption;
@@ -18,7 +19,9 @@ import com.example.workops.asset.model.AssetStatusOption;
 @Mapper
 public interface AssetMapper {
 
-    List<AssetListItem> findListByCompanyId(@Param("companyId") Long companyId);
+    List<AssetListItem> findListByCompanyIdAndSearchForm(
+            @Param("companyId") Long companyId,
+            @Param("assetSearchForm") AssetSearchForm assetSearchForm);
 
     Optional<AssetDetail> findDetailByIdAndCompanyId(
             @Param("id") Long id,

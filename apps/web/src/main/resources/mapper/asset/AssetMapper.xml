@@ -98,7 +98,7 @@
             AND asset_status.is_deleted = FALSE
     </sql>
 
-    <select id="findListByCompanyId" resultMap="AssetListItemMap">
+    <select id="findListByCompanyIdAndSearchForm" resultMap="AssetListItemMap">
         SELECT
             a.id AS id,
             a.code AS code,
@@ -115,6 +115,21 @@
         <include refid="AssetReferenceJoins"/>
         WHERE a.company_id = #{companyId}
             AND a.is_deleted = FALSE
+            <if test="assetSearchForm.assetCode != null and assetSearchForm.assetCode != ''">
+                AND a.code LIKE CONCAT('%', #{assetSearchForm.assetCode}, '%')
+            </if>
+            <if test="assetSearchForm.assetName != null and assetSearchForm.assetName != ''">
+                AND a.name LIKE CONCAT('%', #{assetSearchForm.assetName}, '%')
+            </if>
+            <if test="assetSearchForm.assetCategoryValueId != null">
+                AND a.asset_category_value_id = #{assetSearchForm.assetCategoryValueId}
+            </if>
+            <if test="assetSearchForm.departmentId != null">
+                AND a.department_id = #{assetSearchForm.departmentId}
+            </if>
+            <if test="assetSearchForm.statusCode != null and assetSearchForm.statusCode != ''">
+                AND a.status_code = #{assetSearchForm.statusCode}
+            </if>
         ORDER BY a.created_at DESC, a.id DESC
     </select>
 

@@ -17,6 +17,56 @@
                 <a th:if="${canCreate}" class="btn btn-primary btn-sm" th:href="@{/assets/new}">新規作成</a>
             </div>
 
+            <form class="border rounded p-3 mb-3 bg-body" method="get" th:action="@{/assets}" th:object="${assetSearchForm}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-3">
+                        <label for="assetCode" class="form-label">資産コード</label>
+                        <input id="assetCode"
+                               type="text"
+                               class="form-control"
+                               th:field="*{assetCode}">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label for="assetName" class="form-label">資産名</label>
+                        <input id="assetName"
+                               type="text"
+                               class="form-control"
+                               th:field="*{assetName}">
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label for="assetCategoryValueId" class="form-label">カテゴリ</label>
+                        <select id="assetCategoryValueId" class="form-select" th:field="*{assetCategoryValueId}">
+                            <option value="">すべて</option>
+                            <option th:each="option : ${assetCategoryOptions}"
+                                    th:value="${option.id()}"
+                                    th:text="${option.name()}">ノートPC</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label for="departmentId" class="form-label">管理部署</label>
+                        <select id="departmentId" class="form-select" th:field="*{departmentId}">
+                            <option value="">すべて</option>
+                            <option th:each="option : ${departmentOptions}"
+                                    th:value="${option.id()}"
+                                    th:text="${option.name()}">情報システム部</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label for="statusCode" class="form-label">ステータス</label>
+                        <select id="statusCode" class="form-select" th:field="*{statusCode}">
+                            <option value="">すべて</option>
+                            <option th:each="option : ${statusOptions}"
+                                    th:value="${option.code()}"
+                                    th:text="${option.name()}">利用可能</option>
+                        </select>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end gap-2">
+                        <a class="btn btn-outline-secondary" th:href="@{/assets}">クリア</a>
+                        <button type="submit" class="btn btn-primary">検索</button>
+                    </div>
+                </div>
+            </form>
+
             <div th:if="${assets.isEmpty()}" class="text-secondary">
                 表示できる資産はありません。
             </div>
