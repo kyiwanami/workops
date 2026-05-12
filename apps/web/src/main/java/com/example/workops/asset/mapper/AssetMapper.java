@@ -75,4 +75,10 @@ public interface AssetMapper {
             @Param("statusCode") String statusCode,
             @Param("note") String note,
             @Param("updatedBy") Long updatedBy);
+
+    int updateAssetStatusByIdAndCompanyId(
+            @Param("id") Long id,
+            @Param("companyId") Long companyId,
+            @Param("statusCode") String statusCode,
+            @Param("updatedBy") Long updatedBy);
 }

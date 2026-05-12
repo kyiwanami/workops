@@ -68,6 +68,12 @@ public class AssetQueryService {
                 .orElse(false);
     }
 
+    public boolean canChangeStatus(AssetDetail assetDetail) {
+        return currentUserProvider.currentUser()
+                .map(this::hasAssetWritePermission)
+                .orElse(false);
+    }
+
     private boolean hasAssetWritePermission(LoginUserContext currentUser) {
         return currentUser.permissionSets()
                 .stream()

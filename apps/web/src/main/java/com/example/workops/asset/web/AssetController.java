@@ -14,6 +14,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.example.workops.asset.form.AssetForm;
 import com.example.workops.asset.form.AssetSearchForm;
+import com.example.workops.asset.form.AssetStatusForm;
 import com.example.workops.asset.model.AssetDetail;
 import com.example.workops.asset.service.AssetCommandService;
 import com.example.workops.asset.service.AssetQueryService;
@@ -79,6 +80,7 @@ public class AssetController {
         AssetDetail asset = assetQueryService.findDetail(id);
         model.addAttribute("asset", asset);
         model.addAttribute("canEdit", assetQueryService.canEditAsset(asset));
+        model.addAttribute("canChangeStatus", assetQueryService.canChangeStatus(asset));
         return "asset/detail";
     }
 
@@ -115,11 +117,44 @@ public class AssetController {
         return "redirect:/assets/" + id;
     }
 
+    @GetMapping("/assets/{id}/status")
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
+    public String statusForm(@PathVariable Long id, Model model) {
+        AssetDetail asset = assetCommandService.findAssetForStatusChange(id);
+        model.addAttribute("assetStatusForm", AssetStatusForm.from(asset));
+        prepareStatusFormModel(model, asset);
+        return "asset/status-form";
+    }
+
+    @PostMapping("/assets/{id}/status")
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
+    public String updateStatus(
+            @PathVariable Long id,
+            @Valid @ModelAttribute("assetStatusForm") AssetStatusForm assetStatusForm,
+            BindingResult bindingResult,
+            Model model,
+            RedirectAttributes redirectAttributes) {
+        AssetDetail asset = assetCommandService.findAssetForStatusChange(id);
+        if (bindingResult.hasErrors()) {
+            prepareStatusFormModel(model, asset);
+            return "asset/status-form";
+        }
+
+        assetCommandService.updateStatus(id, assetStatusForm);
+        redirectAttributes.addFlashAttribute("message", "資産ステータスを変更しました。");
+        return "redirect:/assets/" + id;
+    }
+
     private void prepareFormModel(Model model, boolean edit, Long assetId) {
         model.addAttribute("assetCategoryOptions", assetQueryService.findAssetCategoryOptions());
         model.addAttribute("departmentOptions", assetQueryService.findDepartmentOptions());
         model.addAttribute("statusOptions", assetQueryService.findStatusOptions());
         model.addAttribute("edit", edit);
         model.addAttribute("assetId", assetId);
+    }
+
+    private void prepareStatusFormModel(Model model, AssetDetail asset) {
+        model.addAttribute("asset", asset);
+        model.addAttribute("statusOptions", assetQueryService.findStatusOptions());
     }
 }

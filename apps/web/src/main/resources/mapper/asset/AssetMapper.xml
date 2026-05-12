@@ -281,4 +281,13 @@
             AND company_id = #{companyId}
             AND is_deleted = FALSE
     </update>
+
+    <update id="updateAssetStatusByIdAndCompanyId">
+        UPDATE assets
+        SET status_code = #{statusCode},
+            updated_by = #{updatedBy}
+        WHERE id = #{id}
+            AND company_id = #{companyId}
+            AND is_deleted = FALSE
+    </update>
 </mapper>

@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.workops.asset.form.AssetForm;
+import com.example.workops.asset.form.AssetStatusForm;
 import com.example.workops.asset.mapper.AssetMapper;
 import com.example.workops.asset.model.AssetDetail;
 import com.example.workops.common.security.CurrentUserProvider;
@@ -29,6 +30,14 @@ public class AssetCommandService {
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public AssetDetail findAssetForEdit(Long id) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        return assetMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "資産が見つかりません。"));
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
+    public AssetDetail findAssetForStatusChange(Long id) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         return assetMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "資産が見つかりません。"));
@@ -76,6 +85,21 @@ public class AssetCommandService {
                 assetForm.name(),
                 assetForm.statusCode(),
                 assetForm.note(),
+                currentUser.userId());
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
+    public void updateStatus(Long id, AssetStatusForm assetStatusForm) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        assetMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "資産が見つかりません。"));
+        assertSelectableStatus(assetStatusForm.statusCode());
+
+        assetMapper.updateAssetStatusByIdAndCompanyId(
+                id,
+                currentUser.companyId(),
+                assetStatusForm.statusCode(),
                 currentUser.userId());
     }
 

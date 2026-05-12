@@ -20,6 +20,7 @@
                 </div>
                 <div class="d-flex gap-2">
                     <a th:if="${canEdit}" class="btn btn-primary btn-sm" th:href="@{/assets/{id}/edit(id=${asset.id()})}">編集</a>
+                    <a th:if="${canChangeStatus}" class="btn btn-outline-primary btn-sm" th:href="@{/assets/{id}/status(id=${asset.id()})}">ステータス変更</a>
                     <a class="btn btn-outline-secondary btn-sm" th:href="@{/assets}">一覧へ戻る</a>
                 </div>
             </div>
