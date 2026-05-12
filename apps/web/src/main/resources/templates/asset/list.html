@@ -13,6 +13,10 @@
 
     <section class="card">
         <div class="card-body">
+            <div class="d-flex justify-content-end mb-3">
+                <a th:if="${canCreate}" class="btn btn-primary btn-sm" th:href="@{/assets/new}">新規作成</a>
+            </div>
+
             <div th:if="${assets.isEmpty()}" class="text-secondary">
                 表示できる資産はありません。
             </div>

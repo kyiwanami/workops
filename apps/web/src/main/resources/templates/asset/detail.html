@@ -19,6 +19,7 @@
                     <span class="badge text-bg-light border ms-2" th:text="${asset.assetCategoryName()}">カテゴリ</span>
                 </div>
                 <div class="d-flex gap-2">
+                    <a th:if="${canEdit}" class="btn btn-primary btn-sm" th:href="@{/assets/{id}/edit(id=${asset.id()})}">編集</a>
                     <a class="btn btn-outline-secondary btn-sm" th:href="@{/assets}">一覧へ戻る</a>
                 </div>
             </div>
@@ -59,8 +60,27 @@
             </dl>
         </div>
     </section>
+
+    <div th:if="${message}" class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="asset-save-toast" class="toast text-bg-success border-0" role="status" data-bs-delay="4000">
+            <div class="d-flex">
+                <div class="toast-body" th:text="${message}">
+                    資産を保存しました。
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
 </main>
 
 <footer th:replace="~{layout :: footer}"></footer>
+<script th:if="${message}">
+    document.addEventListener('DOMContentLoaded', () => {
+        const toastElement = document.getElementById('asset-save-toast');
+        if (toastElement) {
+            bootstrap.Toast.getOrCreateInstance(toastElement).show();
+        }
+    });
+</script>
 </body>
 </html>
