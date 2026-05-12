@@ -9,8 +9,8 @@
 - DRAFT 編集は申請者本人のみ許可する
 - TENANT_MANAGER は、自分の申請について TENANT_EDITOR 相当の作成・編集・提出・取下げができる
 - M4 では申請種別マスタ管理は作らない
-- M4 で申請作成に選択肢が必要な場合は、M2 seed 済みの値を参照するだけにする
-- `process_type_code` は申請処理タイプであり、画面上の申請種別管理そのものとして扱わない
+- M4 で申請作成に選択肢が必要な場合は、M2 seed 済みの会社別 `REQUEST_TYPE` 値を参照するだけにする
+- 申請種別ごとのシステム処理分岐は MVP では扱わない
 - 申請種別の登録・編集・停止は M6 で扱う
 - M4 では `asset_id` は任意・未選択中心で扱う
 - 資産紐づけは、M5 で資産カタログが成立した後、M5 後半または M5 後の接続調整で扱う
@@ -33,9 +33,9 @@
 - 編集保存は、申請者本人かつ `status_code = 'DRAFT'` の申請だけ許可する
 - TENANT_EDITOR / TENANT_MANAGER は自分の申請を作成・編集できる
 - TENANT_VIEWER は申請を作成・編集できない
-- `process_type_code` は M2 seed 済みの `PROCESS_TYPE` 値 `PURCHASE` / `REPAIR` / `DISPOSAL` から選択する
+- `request_type_value_id` は現在ユーザーの会社に属する M2 seed 済みの `REQUEST_TYPE` 値から選択する
 - `asset_id` は M4 では入力させず、作成・編集時は `NULL` として扱う
-- 入力項目は `process_type_code`、`title`、`content` とする
+- 入力項目は `request_type_value_id`、`title`、`content` とする
 - `title` は必須とし、DB 定義に合わせて 100 文字以内にする
 - `content` は任意とし、DB 定義に合わせて 2000 文字以内にする
 
@@ -47,7 +47,7 @@
 - `apps/web/src/main/java/com/example/workops/request/service/RequestQueryService.java`
 - `apps/web/src/main/java/com/example/workops/request/mapper/RequestMapper.java`
 - `apps/web/src/main/java/com/example/workops/request/model/RequestDetail.java`
-- `apps/web/src/main/java/com/example/workops/request/model/RequestProcessTypeOption.java`
+- `apps/web/src/main/java/com/example/workops/request/model/RequestTypeOption.java`
 - `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
 - `apps/web/src/main/resources/templates/request/form.html`
 - `apps/web/src/main/resources/templates/request/detail.html`
@@ -91,7 +91,7 @@ TENANT_VIEWER、他人の申請、DRAFT 以外の申請は編集・下書き保�
 - 作成・編集系Controllerメソッドは `TENANT_EDITOR` / `TENANT_MANAGER` のみ許可する。
 - 編集対象は `id + company_id` で取得し、申請者本人かつ `DRAFT` の場合だけ編集できる。
 - 他社または存在しない申請は `ResponseStatusException(HttpStatus.NOT_FOUND)`、他人または `DRAFT` 以外の編集は `AccessDeniedException` とする。
-- `PROCESS_TYPE` は M2 seed 済みの `PURCHASE` / `REPAIR` / `DISPOSAL` を参照し、申請種別管理は作らない。
+- `REQUEST_TYPE` は M2 seed 済みの会社別汎用マスタ値を参照し、申請種別管理は作らない。
 - `asset_id` はフォームに出さず、作成時は `NULL`、編集時も変更しない。
 - 保存後の完了通知は、SSR の flash message を Bootstrap Toast として表示する。
 
@@ -102,7 +102,7 @@ TENANT_VIEWER、他人の申請、DRAFT 以外の申請は編集・下書き保�
 - `apps/web/src/main/java/com/example/workops/request/service/RequestCommandService.java`
 - `apps/web/src/main/java/com/example/workops/request/service/RequestQueryService.java`
 - `apps/web/src/main/java/com/example/workops/request/mapper/RequestMapper.java`
-- `apps/web/src/main/java/com/example/workops/request/model/RequestProcessTypeOption.java`
+- `apps/web/src/main/java/com/example/workops/request/model/RequestTypeOption.java`
 - `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
 - `apps/web/src/main/resources/templates/request/form.html`
 - `apps/web/src/main/resources/templates/request/list.html`
@@ -120,7 +120,7 @@ TENANT_VIEWER、他人の申請、DRAFT 以外の申請は編集・下書き保�
 - DRAFT 作成後の詳細リダイレクト用IDは、insert後に `LAST_INSERT_ID()` で取得する。
 - 一覧画面に作成可能ユーザー向けの「新規作成」リンクを追加した。
 - 詳細画面に編集可能な DRAFT 申請だけ「編集」リンクを表示する。
-- フォームは `processTypeCode`、`title`、`content` のみ入力させる。
+- フォームは `requestTypeValueId`、`title`、`content` のみ入力させる。
 - 保存完了メッセージは詳細画面右下の Bootstrap Toast で表示する。
 - 通知方針として、完了通知は Bootstrap Toast、入力エラーや残す警告は alert を使うことを `docs/implementation/README.md` に記録した。
 

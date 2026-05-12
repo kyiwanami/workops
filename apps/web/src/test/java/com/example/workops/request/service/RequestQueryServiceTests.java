@@ -20,7 +20,7 @@ import com.example.workops.request.mapper.RequestMapper;
 import com.example.workops.request.model.RequestAssetOption;
 import com.example.workops.request.model.RequestDetail;
 import com.example.workops.request.model.RequestListItem;
-import com.example.workops.request.model.RequestProcessTypeOption;
+import com.example.workops.request.model.RequestTypeOption;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,6 +34,7 @@ class RequestQueryServiceTests {
     private static final Long COMPANY_ID = 1L;
     private static final Long REQUESTER_USER_ID = 2L;
     private static final Long OTHER_USER_ID = 3L;
+    private static final Long REQUEST_TYPE_VALUE_ID = 10L;
 
     private RequestQueryService requestQueryService;
     private RequestMapper requestMapper;
@@ -80,14 +81,14 @@ class RequestQueryServiceTests {
     @Test
     void optionQueriesUseMapper() {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
-        when(requestMapper.findProcessTypeOptions())
-                .thenReturn(List.of(new RequestProcessTypeOption("PURCHASE", "購入")));
+        when(requestMapper.findRequestTypeOptionsByCompanyId(COMPANY_ID))
+                .thenReturn(List.of(new RequestTypeOption(REQUEST_TYPE_VALUE_ID, "EQUIPMENT_PURCHASE", "備品購入申請")));
         when(requestMapper.findAssetOptionsByCompanyId(COMPANY_ID))
                 .thenReturn(List.of(new RequestAssetOption(1L, "KTHM-NB-001", "営業部ノートPC")));
 
-        assertThat(requestQueryService.findProcessTypeOptions()).hasSize(1);
+        assertThat(requestQueryService.findRequestTypeOptions()).hasSize(1);
         assertThat(requestQueryService.findAssetOptions()).hasSize(1);
-        verify(requestMapper).findProcessTypeOptions();
+        verify(requestMapper).findRequestTypeOptionsByCompanyId(COMPANY_ID);
         verify(requestMapper).findAssetOptionsByCompanyId(COMPANY_ID);
     }
 
@@ -164,8 +165,9 @@ class RequestQueryServiceTests {
                 "KTHM-NB-001",
                 "営業部ノートPC",
                 false,
-                "PURCHASE",
-                "購入",
+                REQUEST_TYPE_VALUE_ID,
+                "EQUIPMENT_PURCHASE",
+                "備品購入申請",
                 "DRAFT",
                 "下書き",
                 "申請件名",
@@ -183,8 +185,9 @@ class RequestQueryServiceTests {
                 "営業部ノートPC",
                 false,
                 "申請者",
-                "PURCHASE",
-                "購入",
+                REQUEST_TYPE_VALUE_ID,
+                "EQUIPMENT_PURCHASE",
+                "備品購入申請",
                 statusCode,
                 statusCode,
                 "申請件名",

@@ -14,7 +14,7 @@ import com.example.workops.request.mapper.RequestMapper;
 import com.example.workops.request.model.RequestAssetOption;
 import com.example.workops.request.model.RequestDetail;
 import com.example.workops.request.model.RequestListItem;
-import com.example.workops.request.model.RequestProcessTypeOption;
+import com.example.workops.request.model.RequestTypeOption;
 
 /**
  * 申請管理の参照系ユースケースを扱うService。
@@ -44,8 +44,9 @@ public class RequestQueryService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
     }
 
-    public List<RequestProcessTypeOption> findProcessTypeOptions() {
-        return requestMapper.findProcessTypeOptions();
+    public List<RequestTypeOption> findRequestTypeOptions() {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        return requestMapper.findRequestTypeOptionsByCompanyId(currentUser.companyId());
     }
 
     public List<RequestAssetOption> findAssetOptions() {

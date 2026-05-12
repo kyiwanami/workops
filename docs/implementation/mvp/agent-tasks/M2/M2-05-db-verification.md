@@ -128,7 +128,7 @@ ORDER BY c.id, gmv.sort_order;
 - `request_histories` / `asset_status_histories` / `audit_logs` が存在しないことを確認した
 - `generic_master` に `company_id` が存在しないことを確認した
 - `generic_master_values` に `company_id` が存在することを確認した
-- `generic_master` が1件、`generic_master_values` が9件であることを確認した
+- `generic_master` が2件、`generic_master_values` が15件であることを確認した
 - `requests` と `assets` が0件であることを確認した
 - `cd apps/web && .\mvnw.cmd test` が成功した
 - 起動確認用 Java プロセスが残っていないことを確認した
@@ -142,10 +142,10 @@ seed 件数:
 | users | 6 |
 | permission_sets | 3 |
 | user_permission_sets | 6 |
-| common_master | 3 |
-| common_master_values | 12 |
-| generic_master | 1 |
-| generic_master_values | 9 |
+| common_master | 2 |
+| common_master_values | 9 |
+| generic_master | 2 |
+| generic_master_values | 15 |
 | requests | 0 |
 | assets | 0 |
 

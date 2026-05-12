@@ -53,8 +53,8 @@
 - 2社は架空会社だが業態とデータ粒度を具体化し、適当な `サンプル株式会社A/B` は使わない
 - 北浜精密機器株式会社は製造業として部署と資産カテゴリを多めにする
 - 青葉ケアサービス株式会社は介護・生活支援サービスとして部署と資産カテゴリを少なめにする
-- 汎用マスタ種別 `ASSET_CATEGORY` は `generic_master` に1件だけ投入する
-- 会社ごとの資産カテゴリ差分は `generic_master_values.company_id` で表現する
+- 汎用マスタ種別 `REQUEST_TYPE` と `ASSET_CATEGORY` は `generic_master` に投入する
+- 会社ごとの申請種別・資産カテゴリ差分は `generic_master_values.company_id` で表現する
 - seed は明示 ID で投入する
 - bootstrap seed のため `created_by` / `updated_by` は `NULL` にする
 - 申請・資産・履歴・監査ログのサンプルデータは投入しない
@@ -76,11 +76,11 @@
 - `users` が6件であることを確認した
 - `permission_sets` が3件であることを確認した
 - `user_permission_sets` が6件であることを確認した
-- `common_master` が3件であることを確認した
-- `common_master_values` が12件であることを確認した
-- `generic_master` が1件であることを確認した
-- `generic_master_values` が9件であることを確認した
-- `ASSET_CATEGORY` の種別は1件で、会社別の値は `generic_master_values.company_id` で分かれていることを確認した
+- `common_master` が2件であることを確認した
+- `common_master_values` が9件であることを確認した
+- `generic_master` が2件であることを確認した
+- `generic_master_values` が15件であることを確認した
+- `REQUEST_TYPE` と `ASSET_CATEGORY` の種別があり、会社別の値は `generic_master_values.company_id` で分かれていることを確認した
 - `requests` が0件であることを確認した
 - `assets` が0件であることを確認した
 - `cd apps/web && .\mvnw.cmd test` が成功した

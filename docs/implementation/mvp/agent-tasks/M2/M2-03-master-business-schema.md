@@ -66,7 +66,7 @@ M4 以降の申請管理、M5 以降の資産管理、M6 以降のマスタ管�
 - `generic_master_values` に `company_id` を持たせ、会社別の値を表す
 - `requests` は現在状態を持つトランザクションとして定義し、物理削除しないため `is_deleted` を持たせない
 - `assets` は業務マスタ / 台帳として定義し、論理削除用の `is_deleted` を持たせる
-- MVP で不要な資産詳細項目、利用者、設置場所、メーカー、シリアル番号、申請種別値、理由、完了日時は M2-03 の物理カラムに含めない
+- MVP で不要な資産詳細項目、利用者、設置場所、メーカー、シリアル番号、理由、完了日時は M2-03 の物理カラムに含めない
 
 ### 変更ファイル
 
@@ -87,7 +87,7 @@ M4 以降の申請管理、M5 以降の資産管理、M6 以降のマスタ管�
 - `generic_master_values` に `company_id` が存在することを確認した
 - MySQL 上に `request_histories` / `asset_status_histories` / `audit_logs` が存在しないことを確認した
 - `assets` に `assigned_user_id` / `location_value_id` / `manufacturer_value_id` / `serial_number` が存在しないことを確認した
-- `requests` に `request_type_value_id` / `reason` / `completed_at` が存在しないことを確認した
+- `requests` に `request_type_value_id` が存在し、`reason` / `completed_at` が存在しないことを確認した
 - 主要テーブルに `created_by` / `updated_by` が存在することを確認した
 - 対象テーブルの主キー、一意制約、外部キーが存在することを確認した
 - `cd apps/web && .\mvnw.cmd test` が成功した

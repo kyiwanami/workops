@@ -48,14 +48,14 @@ public class RequestCommandService {
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public Long createDraft(RequestForm requestForm) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
-        assertSelectableProcessType(requestForm.processTypeCode());
+        assertSelectableRequestType(requestForm.requestTypeValueId(), currentUser.companyId());
         assertSelectableAsset(requestForm.assetId(), currentUser.companyId());
 
         requestMapper.insertDraft(
                 currentUser.companyId(),
                 currentUser.userId(),
                 requestForm.assetId(),
-                requestForm.processTypeCode(),
+                requestForm.requestTypeValueId(),
                 requestForm.title(),
                 requestForm.content(),
                 currentUser.userId(),
@@ -70,7 +70,7 @@ public class RequestCommandService {
         RequestDetail requestDetail = requestMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請が見つかりません。"));
         assertEditableDraft(requestDetail, currentUser);
-        assertSelectableProcessType(requestForm.processTypeCode());
+        assertSelectableRequestType(requestForm.requestTypeValueId(), currentUser.companyId());
         assertSelectableAsset(requestForm.assetId(), currentUser.companyId());
 
         requestMapper.updateDraftByIdAndCompanyId(
@@ -78,7 +78,7 @@ public class RequestCommandService {
                 currentUser.companyId(),
                 currentUser.userId(),
                 requestForm.assetId(),
-                requestForm.processTypeCode(),
+                requestForm.requestTypeValueId(),
                 requestForm.title(),
                 requestForm.content(),
                 currentUser.userId());
@@ -218,9 +218,9 @@ public class RequestCommandService {
         }
     }
 
-    private void assertSelectableProcessType(String processTypeCode) {
-        if (!requestMapper.existsProcessTypeCode(processTypeCode)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "処理タイプが不正です。");
+    private void assertSelectableRequestType(Long requestTypeValueId, Long companyId) {
+        if (!requestMapper.existsRequestTypeByIdAndCompanyId(requestTypeValueId, companyId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "申請種別が不正です。");
         }
     }
 

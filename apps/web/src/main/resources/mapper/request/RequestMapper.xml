@@ -11,8 +11,9 @@
             <arg column="asset_code" javaType="java.lang.String"/>
             <arg column="asset_name" javaType="java.lang.String"/>
             <arg column="asset_deleted" javaType="java.lang.Boolean"/>
-            <arg column="process_type_code" javaType="java.lang.String"/>
-            <arg column="process_type_name" javaType="java.lang.String"/>
+            <arg column="request_type_value_id" javaType="java.lang.Long"/>
+            <arg column="request_type_code" javaType="java.lang.String"/>
+            <arg column="request_type_name" javaType="java.lang.String"/>
             <arg column="status_code" javaType="java.lang.String"/>
             <arg column="status_name" javaType="java.lang.String"/>
             <arg column="title" javaType="java.lang.String"/>
@@ -31,8 +32,9 @@
             <arg column="asset_name" javaType="java.lang.String"/>
             <arg column="asset_deleted" javaType="java.lang.Boolean"/>
             <arg column="requester_name" javaType="java.lang.String"/>
-            <arg column="process_type_code" javaType="java.lang.String"/>
-            <arg column="process_type_name" javaType="java.lang.String"/>
+            <arg column="request_type_value_id" javaType="java.lang.Long"/>
+            <arg column="request_type_code" javaType="java.lang.String"/>
+            <arg column="request_type_name" javaType="java.lang.String"/>
             <arg column="status_code" javaType="java.lang.String"/>
             <arg column="status_name" javaType="java.lang.String"/>
             <arg column="title" javaType="java.lang.String"/>
@@ -44,8 +46,9 @@
         </constructor>
     </resultMap>
 
-    <resultMap id="RequestProcessTypeOptionMap" type="com.example.workops.request.model.RequestProcessTypeOption">
+    <resultMap id="RequestTypeOptionMap" type="com.example.workops.request.model.RequestTypeOption">
         <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
             <arg column="code" javaType="java.lang.String"/>
             <arg column="name" javaType="java.lang.String"/>
         </constructor>
@@ -67,8 +70,9 @@
         linked_asset.name AS asset_name,
         linked_asset.is_deleted AS asset_deleted,
         requester.name AS requester_name,
-        r.process_type_code AS process_type_code,
-        process_type.name AS process_type_name,
+        r.request_type_value_id AS request_type_value_id,
+        request_type.code AS request_type_code,
+        request_type.name AS request_type_name,
         r.status_code AS status_code,
         request_status.name AS status_name,
         r.title AS title,
@@ -87,8 +91,9 @@
             linked_asset.code AS asset_code,
             linked_asset.name AS asset_name,
             linked_asset.is_deleted AS asset_deleted,
-            r.process_type_code AS process_type_code,
-            process_type.name AS process_type_name,
+            r.request_type_value_id AS request_type_value_id,
+            request_type.code AS request_type_code,
+            request_type.name AS request_type_name,
             r.status_code AS status_code,
             request_status.name AS status_name,
             r.title AS title,
@@ -103,13 +108,14 @@
         LEFT JOIN assets linked_asset
             ON linked_asset.id = r.asset_id
             AND linked_asset.company_id = r.company_id
-        INNER JOIN common_master process_type_master
-            ON process_type_master.code = 'PROCESS_TYPE'
-            AND process_type_master.is_deleted = FALSE
-        INNER JOIN common_master_values process_type
-            ON process_type.common_master_id = process_type_master.id
-            AND process_type.code = r.process_type_code
-            AND process_type.is_deleted = FALSE
+        INNER JOIN generic_master request_type_master
+            ON request_type_master.code = 'REQUEST_TYPE'
+            AND request_type_master.is_deleted = FALSE
+        INNER JOIN generic_master_values request_type
+            ON request_type.generic_master_id = request_type_master.id
+            AND request_type.company_id = r.company_id
+            AND request_type.id = r.request_type_value_id
+            AND request_type.is_deleted = FALSE
         INNER JOIN common_master request_status_master
             ON request_status_master.code = 'REQUEST_STATUS'
             AND request_status_master.is_deleted = FALSE
@@ -132,13 +138,14 @@
         LEFT JOIN assets linked_asset
             ON linked_asset.id = r.asset_id
             AND linked_asset.company_id = r.company_id
-        INNER JOIN common_master process_type_master
-            ON process_type_master.code = 'PROCESS_TYPE'
-            AND process_type_master.is_deleted = FALSE
-        INNER JOIN common_master_values process_type
-            ON process_type.common_master_id = process_type_master.id
-            AND process_type.code = r.process_type_code
-            AND process_type.is_deleted = FALSE
+        INNER JOIN generic_master request_type_master
+            ON request_type_master.code = 'REQUEST_TYPE'
+            AND request_type_master.is_deleted = FALSE
+        INNER JOIN generic_master_values request_type
+            ON request_type.generic_master_id = request_type_master.id
+            AND request_type.company_id = r.company_id
+            AND request_type.id = r.request_type_value_id
+            AND request_type.is_deleted = FALSE
         INNER JOIN common_master request_status_master
             ON request_status_master.code = 'REQUEST_STATUS'
             AND request_status_master.is_deleted = FALSE
@@ -150,18 +157,19 @@
             AND r.company_id = #{companyId}
     </select>
 
-    <select id="findProcessTypeOptions" resultMap="RequestProcessTypeOptionMap">
+    <select id="findRequestTypeOptionsByCompanyId" resultMap="RequestTypeOptionMap">
         SELECT
-            process_type.code AS code,
-            process_type.name AS name
-        FROM common_master process_type_master
-        INNER JOIN common_master_values process_type
-            ON process_type.common_master_id = process_type_master.id
-            AND process_type.is_deleted = FALSE
-        WHERE process_type_master.code = 'PROCESS_TYPE'
-            AND process_type_master.is_deleted = FALSE
-            AND process_type.code IN ('PURCHASE', 'REPAIR', 'DISPOSAL')
-        ORDER BY process_type.sort_order ASC, process_type.id ASC
+            request_type.id AS id,
+            request_type.code AS code,
+            request_type.name AS name
+        FROM generic_master request_type_master
+        INNER JOIN generic_master_values request_type
+            ON request_type.generic_master_id = request_type_master.id
+            AND request_type.company_id = #{companyId}
+            AND request_type.is_deleted = FALSE
+        WHERE request_type_master.code = 'REQUEST_TYPE'
+            AND request_type_master.is_deleted = FALSE
+        ORDER BY request_type.sort_order ASC, request_type.id ASC
     </select>
 
     <select id="findAssetOptionsByCompanyId" resultMap="RequestAssetOptionMap">
@@ -175,17 +183,17 @@
         ORDER BY a.code ASC, a.id ASC
     </select>
 
-    <select id="existsProcessTypeCode" resultType="boolean">
+    <select id="existsRequestTypeByIdAndCompanyId" resultType="boolean">
         SELECT EXISTS(
             SELECT 1
-            FROM common_master process_type_master
-            INNER JOIN common_master_values process_type
-                ON process_type.common_master_id = process_type_master.id
-                AND process_type.is_deleted = FALSE
-            WHERE process_type_master.code = 'PROCESS_TYPE'
-                AND process_type_master.is_deleted = FALSE
-                AND process_type.code = #{processTypeCode}
-                AND process_type.code IN ('PURCHASE', 'REPAIR', 'DISPOSAL')
+            FROM generic_master request_type_master
+            INNER JOIN generic_master_values request_type
+                ON request_type.generic_master_id = request_type_master.id
+                AND request_type.company_id = #{companyId}
+                AND request_type.is_deleted = FALSE
+            WHERE request_type_master.code = 'REQUEST_TYPE'
+                AND request_type_master.is_deleted = FALSE
+                AND request_type.id = #{requestTypeValueId}
         )
     </select>
 
@@ -204,7 +212,7 @@
             company_id,
             requester_user_id,
             asset_id,
-            process_type_code,
+            request_type_value_id,
             status_code,
             title,
             content,
@@ -216,7 +224,7 @@
             #{companyId},
             #{requesterUserId},
             #{assetId},
-            #{processTypeCode},
+            #{requestTypeValueId},
             'DRAFT',
             #{title},
             #{content},
@@ -234,7 +242,7 @@
     <update id="updateDraftByIdAndCompanyId">
         UPDATE requests
         SET asset_id = #{assetId},
-            process_type_code = #{processTypeCode},
+            request_type_value_id = #{requestTypeValueId},
             title = #{title},
             content = #{content},
             updated_by = #{updatedBy}

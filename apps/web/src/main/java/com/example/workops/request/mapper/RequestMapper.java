@@ -10,7 +10,7 @@ import org.apache.ibatis.annotations.Param;
 import com.example.workops.request.model.RequestDetail;
 import com.example.workops.request.model.RequestListItem;
 import com.example.workops.request.model.RequestAssetOption;
-import com.example.workops.request.model.RequestProcessTypeOption;
+import com.example.workops.request.model.RequestTypeOption;
 
 /**
  * 申請管理の参照系SQLを実行するMapper。
@@ -24,11 +24,13 @@ public interface RequestMapper {
             @Param("id") Long id,
             @Param("companyId") Long companyId);
 
-    List<RequestProcessTypeOption> findProcessTypeOptions();
+    List<RequestTypeOption> findRequestTypeOptionsByCompanyId(@Param("companyId") Long companyId);
 
     List<RequestAssetOption> findAssetOptionsByCompanyId(@Param("companyId") Long companyId);
 
-    boolean existsProcessTypeCode(@Param("processTypeCode") String processTypeCode);
+    boolean existsRequestTypeByIdAndCompanyId(
+            @Param("requestTypeValueId") Long requestTypeValueId,
+            @Param("companyId") Long companyId);
 
     boolean existsSelectableAssetByIdAndCompanyId(
             @Param("assetId") Long assetId,
@@ -38,7 +40,7 @@ public interface RequestMapper {
             @Param("companyId") Long companyId,
             @Param("requesterUserId") Long requesterUserId,
             @Param("assetId") Long assetId,
-            @Param("processTypeCode") String processTypeCode,
+            @Param("requestTypeValueId") Long requestTypeValueId,
             @Param("title") String title,
             @Param("content") String content,
             @Param("createdBy") Long createdBy,
@@ -51,7 +53,7 @@ public interface RequestMapper {
             @Param("companyId") Long companyId,
             @Param("requesterUserId") Long requesterUserId,
             @Param("assetId") Long assetId,
-            @Param("processTypeCode") String processTypeCode,
+            @Param("requestTypeValueId") Long requestTypeValueId,
             @Param("title") String title,
             @Param("content") String content,
             @Param("updatedBy") Long updatedBy);

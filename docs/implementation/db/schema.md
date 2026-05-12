@@ -322,7 +322,7 @@ Cognito ログイン時は `cognito_sub` で `users` と突合します。
 | company_id | BIGINT | NO |  | 会社ID |
 | requester_user_id | BIGINT | NO |  | 申請者ユーザーID |
 | asset_id | BIGINT | YES |  | 関連資産ID |
-| process_type_code | VARCHAR(50) | NO |  | 処理種別コード |
+| request_type_value_id | BIGINT | NO |  | 申請種別値ID |
 | status_code | VARCHAR(50) | NO |  | 申請ステータスコード |
 | title | VARCHAR(100) | NO |  | 件名 |
 | content | VARCHAR(2000) | YES |  | 申請内容 |
@@ -339,3 +339,4 @@ Cognito ログイン時は `cognito_sub` で `users` と突合します。
 - `CONSTRAINT fk_requests_company FOREIGN KEY (company_id) REFERENCES companies (id)`
 - `CONSTRAINT fk_requests_requester_user FOREIGN KEY (requester_user_id) REFERENCES users (id)`
 - `CONSTRAINT fk_requests_asset FOREIGN KEY (asset_id) REFERENCES assets (id)`
+- `CONSTRAINT fk_requests_request_type_value FOREIGN KEY (request_type_value_id) REFERENCES generic_master_values (id)`

@@ -43,6 +43,7 @@ class RequestCommandServiceTests {
     private static final Long COMPANY_ID = 1L;
     private static final Long REQUESTER_USER_ID = 2L;
     private static final Long MANAGER_USER_ID = 3L;
+    private static final Long REQUEST_TYPE_VALUE_ID = 10L;
 
     @Autowired
     private RequestCommandService requestCommandService;
@@ -64,17 +65,17 @@ class RequestCommandServiceTests {
     @Test
     void editorCanCreateDraft() {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
-        when(requestMapper.existsProcessTypeCode("PURCHASE")).thenReturn(true);
+        when(requestMapper.existsRequestTypeByIdAndCompanyId(REQUEST_TYPE_VALUE_ID, COMPANY_ID)).thenReturn(true);
         when(requestMapper.findLastInsertId()).thenReturn(200L);
 
-        Long createdId = requestCommandService.createDraft(new RequestForm("PURCHASE", null, "購入申請", "申請内容"));
+        Long createdId = requestCommandService.createDraft(new RequestForm(REQUEST_TYPE_VALUE_ID, null, "購入申請", "申請内容"));
 
         assertThat(createdId).isEqualTo(200L);
         verify(requestMapper).insertDraft(
                 COMPANY_ID,
                 REQUESTER_USER_ID,
                 null,
-                "PURCHASE",
+                REQUEST_TYPE_VALUE_ID,
                 "購入申請",
                 "申請内容",
                 REQUESTER_USER_ID,
@@ -86,16 +87,16 @@ class RequestCommandServiceTests {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
         when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
                 .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT", null)));
-        when(requestMapper.existsProcessTypeCode("REPAIR")).thenReturn(true);
+        when(requestMapper.existsRequestTypeByIdAndCompanyId(REQUEST_TYPE_VALUE_ID, COMPANY_ID)).thenReturn(true);
 
-        requestCommandService.updateDraft(REQUEST_ID, new RequestForm("REPAIR", null, "修理申請", "修理内容"));
+        requestCommandService.updateDraft(REQUEST_ID, new RequestForm(REQUEST_TYPE_VALUE_ID, null, "修理申請", "修理内容"));
 
         verify(requestMapper).updateDraftByIdAndCompanyId(
                 REQUEST_ID,
                 COMPANY_ID,
                 REQUESTER_USER_ID,
                 null,
-                "REPAIR",
+                REQUEST_TYPE_VALUE_ID,
                 "修理申請",
                 "修理内容",
                 REQUESTER_USER_ID);
@@ -198,9 +199,9 @@ class RequestCommandServiceTests {
     void viewerCannotExecuteApplicantOperations() {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_VIEWER", "閲覧者"));
 
-        assertThatThrownBy(() -> requestCommandService.createDraft(new RequestForm("PURCHASE", null, "購入申請", null)))
+        assertThatThrownBy(() -> requestCommandService.createDraft(new RequestForm(REQUEST_TYPE_VALUE_ID, null, "購入申請", null)))
                 .isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm("PURCHASE", null, "購入申請", null)))
+        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm(REQUEST_TYPE_VALUE_ID, null, "購入申請", null)))
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> requestCommandService.submitDraft(REQUEST_ID))
                 .isInstanceOf(AccessDeniedException.class);
@@ -226,7 +227,7 @@ class RequestCommandServiceTests {
         when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
                 .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT", null)));
 
-        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm("PURCHASE", null, "購入申請", null)))
+        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm(REQUEST_TYPE_VALUE_ID, null, "購入申請", null)))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -315,8 +316,9 @@ class RequestCommandServiceTests {
                 null,
                 null,
                 "申請者",
-                "PURCHASE",
-                "購入",
+                REQUEST_TYPE_VALUE_ID,
+                "EQUIPMENT_PURCHASE",
+                "備品購入申請",
                 statusCode,
                 statusCode,
                 "申請件名",

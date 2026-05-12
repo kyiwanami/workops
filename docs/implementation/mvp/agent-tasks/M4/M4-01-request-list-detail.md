@@ -8,7 +8,8 @@
 
 - M4 では申請ワークフローを MVP で成立させる
 - M4 では申請種別マスタ管理は作らない
-- `process_type_code` は申請処理タイプであり、画面上の申請種別管理そのものとして扱わない
+- 申請種別は会社別 `REQUEST_TYPE` の `generic_master_values` を参照する
+- 申請種別ごとのシステム処理分岐は MVP では扱わない
 - 申請種別の登録・編集・停止は M6 で扱う
 - M4 では `asset_id` は任意・未選択中心で扱う
 - 資産紐づけは、M5 で資産カタログが成立した後、M5 後半または M5 後の接続調整で扱う
@@ -27,8 +28,8 @@
 - Mapper SQL の一覧取得では `WHERE requests.company_id = #{companyId}` を必須にする
 - Mapper SQL の詳細取得では `WHERE requests.id = #{id} AND requests.company_id = #{companyId}` を必須にする
 - TENANT_VIEWER / TENANT_EDITOR / TENANT_MANAGER は所属会社内の申請を閲覧できる
-- 一覧と詳細では、申請者、申請処理タイプ、ステータス、件名、提出日時、作成日時、更新日時、承認・却下・差戻しコメントを表示する
-- `PROCESS_TYPE` と `REQUEST_STATUS` の表示名は M2 seed 済みの `common_master` / `common_master_values` を参照する
+- 一覧と詳細では、申請者、申請種別、ステータス、件名、提出日時、作成日時、更新日時、承認・却下・差戻しコメントを表示する
+- 申請種別の表示名は `generic_master_values`、申請ステータスの表示名は `common_master_values` を参照する
 - 一覧から詳細へ遷移できるようにする
 - トップ画面から申請一覧へ遷移できるようにする
 
@@ -86,7 +87,7 @@ local profile でログイン中の DB 由来ユーザーの `companyId` に紐�
 - Controller は `TENANT_VIEWER` / `TENANT_EDITOR` / `TENANT_MANAGER` のいずれかの authority を持つユーザーだけを許可する
 - 一覧取得は `requests.company_id = #{companyId}` を必須条件にする
 - 詳細取得は `requests.id = #{id}` と `requests.company_id = #{companyId}` を必須条件にする
-- 申請処理タイプと申請ステータスの表示名は `common_master` / `common_master_values` から取得する
+- 申請種別の表示名は `generic_master_values`、申請ステータスの表示名は `common_master_values` から取得する
 - M4-01 では参照だけを実装し、作成・編集・提出・承認系操作は追加しない
 - 画面操作確認用の申請 seed は Flyway `V3__insert_request_sample_seed.sql` として追加する
 - README、`docs/implementation/mvp/phases.md` は変更しない
@@ -113,7 +114,7 @@ local profile でログイン中の DB 由来ユーザーの `companyId` に紐�
 - `V3__insert_request_sample_seed.sql` で北浜精密機器株式会社と青葉ケアサービス株式会社にそれぞれ8件、合計16件の申請 seed を投入するようにした
 - `CurrentUserProvider.requireCurrentUser()` を使い、業務Service側で同じ未認証判定を繰り返さないようにした
 - トップ画面から申請一覧へ遷移できるリンクを追加した
-- `PROCESS_TYPE` と `REQUEST_STATUS` は M2 seed 済みの共通マスタ値を表示名として参照するようにした
+- `REQUEST_TYPE` は M2 seed 済みの会社別汎用マスタ値、`REQUEST_STATUS` は共通マスタ値を表示名として参照するようにした
 - `asset_id` は値がある場合に ID として表示し、資産名 JOIN や資産詳細リンクは追加していない
 
 ### 確認結果

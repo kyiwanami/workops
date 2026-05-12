@@ -17,18 +17,18 @@
                 <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
                 <div class="mb-3">
-                    <label for="processTypeCode" class="form-label">処理タイプ</label>
-                    <select id="processTypeCode"
+                    <label for="requestTypeValueId" class="form-label">申請種別</label>
+                    <select id="requestTypeValueId"
                             class="form-select"
-                            th:field="*{processTypeCode}"
-                            th:classappend="${#fields.hasErrors('processTypeCode')} ? ' is-invalid'">
+                            th:field="*{requestTypeValueId}"
+                            th:classappend="${#fields.hasErrors('requestTypeValueId')} ? ' is-invalid'">
                         <option value="">選択してください</option>
-                        <option th:each="option : ${processTypeOptions}"
-                                th:value="${option.code()}"
-                                th:text="${option.name()}">購入</option>
+                        <option th:each="option : ${requestTypeOptions}"
+                                th:value="${option.id()}"
+                                th:text="${option.name()}">備品購入申請</option>
                     </select>
-                    <div class="invalid-feedback" th:if="${#fields.hasErrors('processTypeCode')}" th:errors="*{processTypeCode}">
-                        処理タイプを選択してください。
+                    <div class="invalid-feedback" th:if="${#fields.hasErrors('requestTypeValueId')}" th:errors="*{requestTypeValueId}">
+                        申請種別を選択してください。
                     </div>
                 </div>
 

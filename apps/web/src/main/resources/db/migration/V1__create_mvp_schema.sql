@@ -150,7 +150,7 @@ CREATE TABLE requests (
     company_id BIGINT NOT NULL,
     requester_user_id BIGINT NOT NULL,
     asset_id BIGINT NULL,
-    process_type_code VARCHAR(50) NOT NULL,
+    request_type_value_id BIGINT NOT NULL,
     status_code VARCHAR(50) NOT NULL,
     title VARCHAR(100) NOT NULL,
     content VARCHAR(2000) NULL,
@@ -162,5 +162,6 @@ CREATE TABLE requests (
     updated_by BIGINT NULL,
     CONSTRAINT fk_requests_company FOREIGN KEY (company_id) REFERENCES companies (id),
     CONSTRAINT fk_requests_requester_user FOREIGN KEY (requester_user_id) REFERENCES users (id),
-    CONSTRAINT fk_requests_asset FOREIGN KEY (asset_id) REFERENCES assets (id)
+    CONSTRAINT fk_requests_asset FOREIGN KEY (asset_id) REFERENCES assets (id),
+    CONSTRAINT fk_requests_request_type_value FOREIGN KEY (request_type_value_id) REFERENCES generic_master_values (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

@@ -41,6 +41,7 @@ class RequestAssetLinkServiceTests {
     private static final Long REQUESTER_USER_ID = 2L;
     private static final Long MANAGER_USER_ID = 3L;
     private static final Long ASSET_ID = 10L;
+    private static final Long REQUEST_TYPE_VALUE_ID = 10L;
 
     @Autowired
     private RequestCommandService requestCommandService;
@@ -62,10 +63,10 @@ class RequestAssetLinkServiceTests {
     @Test
     void createDraftAllowsNoAsset() {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
-        when(requestMapper.existsProcessTypeCode("PURCHASE")).thenReturn(true);
+        when(requestMapper.existsRequestTypeByIdAndCompanyId(REQUEST_TYPE_VALUE_ID, COMPANY_ID)).thenReturn(true);
         when(requestMapper.findLastInsertId()).thenReturn(200L);
 
-        Long createdId = requestCommandService.createDraft(new RequestForm("PURCHASE", null, "購入申請", "申請内容"));
+        Long createdId = requestCommandService.createDraft(new RequestForm(REQUEST_TYPE_VALUE_ID, null, "購入申請", "申請内容"));
 
         assertThat(createdId).isEqualTo(200L);
         verify(requestMapper, never()).existsSelectableAssetByIdAndCompanyId(null, COMPANY_ID);
@@ -73,7 +74,7 @@ class RequestAssetLinkServiceTests {
                 COMPANY_ID,
                 REQUESTER_USER_ID,
                 null,
-                "PURCHASE",
+                REQUEST_TYPE_VALUE_ID,
                 "購入申請",
                 "申請内容",
                 REQUESTER_USER_ID,
@@ -83,18 +84,18 @@ class RequestAssetLinkServiceTests {
     @Test
     void createDraftAllowsSelectableAsset() {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
-        when(requestMapper.existsProcessTypeCode("PURCHASE")).thenReturn(true);
+        when(requestMapper.existsRequestTypeByIdAndCompanyId(REQUEST_TYPE_VALUE_ID, COMPANY_ID)).thenReturn(true);
         when(requestMapper.existsSelectableAssetByIdAndCompanyId(ASSET_ID, COMPANY_ID)).thenReturn(true);
         when(requestMapper.findLastInsertId()).thenReturn(201L);
 
-        Long createdId = requestCommandService.createDraft(new RequestForm("PURCHASE", ASSET_ID, "購入申請", "申請内容"));
+        Long createdId = requestCommandService.createDraft(new RequestForm(REQUEST_TYPE_VALUE_ID, ASSET_ID, "購入申請", "申請内容"));
 
         assertThat(createdId).isEqualTo(201L);
         verify(requestMapper).insertDraft(
                 COMPANY_ID,
                 REQUESTER_USER_ID,
                 ASSET_ID,
-                "PURCHASE",
+                REQUEST_TYPE_VALUE_ID,
                 "購入申請",
                 "申請内容",
                 REQUESTER_USER_ID,
@@ -106,17 +107,17 @@ class RequestAssetLinkServiceTests {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
         when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
                 .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT")));
-        when(requestMapper.existsProcessTypeCode("REPAIR")).thenReturn(true);
+        when(requestMapper.existsRequestTypeByIdAndCompanyId(REQUEST_TYPE_VALUE_ID, COMPANY_ID)).thenReturn(true);
         when(requestMapper.existsSelectableAssetByIdAndCompanyId(ASSET_ID, COMPANY_ID)).thenReturn(true);
 
-        requestCommandService.updateDraft(REQUEST_ID, new RequestForm("REPAIR", ASSET_ID, "修理申請", "修理内容"));
+        requestCommandService.updateDraft(REQUEST_ID, new RequestForm(REQUEST_TYPE_VALUE_ID, ASSET_ID, "修理申請", "修理内容"));
 
         verify(requestMapper).updateDraftByIdAndCompanyId(
                 REQUEST_ID,
                 COMPANY_ID,
                 REQUESTER_USER_ID,
                 ASSET_ID,
-                "REPAIR",
+                REQUEST_TYPE_VALUE_ID,
                 "修理申請",
                 "修理内容",
                 REQUESTER_USER_ID);
@@ -127,9 +128,9 @@ class RequestAssetLinkServiceTests {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
         when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
                 .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT")));
-        when(requestMapper.existsProcessTypeCode("REPAIR")).thenReturn(true);
+        when(requestMapper.existsRequestTypeByIdAndCompanyId(REQUEST_TYPE_VALUE_ID, COMPANY_ID)).thenReturn(true);
 
-        requestCommandService.updateDraft(REQUEST_ID, new RequestForm("REPAIR", null, "修理申請", "修理内容"));
+        requestCommandService.updateDraft(REQUEST_ID, new RequestForm(REQUEST_TYPE_VALUE_ID, null, "修理申請", "修理内容"));
 
         verify(requestMapper, never()).existsSelectableAssetByIdAndCompanyId(null, COMPANY_ID);
         verify(requestMapper).updateDraftByIdAndCompanyId(
@@ -137,7 +138,7 @@ class RequestAssetLinkServiceTests {
                 COMPANY_ID,
                 REQUESTER_USER_ID,
                 null,
-                "REPAIR",
+                REQUEST_TYPE_VALUE_ID,
                 "修理申請",
                 "修理内容",
                 REQUESTER_USER_ID);
@@ -146,10 +147,10 @@ class RequestAssetLinkServiceTests {
     @Test
     void createDraftRejectsOtherCompanyOrDeletedAsset() {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
-        when(requestMapper.existsProcessTypeCode("PURCHASE")).thenReturn(true);
+        when(requestMapper.existsRequestTypeByIdAndCompanyId(REQUEST_TYPE_VALUE_ID, COMPANY_ID)).thenReturn(true);
         when(requestMapper.existsSelectableAssetByIdAndCompanyId(ASSET_ID, COMPANY_ID)).thenReturn(false);
 
-        assertThatThrownBy(() -> requestCommandService.createDraft(new RequestForm("PURCHASE", ASSET_ID, "購入申請", "申請内容")))
+        assertThatThrownBy(() -> requestCommandService.createDraft(new RequestForm(REQUEST_TYPE_VALUE_ID, ASSET_ID, "購入申請", "申請内容")))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
@@ -159,12 +160,12 @@ class RequestAssetLinkServiceTests {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
         when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
                 .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT")));
-        when(requestMapper.existsProcessTypeCode("REPAIR")).thenReturn(true);
+        when(requestMapper.existsRequestTypeByIdAndCompanyId(REQUEST_TYPE_VALUE_ID, COMPANY_ID)).thenReturn(true);
         when(requestMapper.existsSelectableAssetByIdAndCompanyId(ASSET_ID, COMPANY_ID)).thenReturn(false);
 
         assertThatThrownBy(() -> requestCommandService.updateDraft(
                 REQUEST_ID,
-                new RequestForm("REPAIR", ASSET_ID, "修理申請", "修理内容")))
+                new RequestForm(REQUEST_TYPE_VALUE_ID, ASSET_ID, "修理申請", "修理内容")))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
@@ -218,8 +219,9 @@ class RequestAssetLinkServiceTests {
                 "テスト資産",
                 false,
                 "申請者",
-                "PURCHASE",
-                "購入",
+                REQUEST_TYPE_VALUE_ID,
+                "EQUIPMENT_PURCHASE",
+                "備品購入申請",
                 statusCode,
                 statusCode,
                 "申請件名",
