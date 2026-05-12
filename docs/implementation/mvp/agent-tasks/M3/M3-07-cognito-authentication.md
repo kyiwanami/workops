@@ -17,7 +17,7 @@ Cognito OAuth2 Login 後も local profile と同じく、Spring Security の `Au
 
 - `apps/web/src/main/java/com/example/workops/common/security/CognitoAuthenticationSuccessHandler.java`
 - `apps/web/src/main/java/com/example/workops/common/security/SecurityConfig.java`
-- `docs/implementation/mvp/agent-tasks/M3-07-cognito-authentication.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-07-cognito-authentication.md`
 
 ## 除外範囲
 
@@ -146,7 +146,7 @@ COMMIT;
 
 - `apps/web/src/main/java/com/example/workops/common/security/CognitoAuthenticationSuccessHandler.java`
 - `apps/web/src/main/java/com/example/workops/common/security/SecurityConfig.java`
-- `docs/implementation/mvp/agent-tasks/M3-07-cognito-authentication.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-07-cognito-authentication.md`
 
 ### 確認結果
 

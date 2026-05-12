@@ -53,7 +53,7 @@ MyBatis を使うための依存関係と配置方針がリポジトリ上にで
 - `apps/web/src/main/java/com/example/workops/common/config/MyBatisConfig.java`
 - `apps/web/src/main/resources/application.yml`
 - `apps/web/src/main/resources/mapper/.gitkeep`
-- `docs/implementation/mvp/agent-tasks/M1-04-mybatis-setup.md`
+- `docs/implementation/mvp/agent-tasks/M1/M1-04-mybatis-setup.md`
 
 ### 確認結果
 

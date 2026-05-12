@@ -24,7 +24,7 @@ local profile でCognito claimを疑似再現せず、ローカル確認用に�
 - `apps/web/src/main/java/com/example/workops/common/security/`
 - `apps/web/src/main/java/com/example/workops/master/mapper/`
 - `apps/web/src/main/resources/mapper/master/UserAccountMapper.xml`
-- `docs/implementation/mvp/agent-tasks/M3-05-local-current-user-provider.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-05-local-current-user-provider.md`
 
 ## 除外範囲
 

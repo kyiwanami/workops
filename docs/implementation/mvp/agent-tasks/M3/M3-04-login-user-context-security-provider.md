@@ -24,7 +24,7 @@ Spring Security OAuth2 Login から Cognito `sub` を取得し、WorkOps 側の�
 - `apps/web/src/main/java/com/example/workops/common/security/`
 - `apps/web/src/main/java/com/example/workops/common/web/AuthClaimsController.java`
 - `apps/web/src/main/resources/templates/auth/claims.html`
-- `docs/implementation/mvp/agent-tasks/M3-04-login-user-context-security-provider.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-04-login-user-context-security-provider.md`
 
 ## 除外範囲
 
@@ -80,7 +80,7 @@ Cognitoログイン後、Spring Security の `OidcUser` から `sub` を取得�
 - `apps/web/src/main/java/com/example/workops/common/security/SecurityCurrentUserProvider.java`
 - `apps/web/src/main/java/com/example/workops/common/web/AuthClaimsController.java`
 - `apps/web/src/main/resources/templates/auth/claims.html`
-- `docs/implementation/mvp/agent-tasks/M3-04-login-user-context-security-provider.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-04-login-user-context-security-provider.md`
 
 ### 確認結果
 

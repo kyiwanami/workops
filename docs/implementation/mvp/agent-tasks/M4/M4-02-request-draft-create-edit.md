@@ -51,7 +51,7 @@
 - `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
 - `apps/web/src/main/resources/templates/request/form.html`
 - `apps/web/src/main/resources/templates/request/detail.html`
-- `docs/implementation/mvp/agent-tasks/M4-02-request-draft-create-edit.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-02-request-draft-create-edit.md`
 
 ## 除外範囲
 
@@ -108,7 +108,7 @@ TENANT_VIEWER、他人の申請、DRAFT 以外の申請は編集・下書き保�
 - `apps/web/src/main/resources/templates/request/list.html`
 - `apps/web/src/main/resources/templates/request/detail.html`
 - `docs/implementation/README.md`
-- `docs/implementation/mvp/agent-tasks/M4-02-request-draft-create-edit.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-02-request-draft-create-edit.md`
 
 ### 実装結果
 

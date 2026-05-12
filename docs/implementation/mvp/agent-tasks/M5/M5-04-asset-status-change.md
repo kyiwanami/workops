@@ -40,7 +40,7 @@ TENANT_EDITOR / TENANT_MANAGER が所属会社の未削除資産の現在ステ�
 - `apps/web/src/main/resources/mapper/asset/AssetMapper.xml`
 - `apps/web/src/main/resources/templates/asset/detail.html`
 - `apps/web/src/main/resources/templates/asset/status-form.html`
-- `docs/implementation/mvp/agent-tasks/M5-04-asset-status-change.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-04-asset-status-change.md`
 
 ## 除外範囲
 
@@ -88,7 +88,7 @@ TENANT_VIEWER、他社資産、論理削除済み資産、不正ステータス�
 - `apps/web/src/main/resources/mapper/asset/AssetMapper.xml`
 - `apps/web/src/main/resources/templates/asset/detail.html`
 - `apps/web/src/main/resources/templates/asset/status-form.html`
-- `docs/implementation/mvp/agent-tasks/M5-04-asset-status-change.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-04-asset-status-change.md`
 
 ### 実装結果
 

@@ -15,7 +15,7 @@ M2 で作成した Flyway DDL と local seed が、local MySQL 上で再現で�
 
 ## 対応ファイル
 
-- `docs/implementation/mvp/agent-tasks/M2-05-db-verification.md`
+- `docs/implementation/mvp/agent-tasks/M2/M2-05-db-verification.md`
 - `README.md`
 
 ## 除外範囲
@@ -54,7 +54,7 @@ README 手順で local DB を作り直し、Flyway で MVP テーブルと local
 ### 変更ファイル
 
 - `README.md`
-- `docs/implementation/mvp/agent-tasks/M2-05-db-verification.md`
+- `docs/implementation/mvp/agent-tasks/M2/M2-05-db-verification.md`
 
 ### 確認SQL
 

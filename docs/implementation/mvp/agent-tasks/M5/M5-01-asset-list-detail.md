@@ -46,7 +46,7 @@
 - `apps/web/src/main/resources/templates/asset/list.html`
 - `apps/web/src/main/resources/templates/asset/detail.html`
 - `apps/web/src/main/resources/templates/index.html`
-- `docs/implementation/mvp/agent-tasks/M5-01-asset-list-detail.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-01-asset-list-detail.md`
 
 ## 除外範囲
 
@@ -95,7 +95,7 @@ local profile でログイン中の DB 由来ユーザーの `companyId` に紐�
 - `apps/web/src/main/resources/templates/asset/detail.html`
 - `apps/web/src/main/resources/templates/index.html`
 - `apps/web/src/main/resources/db/migration/V4__insert_asset_sample_seed.sql`
-- `docs/implementation/mvp/agent-tasks/M5-01-asset-list-detail.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-01-asset-list-detail.md`
 
 ### 実装結果
 

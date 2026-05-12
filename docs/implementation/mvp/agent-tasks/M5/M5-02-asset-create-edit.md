@@ -54,7 +54,7 @@ TENANT_EDITOR / TENANT_MANAGER が所属会社の資産を登録・編集でき�
 - `apps/web/src/main/resources/mapper/asset/AssetMapper.xml`
 - `apps/web/src/main/resources/templates/asset/form.html`
 - `apps/web/src/main/resources/templates/asset/detail.html`
-- `docs/implementation/mvp/agent-tasks/M5-02-asset-create-edit.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-02-asset-create-edit.md`
 
 ## 除外範囲
 
@@ -106,7 +106,7 @@ TENANT_VIEWER、他社資産、論理削除済み資産、不正な資産カテ�
 - `apps/web/src/main/resources/templates/asset/form.html`
 - `apps/web/src/main/resources/templates/asset/list.html`
 - `apps/web/src/main/resources/templates/asset/detail.html`
-- `docs/implementation/mvp/agent-tasks/M5-02-asset-create-edit.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-02-asset-create-edit.md`
 
 ### 実装結果
 

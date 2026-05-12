@@ -51,7 +51,7 @@
 ### 変更ファイル
 
 - `docs/implementation/README.md`
-- `docs/implementation/mvp/agent-tasks/M1-03-thymeleaf-bootstrap.md`
+- `docs/implementation/mvp/agent-tasks/M1/M1-03-thymeleaf-bootstrap.md`
 - `apps/web/src/main/java/com/example/workops/common/web/HomeController.java`
 - `apps/web/src/main/resources/templates/index.html`
 - `apps/web/src/main/resources/templates/layout.html`

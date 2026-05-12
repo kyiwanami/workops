@@ -17,7 +17,7 @@ Cognito テストユーザーでログインし、localhost callback で Spring 
 - `apps/web/src/main/java/com/example/workops/common/security/`
 - `apps/web/src/main/java/com/example/workops/common/web/`
 - `apps/web/src/main/resources/templates/`
-- `docs/implementation/mvp/agent-tasks/M3-03-cognito-hosted-ui-callback.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-03-cognito-hosted-ui-callback.md`
 
 ## 除外範囲
 
@@ -55,7 +55,7 @@ Cognito テストユーザーでログイン後、Spring Boot アプリへ戻り
 - `apps/web/src/main/java/com/example/workops/common/web/AuthClaimsController.java`
 - `apps/web/src/main/resources/templates/auth/claims.html`
 - `apps/web/src/main/resources/templates/index.html`
-- `docs/implementation/mvp/agent-tasks/M3-03-cognito-hosted-ui-callback.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-03-cognito-hosted-ui-callback.md`
 
 ### 確認結果
 

@@ -15,7 +15,7 @@ Cognito OAuth2 Login の最小接続確認に必要な前提を整理し、リ�
 
 ## 対応ファイル
 
-- `docs/implementation/mvp/agent-tasks/M3-01-cognito-prerequisites.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-01-cognito-prerequisites.md`
 - `docs/implementation/mvp/phases.md`
 - `docs/implementation/README.md`
 
@@ -99,7 +99,7 @@ Phase 2 で扱うもの:
 
 ### 変更ファイル
 
-- `docs/implementation/mvp/agent-tasks/M3-01-cognito-prerequisites.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-01-cognito-prerequisites.md`
 - `docs/implementation/README.md`
 
 ### 確認結果

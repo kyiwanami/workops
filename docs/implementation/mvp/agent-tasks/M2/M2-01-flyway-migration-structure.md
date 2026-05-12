@@ -15,7 +15,7 @@ MVP の DB schema を Flyway で再現できる migration 構成を作る。
 ## 対応ファイル
 
 - `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
-- `docs/implementation/mvp/agent-tasks/M2-01-flyway-migration-structure.md`
+- `docs/implementation/mvp/agent-tasks/M2/M2-01-flyway-migration-structure.md`
 
 ## 除外範囲
 
@@ -52,8 +52,8 @@ MVP の DB schema を Flyway で再現できる migration 構成を作る。
 
 - `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
 - `docs/implementation/db/schema.md`
-- `docs/implementation/mvp/agent-tasks/M2-01-flyway-migration-structure.md`
-- `docs/implementation/mvp/agent-tasks/M2-02-tenant-user-permission-schema.md`
+- `docs/implementation/mvp/agent-tasks/M2/M2-01-flyway-migration-structure.md`
+- `docs/implementation/mvp/agent-tasks/M2/M2-02-tenant-user-permission-schema.md`
 
 ### 確認結果
 

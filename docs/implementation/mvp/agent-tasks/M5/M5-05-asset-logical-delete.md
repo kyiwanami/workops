@@ -32,7 +32,7 @@ TENANT_MANAGER が所属会社の未削除資産を論理削除できるよう�
 - `apps/web/src/main/java/com/example/workops/asset/mapper/AssetMapper.java`
 - `apps/web/src/main/resources/mapper/asset/AssetMapper.xml`
 - `apps/web/src/main/resources/templates/asset/detail.html`
-- `docs/implementation/mvp/agent-tasks/M5-05-asset-logical-delete.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-05-asset-logical-delete.md`
 
 ## 除外範囲
 
@@ -79,7 +79,7 @@ TENANT_VIEWER / TENANT_EDITOR、他社資産、論理削除済み資産は削除
 - `apps/web/src/main/resources/mapper/asset/AssetMapper.xml`
 - `apps/web/src/main/resources/templates/asset/detail.html`
 - `apps/web/src/main/resources/templates/asset/list.html`
-- `docs/implementation/mvp/agent-tasks/M5-05-asset-logical-delete.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-05-asset-logical-delete.md`
 
 ### 実装結果
 

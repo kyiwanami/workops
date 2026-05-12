@@ -44,7 +44,7 @@
 - `apps/web/src/main/resources/db/migration/V3__insert_request_sample_seed.sql`
 - `apps/web/src/main/resources/templates/request/detail.html`
 - `apps/web/src/main/resources/templates/index.html`
-- `docs/implementation/mvp/agent-tasks/M4-01-request-list-detail.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-01-request-list-detail.md`
 
 ## 除外範囲
 
@@ -103,7 +103,7 @@ local profile でログイン中の DB 由来ユーザーの `companyId` に紐�
 - `apps/web/src/main/resources/templates/request/detail.html`
 - `apps/web/src/main/resources/templates/request/list.html`
 - `apps/web/src/main/resources/templates/index.html`
-- `docs/implementation/mvp/agent-tasks/M4-01-request-list-detail.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-01-request-list-detail.md`
 
 ### 実装結果
 

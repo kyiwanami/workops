@@ -41,13 +41,13 @@ M5 の資産カタログについて、Service の作成・編集・検索条件
 - `apps/web/src/main/java/com/example/workops/asset/service/AssetCommandService.java`
 - `apps/web/src/main/java/com/example/workops/asset/service/AssetQueryService.java`
 - `apps/web/src/main/java/com/example/workops/request/service/RequestCommandService.java`
-- `docs/implementation/mvp/agent-tasks/M5-07-asset-service-tests.md`
-- `docs/implementation/mvp/agent-tasks/M5-01-asset-list-detail.md`
-- `docs/implementation/mvp/agent-tasks/M5-02-asset-create-edit.md`
-- `docs/implementation/mvp/agent-tasks/M5-03-asset-search-filter.md`
-- `docs/implementation/mvp/agent-tasks/M5-04-asset-status-change.md`
-- `docs/implementation/mvp/agent-tasks/M5-05-asset-logical-delete.md`
-- `docs/implementation/mvp/agent-tasks/M5-06-request-asset-link.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-07-asset-service-tests.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-01-asset-list-detail.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-02-asset-create-edit.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-03-asset-search-filter.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-04-asset-status-change.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-05-asset-logical-delete.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-06-request-asset-link.md`
 
 ## 除外範囲
 
@@ -90,7 +90,7 @@ Mapper / Testcontainers 強化、DB変更、README変更、`phases.md` の modif
 - `apps/web/src/test/java/com/example/workops/asset/service/AssetQueryServiceTests.java`
 - `apps/web/src/test/java/com/example/workops/request/service/RequestAssetLinkServiceTests.java`
 - `apps/web/src/test/java/com/example/workops/request/service/RequestQueryServiceTests.java`
-- `docs/implementation/mvp/agent-tasks/M5-07-asset-service-tests.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-07-asset-service-tests.md`
 
 ### 実装結果
 

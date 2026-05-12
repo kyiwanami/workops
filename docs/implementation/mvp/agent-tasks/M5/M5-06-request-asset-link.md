@@ -43,7 +43,7 @@ M5で資産カタログが成立した後、M4の申請作成・編集・参照�
 - `apps/web/src/main/resources/templates/request/form.html`
 - `apps/web/src/main/resources/templates/request/list.html`
 - `apps/web/src/main/resources/templates/request/detail.html`
-- `docs/implementation/mvp/agent-tasks/M5-06-request-asset-link.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-06-request-asset-link.md`
 
 ## 除外範囲
 
@@ -97,7 +97,7 @@ M5で資産カタログが成立した後、M4の申請作成・編集・参照�
 - `apps/web/src/main/resources/templates/request/list.html`
 - `apps/web/src/main/resources/templates/request/detail.html`
 - `apps/web/src/test/java/com/example/workops/request/service/RequestCommandServiceTests.java`
-- `docs/implementation/mvp/agent-tasks/M5-06-request-asset-link.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-06-request-asset-link.md`
 
 ### 実装結果
 

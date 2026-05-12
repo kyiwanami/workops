@@ -41,7 +41,7 @@
 - `apps/web/src/main/java/com/example/workops/request/model/RequestDetail.java`
 - `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
 - `apps/web/src/main/resources/templates/request/detail.html`
-- `docs/implementation/mvp/agent-tasks/M4-03-request-submit-withdraw.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-03-request-submit-withdraw.md`
 
 ## 除外範囲
 
@@ -99,8 +99,8 @@ TENANT_VIEWER、他人の申請、ステータス不一致の申請は提出・�
 - `apps/web/src/main/java/com/example/workops/request/mapper/RequestMapper.java`
 - `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
 - `apps/web/src/main/resources/templates/request/detail.html`
-- `docs/implementation/mvp/agent-tasks/M4-01-request-list-detail.md`
-- `docs/implementation/mvp/agent-tasks/M4-03-request-submit-withdraw.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-01-request-list-detail.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-03-request-submit-withdraw.md`
 
 ### 実装結果
 

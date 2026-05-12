@@ -46,11 +46,11 @@ M4 の申請ワークフローについて、Service の状態遷移、本人条
 - `apps/web/src/test/java/com/example/workops/request/service/RequestCommandServiceTests.java`
 - `apps/web/src/main/java/com/example/workops/request/service/RequestCommandService.java`
 - `apps/web/src/main/java/com/example/workops/request/mapper/RequestMapper.java`
-- `docs/implementation/mvp/agent-tasks/M4-05-request-service-transition-tests.md`
-- `docs/implementation/mvp/agent-tasks/M4-01-request-list-detail.md`
-- `docs/implementation/mvp/agent-tasks/M4-02-request-draft-create-edit.md`
-- `docs/implementation/mvp/agent-tasks/M4-03-request-submit-withdraw.md`
-- `docs/implementation/mvp/agent-tasks/M4-04-request-review-actions.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-05-request-service-transition-tests.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-01-request-list-detail.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-02-request-draft-create-edit.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-03-request-submit-withdraw.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-04-request-review-actions.md`
 
 ## 除外範囲
 
@@ -96,9 +96,9 @@ Mapper / Testcontainers 強化、DB変更、README変更、`phases.md` の modif
 - `apps/web/src/main/java/com/example/workops/request/mapper/RequestMapper.java`
 - `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
 - `apps/web/src/test/java/com/example/workops/request/service/RequestCommandServiceTests.java`
-- `docs/implementation/mvp/agent-tasks/M4-02-request-draft-create-edit.md`
-- `docs/implementation/mvp/agent-tasks/M4-03-request-submit-withdraw.md`
-- `docs/implementation/mvp/agent-tasks/M4-05-request-service-transition-tests.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-02-request-draft-create-edit.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-03-request-submit-withdraw.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-05-request-service-transition-tests.md`
 
 ### 実装結果
 

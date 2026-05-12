@@ -117,7 +117,7 @@ Java はユーザー方針に従い Java 25 LTS を前提にした。
 - `apps/web/src/test/java/com/example/workops/WorkOpsApplicationTests.java`
 - `infra/cdk/README.md`
 - `docs/implementation/README.md`
-- `docs/implementation/mvp/agent-tasks/M1-01-project-bootstrap.md`
+- `docs/implementation/mvp/agent-tasks/M1/M1-01-project-bootstrap.md`
 
 ## 確認結果
 

@@ -45,7 +45,7 @@ TENANT_MANAGER が SUBMITTED の申請を承認・却下・差戻しできるよ
 - `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
 - `apps/web/src/main/resources/templates/request/detail.html`
 - `apps/web/src/main/resources/templates/request/review-form.html`
-- `docs/implementation/mvp/agent-tasks/M4-04-request-review-actions.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-04-request-review-actions.md`
 
 ## 除外範囲
 
@@ -106,7 +106,7 @@ TENANT_VIEWER / TENANT_EDITOR、ステータス不一致の申請、他社申請
 - `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
 - `apps/web/src/main/resources/templates/request/detail.html`
 - `apps/web/src/main/resources/templates/request/review-form.html`
-- `docs/implementation/mvp/agent-tasks/M4-04-request-review-actions.md`
+- `docs/implementation/mvp/agent-tasks/M4/M4-04-request-review-actions.md`
 
 ### 実装結果
 

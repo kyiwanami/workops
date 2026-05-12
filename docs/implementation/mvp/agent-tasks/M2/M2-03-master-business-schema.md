@@ -21,7 +21,7 @@ MVP のマスタ管理、申請管理、資産管理で使う業務テーブル�
 - `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
 - `docs/implementation/db/schema.md`
 - `docs/implementation/mvp/phases.md`
-- `docs/implementation/mvp/agent-tasks/M2-03-master-business-schema.md`
+- `docs/implementation/mvp/agent-tasks/M2/M2-03-master-business-schema.md`
 
 ## 除外範囲
 
@@ -73,7 +73,7 @@ M4 以降の申請管理、M5 以降の資産管理、M6 以降のマスタ管�
 - `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
 - `docs/implementation/db/schema.md`
 - `docs/implementation/mvp/phases.md`
-- `docs/implementation/mvp/agent-tasks/M2-03-master-business-schema.md`
+- `docs/implementation/mvp/agent-tasks/M2/M2-03-master-business-schema.md`
 
 ### 確認結果
 

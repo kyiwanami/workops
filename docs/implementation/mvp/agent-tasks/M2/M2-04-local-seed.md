@@ -18,7 +18,7 @@
 ## 対応ファイル
 
 - `apps/web/src/main/resources/db/migration/V2__insert_local_seed.sql`
-- `docs/implementation/mvp/agent-tasks/M2-04-local-seed.md`
+- `docs/implementation/mvp/agent-tasks/M2/M2-04-local-seed.md`
 
 ## 除外範囲
 
@@ -62,7 +62,7 @@
 ### 変更ファイル
 
 - `apps/web/src/main/resources/db/migration/V2__insert_local_seed.sql`
-- `docs/implementation/mvp/agent-tasks/M2-04-local-seed.md`
+- `docs/implementation/mvp/agent-tasks/M2/M2-04-local-seed.md`
 
 ### 確認結果
 

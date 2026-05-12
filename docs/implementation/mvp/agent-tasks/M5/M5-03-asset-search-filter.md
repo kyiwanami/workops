@@ -35,7 +35,7 @@
 - `apps/web/src/main/java/com/example/workops/asset/mapper/AssetMapper.java`
 - `apps/web/src/main/resources/mapper/asset/AssetMapper.xml`
 - `apps/web/src/main/resources/templates/asset/list.html`
-- `docs/implementation/mvp/agent-tasks/M5-03-asset-search-filter.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-03-asset-search-filter.md`
 
 ## 除外範囲
 
@@ -79,7 +79,7 @@
 - `apps/web/src/main/java/com/example/workops/asset/mapper/AssetMapper.java`
 - `apps/web/src/main/resources/mapper/asset/AssetMapper.xml`
 - `apps/web/src/main/resources/templates/asset/list.html`
-- `docs/implementation/mvp/agent-tasks/M5-03-asset-search-filter.md`
+- `docs/implementation/mvp/agent-tasks/M5/M5-03-asset-search-filter.md`
 
 ### 実装結果
 

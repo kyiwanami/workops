@@ -17,7 +17,7 @@ Service 層で会社境界と権限セットに基づく簡易認可を行う土
 
 - `apps/web/src/main/java/com/example/workops/common/security/`
 - `apps/web/src/main/java/com/example/workops/common/exception/`
-- `docs/implementation/mvp/agent-tasks/M3-06-service-authorization-foundation.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-06-service-authorization-foundation.md`
 
 ## 除外範囲
 
@@ -88,7 +88,7 @@ public void approve(Long requestId) {
 - `apps/web/src/main/resources/templates/auth/authorization-manager.html`
 - `apps/web/src/main/resources/templates/index.html`
 - `apps/web/src/test/java/com/example/workops/common/security/MethodSecurityPreAuthorizeTests.java`
-- `docs/implementation/mvp/agent-tasks/M3-06-service-authorization-foundation.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-06-service-authorization-foundation.md`
 
 ### 確認結果
 

@@ -54,7 +54,7 @@ README に従って M1 時点のアプリ起動確認ができる。
 
 - `README.md`
 - `AGENTS.md`
-- `docs/implementation/mvp/agent-tasks/M1-05-readme-local-setup.md`
+- `docs/implementation/mvp/agent-tasks/M1/M1-05-readme-local-setup.md`
 
 ### 確認結果
 

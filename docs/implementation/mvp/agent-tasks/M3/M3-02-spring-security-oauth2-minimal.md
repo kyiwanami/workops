@@ -22,7 +22,7 @@ Spring Security OAuth2 Login を最小構成で導入し、Cognito Hosted UI / m
 - `apps/web/src/main/java/com/example/workops/common/security/`
 - `README.md`
 - `docs/implementation/README.md`
-- `docs/implementation/mvp/agent-tasks/M3-02-spring-security-oauth2-minimal.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-02-spring-security-oauth2-minimal.md`
 
 ## 除外範囲
 
@@ -67,7 +67,7 @@ Spring Security OAuth2 Login を最小構成で導入し、Cognito Hosted UI / m
 - `apps/web/src/main/java/com/example/workops/common/security/SecurityConfig.java`
 - `README.md`
 - `docs/implementation/README.md`
-- `docs/implementation/mvp/agent-tasks/M3-02-spring-security-oauth2-minimal.md`
+- `docs/implementation/mvp/agent-tasks/M3/M3-02-spring-security-oauth2-minimal.md`
 
 ### 確認結果
 
