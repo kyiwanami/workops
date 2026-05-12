@@ -81,4 +81,9 @@ public interface AssetMapper {
             @Param("companyId") Long companyId,
             @Param("statusCode") String statusCode,
             @Param("updatedBy") Long updatedBy);
+
+    int logicalDeleteAssetByIdAndCompanyId(
+            @Param("id") Long id,
+            @Param("companyId") Long companyId,
+            @Param("updatedBy") Long updatedBy);
 }

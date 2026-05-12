@@ -81,6 +81,7 @@ public class AssetController {
         model.addAttribute("asset", asset);
         model.addAttribute("canEdit", assetQueryService.canEditAsset(asset));
         model.addAttribute("canChangeStatus", assetQueryService.canChangeStatus(asset));
+        model.addAttribute("canDelete", assetQueryService.canDeleteAsset(asset));
         return "asset/detail";
     }
 
@@ -143,6 +144,14 @@ public class AssetController {
         assetCommandService.updateStatus(id, assetStatusForm);
         redirectAttributes.addFlashAttribute("message", "資産ステータスを変更しました。");
         return "redirect:/assets/" + id;
+    }
+
+    @PostMapping("/assets/{id}/delete")
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public String delete(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        assetCommandService.deleteAsset(id);
+        redirectAttributes.addFlashAttribute("message", "資産を削除しました。");
+        return "redirect:/assets";
     }
 
     private void prepareFormModel(Model model, boolean edit, Long assetId) {

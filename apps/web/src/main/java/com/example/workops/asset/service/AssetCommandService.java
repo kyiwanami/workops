@@ -103,6 +103,19 @@ public class AssetCommandService {
                 currentUser.userId());
     }
 
+    @Transactional
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public void deleteAsset(Long id) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        assetMapper.findDetailByIdAndCompanyId(id, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "資産が見つかりません。"));
+
+        assetMapper.logicalDeleteAssetByIdAndCompanyId(
+                id,
+                currentUser.companyId(),
+                currentUser.userId());
+    }
+
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public boolean isDuplicateCodeForCreate(String code) {

@@ -109,8 +109,27 @@
             </div>
         </div>
     </section>
+
+    <div th:if="${message}" class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="asset-list-toast" class="toast text-bg-success border-0" role="status" data-bs-delay="4000">
+            <div class="d-flex">
+                <div class="toast-body" th:text="${message}">
+                    資産を削除しました。
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
 </main>
 
 <footer th:replace="~{layout :: footer}"></footer>
+<script th:if="${message}">
+    document.addEventListener('DOMContentLoaded', () => {
+        const toastElement = document.getElementById('asset-list-toast');
+        if (toastElement) {
+            bootstrap.Toast.getOrCreateInstance(toastElement).show();
+        }
+    });
+</script>
 </body>
 </html>

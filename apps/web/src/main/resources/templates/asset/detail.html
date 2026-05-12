@@ -21,6 +21,11 @@
                 <div class="d-flex gap-2">
                     <a th:if="${canEdit}" class="btn btn-primary btn-sm" th:href="@{/assets/{id}/edit(id=${asset.id()})}">編集</a>
                     <a th:if="${canChangeStatus}" class="btn btn-outline-primary btn-sm" th:href="@{/assets/{id}/status(id=${asset.id()})}">ステータス変更</a>
+                    <button th:if="${canDelete}"
+                            type="button"
+                            class="btn btn-outline-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteAssetModal">削除</button>
                     <a class="btn btn-outline-secondary btn-sm" th:href="@{/assets}">一覧へ戻る</a>
                 </div>
             </div>
@@ -61,6 +66,28 @@
             </dl>
         </div>
     </section>
+
+    <div th:if="${canDelete}" class="modal fade" id="deleteAssetModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5">資産を削除します</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">この資産を削除してよろしいですか？</p>
+                    <p class="mb-0 fw-semibold" th:text="${asset.code() + ' / ' + asset.name()}">KTHM-NB-001 / 営業部ノートPC-001</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <form method="post" th:action="@{/assets/{id}/delete(id=${asset.id()})}">
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" class="btn btn-danger">削除する</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div th:if="${message}" class="toast-container position-fixed bottom-0 end-0 p-3">
         <div id="asset-save-toast" class="toast text-bg-success border-0" role="status" data-bs-delay="4000">
