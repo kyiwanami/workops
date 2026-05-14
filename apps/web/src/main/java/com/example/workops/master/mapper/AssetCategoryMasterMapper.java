@@ -18,6 +18,8 @@ public interface AssetCategoryMasterMapper {
 
     Optional<Long> findAssetCategoryMasterId();
 
+    Long findLastInsertId();
+
     List<AssetCategoryMasterListItem> findListByCompanyIdAndSearchForm(
             @Param("companyId") Long companyId,
             @Param("assetCategoryMasterSearchForm") AssetCategoryMasterSearchForm assetCategoryMasterSearchForm);

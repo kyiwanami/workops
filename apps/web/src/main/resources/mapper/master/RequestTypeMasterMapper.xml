@@ -44,6 +44,10 @@
             AND request_type_master.is_deleted = FALSE
     </select>
 
+    <select id="findLastInsertId" resultType="java.lang.Long">
+        SELECT LAST_INSERT_ID()
+    </select>
+
     <select id="findListByCompanyIdAndSearchForm" resultMap="RequestTypeMasterListItemMap">
         SELECT
             <include refid="RequestTypeMasterValueColumns"/>

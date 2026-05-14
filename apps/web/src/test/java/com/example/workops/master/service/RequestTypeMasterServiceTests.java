@@ -1,9 +1,11 @@
 package com.example.workops.master.service;
 
+import java.lang.reflect.RecordComponent;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.workops.common.logging.OperationLogRecord;
+import com.example.workops.common.logging.OperationLogger;
 import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
 import com.example.workops.common.security.PermissionSetContext;
@@ -33,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -51,9 +56,12 @@ class RequestTypeMasterServiceTests {
     @Autowired
     private RequestTypeMasterMapper requestTypeMasterMapper;
 
+    @Autowired
+    private OperationLogger operationLogger;
+
     @BeforeEach
     void setUp() {
-        reset(requestTypeMasterMapper);
+        reset(requestTypeMasterMapper, operationLogger);
         SecurityContextHolder.clearContext();
     }
 
@@ -81,9 +89,11 @@ class RequestTypeMasterServiceTests {
         signIn(MANAGER_USER_ID, COMPANY_ID, permission("TENANT_MANAGER", "管理者"));
         when(requestTypeMasterMapper.existsCodeByCompanyId(COMPANY_ID, "PURCHASE")).thenReturn(false);
         when(requestTypeMasterMapper.findRequestTypeMasterId()).thenReturn(Optional.of(GENERIC_MASTER_ID));
+        when(requestTypeMasterMapper.findLastInsertId()).thenReturn(30L);
 
         requestTypeMasterService.create(requestTypeMasterForm());
 
+        assertSuccessLog("REQUEST_TYPE_CREATE", 30L);
         verify(requestTypeMasterMapper).insertRequestType(
                 GENERIC_MASTER_ID,
                 COMPANY_ID,
@@ -102,6 +112,7 @@ class RequestTypeMasterServiceTests {
 
         requestTypeMasterService.update(MASTER_VALUE_ID, requestTypeMasterForm());
 
+        assertSuccessLog("REQUEST_TYPE_UPDATE", MASTER_VALUE_ID);
         verify(requestTypeMasterMapper).updateActiveByIdAndCompanyId(
                 MASTER_VALUE_ID,
                 COMPANY_ID,
@@ -118,6 +129,7 @@ class RequestTypeMasterServiceTests {
 
         requestTypeMasterService.delete(MASTER_VALUE_ID);
 
+        assertSuccessLog("REQUEST_TYPE_DELETE", MASTER_VALUE_ID);
         verify(requestTypeMasterMapper).logicalDeleteActiveByIdAndCompanyId(
                 MASTER_VALUE_ID,
                 COMPANY_ID,
@@ -132,6 +144,7 @@ class RequestTypeMasterServiceTests {
 
         requestTypeMasterService.restore(MASTER_VALUE_ID);
 
+        assertSuccessLog("REQUEST_TYPE_RESTORE", MASTER_VALUE_ID);
         verify(requestTypeMasterMapper).restoreDeletedByIdAndCompanyId(
                 MASTER_VALUE_ID,
                 COMPANY_ID,
@@ -154,6 +167,7 @@ class RequestTypeMasterServiceTests {
                 10,
                 MANAGER_USER_ID,
                 MANAGER_USER_ID);
+        assertRejectedLog("REQUEST_TYPE_CREATE", null, "DUPLICATE_MASTER_VALUE_CODE");
     }
 
     @Test
@@ -173,6 +187,7 @@ class RequestTypeMasterServiceTests {
                 10,
                 MANAGER_USER_ID,
                 MANAGER_USER_ID);
+        verifyNoInteractions(operationLogger);
     }
 
     @Test
@@ -197,6 +212,10 @@ class RequestTypeMasterServiceTests {
                 MASTER_VALUE_ID,
                 COMPANY_ID,
                 MANAGER_USER_ID);
+        assertRejectedLogs(
+                List.of("REQUEST_TYPE_UPDATE", "REQUEST_TYPE_DELETE"),
+                List.of(MASTER_VALUE_ID, MASTER_VALUE_ID),
+                List.of("MASTER_VALUE_NOT_FOUND_OR_FORBIDDEN", "MASTER_VALUE_NOT_FOUND_OR_FORBIDDEN"));
     }
 
     @Test
@@ -212,6 +231,7 @@ class RequestTypeMasterServiceTests {
                 MASTER_VALUE_ID,
                 COMPANY_ID,
                 MANAGER_USER_ID);
+        assertRejectedLog("REQUEST_TYPE_RESTORE", MASTER_VALUE_ID, "MASTER_VALUE_NOT_FOUND_OR_NOT_DELETED");
     }
 
     @Test
@@ -229,6 +249,7 @@ class RequestTypeMasterServiceTests {
         assertThatThrownBy(() -> requestTypeMasterService.restore(MASTER_VALUE_ID))
                 .isInstanceOf(AccessDeniedException.class);
         verifyNoInteractions(requestTypeMasterMapper);
+        verifyNoInteractions(operationLogger);
     }
 
     @Test
@@ -246,6 +267,52 @@ class RequestTypeMasterServiceTests {
         assertThatThrownBy(() -> requestTypeMasterService.restore(MASTER_VALUE_ID))
                 .isInstanceOf(AccessDeniedException.class);
         verifyNoInteractions(requestTypeMasterMapper);
+        verifyNoInteractions(operationLogger);
+    }
+
+    private void assertSuccessLog(String operation, Long targetId) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger).logSuccess(captor.capture());
+        assertOperationLogRecord(captor.getValue(), operation, targetId, null, null);
+    }
+
+    private void assertRejectedLog(String operation, Long targetId, String reasonCode) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger).logRejected(captor.capture());
+        assertOperationLogRecord(captor.getValue(), operation, targetId, reasonCode, "ResponseStatusException");
+    }
+
+    private void assertRejectedLogs(List<String> operations, List<Long> targetIds, List<String> reasonCodes) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger, times(operations.size())).logRejected(captor.capture());
+
+        List<OperationLogRecord> records = captor.getAllValues();
+        for (int i = 0; i < records.size(); i++) {
+            assertOperationLogRecord(
+                    records.get(i),
+                    operations.get(i),
+                    targetIds.get(i),
+                    reasonCodes.get(i),
+                    "ResponseStatusException");
+        }
+    }
+
+    private void assertOperationLogRecord(
+            OperationLogRecord record,
+            String operation,
+            Long targetId,
+            String reasonCode,
+            String exceptionType) {
+        assertThat(record.loginUserContext().companyId()).isEqualTo(COMPANY_ID);
+        assertThat(record.operation()).isEqualTo(operation);
+        assertThat(record.targetType()).isEqualTo("GENERIC_MASTER_VALUE");
+        assertThat(record.targetId()).isEqualTo(targetId);
+        assertThat(record.reasonCode()).isEqualTo(reasonCode);
+        assertThat(record.reasonCommentPresent()).isFalse();
+        assertThat(record.exceptionType()).isEqualTo(exceptionType);
+        assertThat(record.getClass().getRecordComponents())
+                .extracting(RecordComponent::getName)
+                .doesNotContain("masterName", "name", "email", "fullName", "content");
     }
 
     private void signIn(Long userId, Long companyId, PermissionSetContext permissionSet) {
@@ -307,10 +374,16 @@ class RequestTypeMasterServiceTests {
         }
 
         @Bean
+        OperationLogger operationLogger() {
+            return mock(OperationLogger.class);
+        }
+
+        @Bean
         RequestTypeMasterService requestTypeMasterService(
                 CurrentUserProvider currentUserProvider,
-                RequestTypeMasterMapper requestTypeMasterMapper) {
-            return new RequestTypeMasterService(currentUserProvider, requestTypeMasterMapper);
+                RequestTypeMasterMapper requestTypeMasterMapper,
+                OperationLogger operationLogger) {
+            return new RequestTypeMasterService(currentUserProvider, requestTypeMasterMapper, operationLogger);
         }
     }
 }

@@ -18,6 +18,8 @@ public interface RequestTypeMasterMapper {
 
     Optional<Long> findRequestTypeMasterId();
 
+    Long findLastInsertId();
+
     List<RequestTypeMasterListItem> findListByCompanyIdAndSearchForm(
             @Param("companyId") Long companyId,
             @Param("requestTypeMasterSearchForm") RequestTypeMasterSearchForm requestTypeMasterSearchForm);

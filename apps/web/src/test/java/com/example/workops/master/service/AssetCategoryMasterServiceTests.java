@@ -1,9 +1,11 @@
 package com.example.workops.master.service;
 
+import java.lang.reflect.RecordComponent;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.workops.common.logging.OperationLogRecord;
+import com.example.workops.common.logging.OperationLogger;
 import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
 import com.example.workops.common.security.PermissionSetContext;
@@ -33,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -51,9 +56,12 @@ class AssetCategoryMasterServiceTests {
     @Autowired
     private AssetCategoryMasterMapper assetCategoryMasterMapper;
 
+    @Autowired
+    private OperationLogger operationLogger;
+
     @BeforeEach
     void setUp() {
-        reset(assetCategoryMasterMapper);
+        reset(assetCategoryMasterMapper, operationLogger);
         SecurityContextHolder.clearContext();
     }
 
@@ -81,9 +89,11 @@ class AssetCategoryMasterServiceTests {
         signIn(MANAGER_USER_ID, COMPANY_ID, permission("TENANT_MANAGER", "管理者"));
         when(assetCategoryMasterMapper.existsCodeByCompanyId(COMPANY_ID, "LAPTOP")).thenReturn(false);
         when(assetCategoryMasterMapper.findAssetCategoryMasterId()).thenReturn(Optional.of(GENERIC_MASTER_ID));
+        when(assetCategoryMasterMapper.findLastInsertId()).thenReturn(30L);
 
         assetCategoryMasterService.create(assetCategoryMasterForm());
 
+        assertSuccessLog("ASSET_CATEGORY_CREATE", 30L);
         verify(assetCategoryMasterMapper).insertAssetCategory(
                 GENERIC_MASTER_ID,
                 COMPANY_ID,
@@ -102,6 +112,7 @@ class AssetCategoryMasterServiceTests {
 
         assetCategoryMasterService.update(MASTER_VALUE_ID, assetCategoryMasterForm());
 
+        assertSuccessLog("ASSET_CATEGORY_UPDATE", MASTER_VALUE_ID);
         verify(assetCategoryMasterMapper).updateActiveByIdAndCompanyId(
                 MASTER_VALUE_ID,
                 COMPANY_ID,
@@ -118,6 +129,7 @@ class AssetCategoryMasterServiceTests {
 
         assetCategoryMasterService.delete(MASTER_VALUE_ID);
 
+        assertSuccessLog("ASSET_CATEGORY_DELETE", MASTER_VALUE_ID);
         verify(assetCategoryMasterMapper).logicalDeleteActiveByIdAndCompanyId(
                 MASTER_VALUE_ID,
                 COMPANY_ID,
@@ -132,6 +144,7 @@ class AssetCategoryMasterServiceTests {
 
         assetCategoryMasterService.restore(MASTER_VALUE_ID);
 
+        assertSuccessLog("ASSET_CATEGORY_RESTORE", MASTER_VALUE_ID);
         verify(assetCategoryMasterMapper).restoreDeletedByIdAndCompanyId(
                 MASTER_VALUE_ID,
                 COMPANY_ID,
@@ -154,6 +167,7 @@ class AssetCategoryMasterServiceTests {
                 10,
                 MANAGER_USER_ID,
                 MANAGER_USER_ID);
+        assertRejectedLog("ASSET_CATEGORY_CREATE", null, "DUPLICATE_MASTER_VALUE_CODE");
     }
 
     @Test
@@ -173,6 +187,7 @@ class AssetCategoryMasterServiceTests {
                 10,
                 MANAGER_USER_ID,
                 MANAGER_USER_ID);
+        verifyNoInteractions(operationLogger);
     }
 
     @Test
@@ -197,6 +212,10 @@ class AssetCategoryMasterServiceTests {
                 MASTER_VALUE_ID,
                 COMPANY_ID,
                 MANAGER_USER_ID);
+        assertRejectedLogs(
+                List.of("ASSET_CATEGORY_UPDATE", "ASSET_CATEGORY_DELETE"),
+                List.of(MASTER_VALUE_ID, MASTER_VALUE_ID),
+                List.of("MASTER_VALUE_NOT_FOUND_OR_FORBIDDEN", "MASTER_VALUE_NOT_FOUND_OR_FORBIDDEN"));
     }
 
     @Test
@@ -212,6 +231,7 @@ class AssetCategoryMasterServiceTests {
                 MASTER_VALUE_ID,
                 COMPANY_ID,
                 MANAGER_USER_ID);
+        assertRejectedLog("ASSET_CATEGORY_RESTORE", MASTER_VALUE_ID, "MASTER_VALUE_NOT_FOUND_OR_NOT_DELETED");
     }
 
     @Test
@@ -229,6 +249,7 @@ class AssetCategoryMasterServiceTests {
         assertThatThrownBy(() -> assetCategoryMasterService.restore(MASTER_VALUE_ID))
                 .isInstanceOf(AccessDeniedException.class);
         verifyNoInteractions(assetCategoryMasterMapper);
+        verifyNoInteractions(operationLogger);
     }
 
     @Test
@@ -246,6 +267,52 @@ class AssetCategoryMasterServiceTests {
         assertThatThrownBy(() -> assetCategoryMasterService.restore(MASTER_VALUE_ID))
                 .isInstanceOf(AccessDeniedException.class);
         verifyNoInteractions(assetCategoryMasterMapper);
+        verifyNoInteractions(operationLogger);
+    }
+
+    private void assertSuccessLog(String operation, Long targetId) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger).logSuccess(captor.capture());
+        assertOperationLogRecord(captor.getValue(), operation, targetId, null, null);
+    }
+
+    private void assertRejectedLog(String operation, Long targetId, String reasonCode) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger).logRejected(captor.capture());
+        assertOperationLogRecord(captor.getValue(), operation, targetId, reasonCode, "ResponseStatusException");
+    }
+
+    private void assertRejectedLogs(List<String> operations, List<Long> targetIds, List<String> reasonCodes) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger, times(operations.size())).logRejected(captor.capture());
+
+        List<OperationLogRecord> records = captor.getAllValues();
+        for (int i = 0; i < records.size(); i++) {
+            assertOperationLogRecord(
+                    records.get(i),
+                    operations.get(i),
+                    targetIds.get(i),
+                    reasonCodes.get(i),
+                    "ResponseStatusException");
+        }
+    }
+
+    private void assertOperationLogRecord(
+            OperationLogRecord record,
+            String operation,
+            Long targetId,
+            String reasonCode,
+            String exceptionType) {
+        assertThat(record.loginUserContext().companyId()).isEqualTo(COMPANY_ID);
+        assertThat(record.operation()).isEqualTo(operation);
+        assertThat(record.targetType()).isEqualTo("GENERIC_MASTER_VALUE");
+        assertThat(record.targetId()).isEqualTo(targetId);
+        assertThat(record.reasonCode()).isEqualTo(reasonCode);
+        assertThat(record.reasonCommentPresent()).isFalse();
+        assertThat(record.exceptionType()).isEqualTo(exceptionType);
+        assertThat(record.getClass().getRecordComponents())
+                .extracting(RecordComponent::getName)
+                .doesNotContain("masterName", "name", "email", "fullName", "content");
     }
 
     private void signIn(Long userId, Long companyId, PermissionSetContext permissionSet) {
@@ -307,10 +374,16 @@ class AssetCategoryMasterServiceTests {
         }
 
         @Bean
+        OperationLogger operationLogger() {
+            return mock(OperationLogger.class);
+        }
+
+        @Bean
         AssetCategoryMasterService assetCategoryMasterService(
                 CurrentUserProvider currentUserProvider,
-                AssetCategoryMasterMapper assetCategoryMasterMapper) {
-            return new AssetCategoryMasterService(currentUserProvider, assetCategoryMasterMapper);
+                AssetCategoryMasterMapper assetCategoryMasterMapper,
+                OperationLogger operationLogger) {
+            return new AssetCategoryMasterService(currentUserProvider, assetCategoryMasterMapper, operationLogger);
         }
     }
 }

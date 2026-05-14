@@ -44,6 +44,10 @@
             AND asset_category_master.is_deleted = FALSE
     </select>
 
+    <select id="findLastInsertId" resultType="java.lang.Long">
+        SELECT LAST_INSERT_ID()
+    </select>
+
     <select id="findListByCompanyIdAndSearchForm" resultMap="AssetCategoryMasterListItemMap">
         SELECT
             <include refid="AssetCategoryMasterValueColumns"/>
