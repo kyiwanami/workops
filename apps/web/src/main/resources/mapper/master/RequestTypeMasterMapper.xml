@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.workops.master.mapper.RequestTypeMasterMapper">
+    <resultMap id="RequestTypeMasterListItemMap" type="com.example.workops.master.model.RequestTypeMasterListItem">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="java.lang.Integer"/>
+            <arg column="is_deleted" javaType="java.lang.Boolean"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="RequestTypeMasterDetailMap" type="com.example.workops.master.model.RequestTypeMasterDetail">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="java.lang.Integer"/>
+            <arg column="is_deleted" javaType="java.lang.Boolean"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="RequestTypeMasterValueColumns">
+        request_type.id AS id,
+        request_type.code AS code,
+        request_type.name AS name,
+        request_type.sort_order AS sort_order,
+        request_type.is_deleted AS is_deleted,
+        request_type.created_at AS created_at,
+        request_type.updated_at AS updated_at
+    </sql>
+
+    <select id="findRequestTypeMasterId" resultType="java.lang.Long">
+        SELECT request_type_master.id
+        FROM generic_master request_type_master
+        WHERE request_type_master.code = 'REQUEST_TYPE'
+            AND request_type_master.is_deleted = FALSE
+    </select>
+
+    <select id="findListByCompanyIdAndSearchForm" resultMap="RequestTypeMasterListItemMap">
+        SELECT
+            <include refid="RequestTypeMasterValueColumns"/>
+        FROM generic_master request_type_master
+        INNER JOIN generic_master_values request_type
+            ON request_type.generic_master_id = request_type_master.id
+            AND request_type.company_id = #{companyId}
+        WHERE request_type_master.code = 'REQUEST_TYPE'
+            AND request_type_master.is_deleted = FALSE
+            <if test="requestTypeMasterSearchForm.showDeleted != true">
+                AND request_type.is_deleted = FALSE
+            </if>
+        ORDER BY request_type.sort_order ASC, request_type.id ASC
+    </select>
+
+    <select id="findActiveByIdAndCompanyId" resultMap="RequestTypeMasterDetailMap">
+        SELECT
+            <include refid="RequestTypeMasterValueColumns"/>
+        FROM generic_master request_type_master
+        INNER JOIN generic_master_values request_type
+            ON request_type.generic_master_id = request_type_master.id
+            AND request_type.company_id = #{companyId}
+        WHERE request_type_master.code = 'REQUEST_TYPE'
+            AND request_type_master.is_deleted = FALSE
+            AND request_type.id = #{id}
+            AND request_type.is_deleted = FALSE
+    </select>
+
+    <select id="findDeletedByIdAndCompanyId" resultMap="RequestTypeMasterDetailMap">
+        SELECT
+            <include refid="RequestTypeMasterValueColumns"/>
+        FROM generic_master request_type_master
+        INNER JOIN generic_master_values request_type
+            ON request_type.generic_master_id = request_type_master.id
+            AND request_type.company_id = #{companyId}
+        WHERE request_type_master.code = 'REQUEST_TYPE'
+            AND request_type_master.is_deleted = FALSE
+            AND request_type.id = #{id}
+            AND request_type.is_deleted = TRUE
+    </select>
+
+    <select id="existsCodeByCompanyId" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM generic_master request_type_master
+            INNER JOIN generic_master_values request_type
+                ON request_type.generic_master_id = request_type_master.id
+                AND request_type.company_id = #{companyId}
+            WHERE request_type_master.code = 'REQUEST_TYPE'
+                AND request_type_master.is_deleted = FALSE
+                AND request_type.code = #{code}
+        )
+    </select>
+
+    <insert id="insertRequestType">
+        INSERT INTO generic_master_values (
+            generic_master_id,
+            company_id,
+            code,
+            name,
+            sort_order,
+            is_deleted,
+            created_by,
+            updated_by
+        ) VALUES (
+            #{genericMasterId},
+            #{companyId},
+            #{code},
+            #{name},
+            #{sortOrder},
+            FALSE,
+            #{createdBy},
+            #{updatedBy}
+        )
+    </insert>
+
+    <update id="updateActiveByIdAndCompanyId">
+        UPDATE generic_master_values request_type
+        INNER JOIN generic_master request_type_master
+            ON request_type_master.id = request_type.generic_master_id
+            AND request_type_master.code = 'REQUEST_TYPE'
+            AND request_type_master.is_deleted = FALSE
+        SET request_type.name = #{name},
+            request_type.sort_order = #{sortOrder},
+            request_type.updated_by = #{updatedBy}
+        WHERE request_type.id = #{id}
+            AND request_type.company_id = #{companyId}
+            AND request_type.is_deleted = FALSE
+    </update>
+
+    <update id="logicalDeleteActiveByIdAndCompanyId">
+        UPDATE generic_master_values request_type
+        INNER JOIN generic_master request_type_master
+            ON request_type_master.id = request_type.generic_master_id
+            AND request_type_master.code = 'REQUEST_TYPE'
+            AND request_type_master.is_deleted = FALSE
+        SET request_type.is_deleted = TRUE,
+            request_type.updated_by = #{updatedBy}
+        WHERE request_type.id = #{id}
+            AND request_type.company_id = #{companyId}
+            AND request_type.is_deleted = FALSE
+    </update>
+
+    <update id="restoreDeletedByIdAndCompanyId">
+        UPDATE generic_master_values request_type
+        INNER JOIN generic_master request_type_master
+            ON request_type_master.id = request_type.generic_master_id
+            AND request_type_master.code = 'REQUEST_TYPE'
+            AND request_type_master.is_deleted = FALSE
+        SET request_type.is_deleted = FALSE,
+            request_type.updated_by = #{updatedBy}
+        WHERE request_type.id = #{id}
+            AND request_type.company_id = #{companyId}
+            AND request_type.is_deleted = TRUE
+    </update>
+</mapper>

@@ -18,6 +18,8 @@
 - 「削除済みも表示」時は、`is_deleted = TRUE` の行も一覧に表示する
 - 削除済み行は状態として「削除済み」と分かるように表示する
 - 削除済み行に対する通常編集は許可せず、操作は復活だけにする
+- 資産分類の論理削除操作は、一覧画面上の確認モーダルを経由して POST する
+- 資産分類の復活操作は、一覧画面上の確認モーダルを経由して POST する
 - 復活操作は、同じ `generic_master_values` 行の `is_deleted` を `FALSE` に戻す
 - 復活操作の権限は `TENANT_MANAGER` のみとし、会社境界は `company_id` 条件で守る
 - 復活後の資産分類は、通常一覧と資産登録・編集フォームの選択肢に再表示する
@@ -40,6 +42,8 @@
 - 資産分類編集画面を作成する
 - 資産分類論理削除操作を作成する
 - 資産分類復活操作を作成する
+- 資産分類論理削除操作は確認モーダル経由で実行する
+- 資産分類復活操作は確認モーダル経由で実行する
 - `GET /masters/asset-categories` を追加する
 - `GET /masters/asset-categories/new` を追加する
 - `POST /masters/asset-categories` を追加する
@@ -109,8 +113,10 @@ TENANT_VIEWER / TENANT_EDITOR、他社マスタ値、`ASSET_CATEGORY` 以外の�
 - local profile の TENANT_MANAGER で資産分類を登録できることを確認する
 - local profile の TENANT_MANAGER で資産分類を編集できることを確認する
 - local profile の TENANT_MANAGER で資産分類を論理削除できることを確認する
+- 資産分類の論理削除が確認モーダル経由で実行されることを確認する
 - local profile の TENANT_MANAGER で「削除済みも表示」条件を使い、削除済み資産分類を一覧表示できることを確認する
 - local profile の TENANT_MANAGER で削除済み資産分類を復活できることを確認する
+- 資産分類の復活が確認モーダル経由で実行されることを確認する
 - TENANT_VIEWER / TENANT_EDITOR が資産分類管理画面へアクセスできないことを確認する
 - 他社資産分類 ID を操作できないことを確認する
 - `ASSET_CATEGORY` 以外のマスタ値 ID を操作できないことを確認する

@@ -126,3 +126,44 @@ TENANT_VIEWER / TENANT_EDITOR、他社マスタ値、`REQUEST_TYPE` 以外のマ
 - 実装結果
 - 確認結果
 - 残課題
+
+### 実装方針
+
+- `REQUEST_TYPE` 専用の Controller / Service / Mapper / Form / View を追加し、汎用マスタ共通部品の大きな抽象化は行わない
+- 一覧の「削除済みも表示」は `RequestTypeMasterSearchForm.showDeleted` の画面条件として扱う
+- 通常一覧では未削除のみを表示し、`showDeleted` が true の場合だけ削除済み行も表示する
+- 削除操作は既存資産詳細画面と同じく確認モーダルを経由して POST する
+- 復活操作も確認モーダルを経由して POST する
+- 削除済み行は通常編集・論理削除の対象外とし、復活操作だけを表示する
+- 登録時のコード重複判定は削除済み行も含めて行う
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/master/web/RequestTypeMasterController.java`
+- `apps/web/src/main/java/com/example/workops/master/form/RequestTypeMasterForm.java`
+- `apps/web/src/main/java/com/example/workops/master/form/RequestTypeMasterSearchForm.java`
+- `apps/web/src/main/java/com/example/workops/master/service/RequestTypeMasterService.java`
+- `apps/web/src/main/java/com/example/workops/master/mapper/RequestTypeMasterMapper.java`
+- `apps/web/src/main/java/com/example/workops/master/model/RequestTypeMasterListItem.java`
+- `apps/web/src/main/java/com/example/workops/master/model/RequestTypeMasterDetail.java`
+- `apps/web/src/main/resources/mapper/master/RequestTypeMasterMapper.xml`
+- `apps/web/src/main/resources/templates/master/request-type-list.html`
+- `apps/web/src/main/resources/templates/master/request-type-form.html`
+- `apps/web/src/main/resources/templates/index.html`
+
+### 実装結果
+
+- TENANT_MANAGER 専用の申請種別一覧、登録、編集、論理削除、復活ルートを追加した
+- Mapper SQL は `company_id` と `REQUEST_TYPE` で会社境界と対象種別を絞るようにした
+- 削除済み行は一覧で「削除済み」と表示し、復活操作のみを表示するようにした
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功
+- 既存 Service テスト 48 件が成功
+- local profile で Spring Boot を起動し、`/`、`/masters/request-types`、`/masters/request-types?showDeleted=true`、`/masters/request-types/new` が HTTP 200 を返すことを確認
+
+### 残課題
+
+- M6-04 で Service テストを追加する
+- local profile の TENANT_MANAGER によるブラウザ画面操作確認を行う
