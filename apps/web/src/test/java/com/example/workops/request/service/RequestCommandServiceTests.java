@@ -1,6 +1,7 @@
 package com.example.workops.request.service;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +21,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.workops.common.logging.OperationLogRecord;
+import com.example.workops.common.logging.OperationLogger;
 import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
 import com.example.workops.common.security.PermissionSetContext;
@@ -34,7 +37,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @SpringJUnitConfig(RequestCommandServiceTests.RequestCommandServiceTestConfig.class)
@@ -52,9 +57,12 @@ class RequestCommandServiceTests {
     @Autowired
     private RequestMapper requestMapper;
 
+    @Autowired
+    private OperationLogger operationLogger;
+
     @BeforeEach
     void setUp() {
-        reset(requestMapper);
+        reset(requestMapper, operationLogger);
         SecurityContextHolder.clearContext();
     }
 
@@ -81,6 +89,7 @@ class RequestCommandServiceTests {
                 "申請内容",
                 REQUESTER_USER_ID,
                 REQUESTER_USER_ID);
+        assertSuccessLog("REQUEST_CREATE", 200L, false);
     }
 
     @Test
@@ -101,6 +110,7 @@ class RequestCommandServiceTests {
                 "修理申請",
                 "修理内容",
                 REQUESTER_USER_ID);
+        assertSuccessLog("REQUEST_UPDATE", REQUEST_ID, false);
     }
 
     @Test
@@ -119,6 +129,7 @@ class RequestCommandServiceTests {
                 submittedAtCaptor.capture(),
                 eq(REQUESTER_USER_ID));
         assertThat(submittedAtCaptor.getValue()).isNotNull();
+        assertSuccessLog("REQUEST_SUBMIT", REQUEST_ID, false);
     }
 
     @Test
@@ -134,6 +145,7 @@ class RequestCommandServiceTests {
                 COMPANY_ID,
                 REQUESTER_USER_ID,
                 REQUESTER_USER_ID);
+        assertSuccessLog("REQUEST_WITHDRAW", REQUEST_ID, false);
     }
 
     @Test
@@ -145,6 +157,7 @@ class RequestCommandServiceTests {
         requestCommandService.approveSubmitted(REQUEST_ID);
 
         verify(requestMapper).approveSubmittedByIdAndCompanyId(REQUEST_ID, COMPANY_ID, MANAGER_USER_ID);
+        assertSuccessLog("REQUEST_APPROVE", REQUEST_ID, false);
     }
 
     @Test
@@ -160,6 +173,7 @@ class RequestCommandServiceTests {
                 COMPANY_ID,
                 "却下理由",
                 MANAGER_USER_ID);
+        assertSuccessLog("REQUEST_REJECT", REQUEST_ID, true);
     }
 
     @Test
@@ -175,6 +189,7 @@ class RequestCommandServiceTests {
                 COMPANY_ID,
                 "差戻し理由",
                 MANAGER_USER_ID);
+        assertSuccessLog("REQUEST_REMAND", REQUEST_ID, true);
     }
 
     @Test
@@ -194,6 +209,10 @@ class RequestCommandServiceTests {
         verify(requestMapper).approveSubmittedByIdAndCompanyId(201L, COMPANY_ID, MANAGER_USER_ID);
         verify(requestMapper).rejectSubmittedByIdAndCompanyId(202L, COMPANY_ID, "却下理由", MANAGER_USER_ID);
         verify(requestMapper).remandSubmittedByIdAndCompanyId(203L, COMPANY_ID, "差戻し理由", MANAGER_USER_ID);
+        assertSuccessLogs(
+                List.of("REQUEST_APPROVE", "REQUEST_REJECT", "REQUEST_REMAND"),
+                List.of(201L, 202L, 203L),
+                List.of(false, true, true));
     }
 
     @Test
@@ -208,6 +227,7 @@ class RequestCommandServiceTests {
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> requestCommandService.withdrawSubmitted(REQUEST_ID))
                 .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(operationLogger);
     }
 
     @Test
@@ -220,6 +240,7 @@ class RequestCommandServiceTests {
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> requestCommandService.remandSubmitted(REQUEST_ID, new RequestReviewForm("差戻し理由")))
                 .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(operationLogger);
     }
 
     @Test
@@ -253,6 +274,33 @@ class RequestCommandServiceTests {
                 "購入申請",
                 null,
                 REQUESTER_USER_ID);
+        assertRejectedLogs(
+                List.of("REQUEST_CREATE", "REQUEST_UPDATE"),
+                Arrays.asList(null, REQUEST_ID),
+                List.of("INVALID_REQUEST_TYPE", "INVALID_REQUEST_TYPE"),
+                List.of("ResponseStatusException", "ResponseStatusException"));
+    }
+
+    @Test
+    void deletedOrOtherCompanyAssetIsRejectedForCreateAndUpdate() {
+        Long assetId = 300L;
+        signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
+        when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+                .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT", null)));
+        when(requestMapper.existsRequestTypeByIdAndCompanyId(REQUEST_TYPE_VALUE_ID, COMPANY_ID)).thenReturn(true);
+        when(requestMapper.existsSelectableAssetByIdAndCompanyId(assetId, COMPANY_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> requestCommandService.createDraft(new RequestForm(REQUEST_TYPE_VALUE_ID, assetId, "購入申請", null)))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm(REQUEST_TYPE_VALUE_ID, assetId, "購入申請", null)))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertRejectedLogs(
+                List.of("REQUEST_CREATE", "REQUEST_UPDATE"),
+                Arrays.asList(null, REQUEST_ID),
+                List.of("INVALID_ASSET", "INVALID_ASSET"),
+                List.of("ResponseStatusException", "ResponseStatusException"));
     }
 
     @Test
@@ -263,6 +311,7 @@ class RequestCommandServiceTests {
 
         assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm(REQUEST_TYPE_VALUE_ID, null, "購入申請", null)))
                 .isInstanceOf(AccessDeniedException.class);
+        assertRejectedLog("REQUEST_UPDATE", REQUEST_ID, "REQUESTER_MISMATCH", "AccessDeniedException");
     }
 
     @Test
@@ -273,6 +322,7 @@ class RequestCommandServiceTests {
 
         assertThatThrownBy(() -> requestCommandService.withdrawSubmitted(REQUEST_ID))
                 .isInstanceOf(AccessDeniedException.class);
+        assertRejectedLog("REQUEST_WITHDRAW", REQUEST_ID, "REQUESTER_MISMATCH", "AccessDeniedException");
     }
 
     @Test
@@ -283,6 +333,7 @@ class RequestCommandServiceTests {
 
         assertThatThrownBy(() -> requestCommandService.submitDraft(REQUEST_ID))
                 .isInstanceOf(AccessDeniedException.class);
+        assertRejectedLog("REQUEST_SUBMIT", REQUEST_ID, "STATUS_MISMATCH", "AccessDeniedException");
     }
 
     @Test
@@ -293,6 +344,7 @@ class RequestCommandServiceTests {
 
         assertThatThrownBy(() -> requestCommandService.withdrawSubmitted(REQUEST_ID))
                 .isInstanceOf(AccessDeniedException.class);
+        assertRejectedLog("REQUEST_WITHDRAW", REQUEST_ID, "STATUS_MISMATCH", "AccessDeniedException");
     }
 
     @Test
@@ -311,6 +363,11 @@ class RequestCommandServiceTests {
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> requestCommandService.remandSubmitted(203L, new RequestReviewForm("差戻し理由")))
                 .isInstanceOf(AccessDeniedException.class);
+        assertRejectedLogs(
+                List.of("REQUEST_APPROVE", "REQUEST_REJECT", "REQUEST_REMAND"),
+                List.of(201L, 202L, 203L),
+                List.of("STATUS_MISMATCH", "STATUS_MISMATCH", "STATUS_MISMATCH"),
+                List.of("AccessDeniedException", "AccessDeniedException", "AccessDeniedException"));
     }
 
     @Test
@@ -321,6 +378,75 @@ class RequestCommandServiceTests {
         assertThatThrownBy(() -> requestCommandService.submitDraft(REQUEST_ID))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertRejectedLog("REQUEST_SUBMIT", REQUEST_ID, "COMPANY_MISMATCH", "ResponseStatusException");
+    }
+
+    private void assertSuccessLog(String operation, Long targetId, boolean reasonCommentPresent) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger).logSuccess(captor.capture());
+
+        OperationLogRecord record = captor.getValue();
+        assertOperationLogRecord(record, operation, targetId, null, reasonCommentPresent, null);
+    }
+
+    private void assertSuccessLogs(List<String> operations, List<Long> targetIds, List<Boolean> reasonCommentPresentValues) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger, times(operations.size())).logSuccess(captor.capture());
+
+        List<OperationLogRecord> records = captor.getAllValues();
+        for (int index = 0; index < operations.size(); index++) {
+            assertOperationLogRecord(
+                    records.get(index),
+                    operations.get(index),
+                    targetIds.get(index),
+                    null,
+                    reasonCommentPresentValues.get(index),
+                    null);
+        }
+    }
+
+    private void assertRejectedLog(String operation, Long targetId, String reasonCode, String exceptionType) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger).logRejected(captor.capture());
+
+        OperationLogRecord record = captor.getValue();
+        assertOperationLogRecord(record, operation, targetId, reasonCode, false, exceptionType);
+    }
+
+    private void assertRejectedLogs(
+            List<String> operations,
+            List<Long> targetIds,
+            List<String> reasonCodes,
+            List<String> exceptionTypes) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger, times(operations.size())).logRejected(captor.capture());
+
+        List<OperationLogRecord> records = captor.getAllValues();
+        for (int index = 0; index < operations.size(); index++) {
+            assertOperationLogRecord(
+                    records.get(index),
+                    operations.get(index),
+                    targetIds.get(index),
+                    reasonCodes.get(index),
+                    false,
+                    exceptionTypes.get(index));
+        }
+    }
+
+    private void assertOperationLogRecord(
+            OperationLogRecord record,
+            String operation,
+            Long targetId,
+            String reasonCode,
+            boolean reasonCommentPresent,
+            String exceptionType) {
+        assertThat(record.loginUserContext().userId()).isNotNull();
+        assertThat(record.targetType()).isEqualTo("REQUEST");
+        assertThat(record.operation()).isEqualTo(operation);
+        assertThat(record.targetId()).isEqualTo(targetId);
+        assertThat(record.reasonCode()).isEqualTo(reasonCode);
+        assertThat(record.reasonCommentPresent()).isEqualTo(reasonCommentPresent);
+        assertThat(record.exceptionType()).isEqualTo(exceptionType);
     }
 
     private void signIn(Long userId, Long companyId, PermissionSetContext permissionSet) {
@@ -379,10 +505,16 @@ class RequestCommandServiceTests {
         }
 
         @Bean
+        OperationLogger operationLogger() {
+            return mock(OperationLogger.class);
+        }
+
+        @Bean
         RequestCommandService requestCommandService(
                 CurrentUserProvider currentUserProvider,
-                RequestMapper requestMapper) {
-            return new RequestCommandService(currentUserProvider, requestMapper);
+                RequestMapper requestMapper,
+                OperationLogger operationLogger) {
+            return new RequestCommandService(currentUserProvider, requestMapper, operationLogger);
         }
     }
 }

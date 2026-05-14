@@ -114,10 +114,47 @@
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- `RequestCommandService` に `OperationLogger` を constructor injection で追加する
+- 申請の作成、編集、提出、承認、却下、差戻し、取下げの成功時は、更新処理完了後に `logSuccess` を呼ぶ
+- 作成成功ログの `targetId` は `findLastInsertId()` で取得した申請IDを使う
+- 編集、提出、承認、却下、差戻し、取下げの成功ログの `targetId` はメソッド引数の申請IDを使う
+- 却下、差戻しだけ `reviewComment` の有無を `reasonCommentPresent` として渡し、本文は渡さない
+- `@PreAuthorize` による権限不足は Service メソッド本体に入る前に拒否されるため、M7-02 の業務操作ログ対象外とする
+- Service 内で判定できる会社境界、本人条件、ステータス、申請種別、関連資産の想定内拒否だけを `logRejected` で出力する
+- 参照系の `findDraftForEdit`、`findSubmittedForReject`、`findSubmittedForRemand` では業務操作ログを出さない
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/request/service/RequestCommandService.java`
+- `apps/web/src/test/java/com/example/workops/request/service/RequestCommandServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/request/service/RequestAssetLinkServiceTests.java`
+- `docs/implementation/mvp/agent-tasks/M7/M7-02-request-operation-logs.md`
+
+### 実装結果
+
+- `RequestCommandService` の申請作成、編集、提出、承認、却下、差戻し、取下げ成功時に `OperationLogger#logSuccess` を呼ぶようにした
+- `REQUEST_CREATE`、`REQUEST_UPDATE`、`REQUEST_SUBMIT`、`REQUEST_APPROVE`、`REQUEST_REJECT`、`REQUEST_REMAND`、`REQUEST_WITHDRAW` の operation を固定した
+- targetType はすべて `REQUEST` とした
+- 会社境界不一致は `COMPANY_MISMATCH`、本人条件不一致は `REQUESTER_MISMATCH`、状態不一致は `STATUS_MISMATCH` として `OperationLogger#logRejected` を呼ぶようにした
+- 申請種別不正は `INVALID_REQUEST_TYPE`、関連資産不正は `INVALID_ASSET` として `OperationLogger#logRejected` を呼ぶようにした
+- 拒否時の `exceptionType` は、`AccessDeniedException` または `ResponseStatusException` を渡すようにした
+- `RequestCommandServiceTests` に `OperationLogger` mock を追加し、成功ログと拒否ログの `OperationLogRecord` を検証するようにした
+- `RequestAssetLinkServiceTests` のテスト用 Bean 定義を、`OperationLogger` 依存を含む新しい `RequestCommandService` コンストラクタに合わせた
+- 申請タイトル、申請内容、却下・差戻しコメント本文は `OperationLogRecord` に渡していない
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功
+- 全 77 件が成功
+- `RequestCommandServiceTests` は 18 件成功
+- `RequestAssetLinkServiceTests` は 8 件成功
+- `git diff --check` で空白エラーなし
+
+### 残課題
+
+- `@PreAuthorize` による権限不足は、M7-02 では業務操作ログとして出さず、Spring Security / 既存例外処理側の拒否ログとして扱う
+- 資産 Service への組み込みは M7-03 で扱う
+- マスタ Service への組み込みは M7-04 で扱う
+- Mapper / Testcontainers 強化は M8 で扱う

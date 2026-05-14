@@ -18,6 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.workops.common.logging.OperationLogger;
 import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
 import com.example.workops.common.security.PermissionSetContext;
@@ -49,9 +50,12 @@ class RequestAssetLinkServiceTests {
     @Autowired
     private RequestMapper requestMapper;
 
+    @Autowired
+    private OperationLogger operationLogger;
+
     @BeforeEach
     void setUp() {
-        reset(requestMapper);
+        reset(requestMapper, operationLogger);
         SecurityContextHolder.clearContext();
     }
 
@@ -248,10 +252,16 @@ class RequestAssetLinkServiceTests {
         }
 
         @Bean
+        OperationLogger operationLogger() {
+            return mock(OperationLogger.class);
+        }
+
+        @Bean
         RequestCommandService requestCommandService(
                 CurrentUserProvider currentUserProvider,
-                RequestMapper requestMapper) {
-            return new RequestCommandService(currentUserProvider, requestMapper);
+                RequestMapper requestMapper,
+                OperationLogger operationLogger) {
+            return new RequestCommandService(currentUserProvider, requestMapper, operationLogger);
         }
     }
 }
