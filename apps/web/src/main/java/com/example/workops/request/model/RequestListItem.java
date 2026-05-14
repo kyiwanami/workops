@@ -15,6 +15,7 @@ public record RequestListItem(
         Long requestTypeValueId,
         String requestTypeCode,
         String requestTypeName,
+        Boolean requestTypeValueIsDeleted,
         String statusCode,
         String statusName,
         String title,

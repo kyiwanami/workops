@@ -14,6 +14,7 @@
             <arg column="request_type_value_id" javaType="java.lang.Long"/>
             <arg column="request_type_code" javaType="java.lang.String"/>
             <arg column="request_type_name" javaType="java.lang.String"/>
+            <arg column="request_type_value_is_deleted" javaType="java.lang.Boolean"/>
             <arg column="status_code" javaType="java.lang.String"/>
             <arg column="status_name" javaType="java.lang.String"/>
             <arg column="title" javaType="java.lang.String"/>
@@ -35,6 +36,7 @@
             <arg column="request_type_value_id" javaType="java.lang.Long"/>
             <arg column="request_type_code" javaType="java.lang.String"/>
             <arg column="request_type_name" javaType="java.lang.String"/>
+            <arg column="request_type_value_is_deleted" javaType="java.lang.Boolean"/>
             <arg column="status_code" javaType="java.lang.String"/>
             <arg column="status_name" javaType="java.lang.String"/>
             <arg column="title" javaType="java.lang.String"/>
@@ -73,6 +75,7 @@
         r.request_type_value_id AS request_type_value_id,
         request_type.code AS request_type_code,
         request_type.name AS request_type_name,
+        request_type.is_deleted AS request_type_value_is_deleted,
         r.status_code AS status_code,
         request_status.name AS status_name,
         r.title AS title,
@@ -94,6 +97,7 @@
             r.request_type_value_id AS request_type_value_id,
             request_type.code AS request_type_code,
             request_type.name AS request_type_name,
+            request_type.is_deleted AS request_type_value_is_deleted,
             r.status_code AS status_code,
             request_status.name AS status_name,
             r.title AS title,
@@ -115,7 +119,6 @@
             ON request_type.generic_master_id = request_type_master.id
             AND request_type.company_id = r.company_id
             AND request_type.id = r.request_type_value_id
-            AND request_type.is_deleted = FALSE
         INNER JOIN common_master request_status_master
             ON request_status_master.code = 'REQUEST_STATUS'
             AND request_status_master.is_deleted = FALSE
@@ -145,7 +148,6 @@
             ON request_type.generic_master_id = request_type_master.id
             AND request_type.company_id = r.company_id
             AND request_type.id = r.request_type_value_id
-            AND request_type.is_deleted = FALSE
         INNER JOIN common_master request_status_master
             ON request_status_master.code = 'REQUEST_STATUS'
             AND request_status_master.is_deleted = FALSE

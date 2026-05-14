@@ -10,6 +10,7 @@
             <arg column="name" javaType="java.lang.String"/>
             <arg column="asset_category_code" javaType="java.lang.String"/>
             <arg column="asset_category_name" javaType="java.lang.String"/>
+            <arg column="asset_category_value_is_deleted" javaType="java.lang.Boolean"/>
             <arg column="department_name" javaType="java.lang.String"/>
             <arg column="status_code" javaType="java.lang.String"/>
             <arg column="status_name" javaType="java.lang.String"/>
@@ -28,6 +29,7 @@
             <arg column="name" javaType="java.lang.String"/>
             <arg column="asset_category_code" javaType="java.lang.String"/>
             <arg column="asset_category_name" javaType="java.lang.String"/>
+            <arg column="asset_category_value_is_deleted" javaType="java.lang.Boolean"/>
             <arg column="department_name" javaType="java.lang.String"/>
             <arg column="status_code" javaType="java.lang.String"/>
             <arg column="status_name" javaType="java.lang.String"/>
@@ -68,6 +70,7 @@
         a.name AS name,
         asset_category.code AS asset_category_code,
         asset_category.name AS asset_category_name,
+        asset_category.is_deleted AS asset_category_value_is_deleted,
         department.name AS department_name,
         a.status_code AS status_code,
         asset_status.name AS status_name,
@@ -84,7 +87,6 @@
             ON asset_category.id = a.asset_category_value_id
             AND asset_category.generic_master_id = asset_category_master.id
             AND asset_category.company_id = a.company_id
-            AND asset_category.is_deleted = FALSE
         LEFT JOIN departments department
             ON department.id = a.department_id
             AND department.company_id = a.company_id
@@ -105,6 +107,7 @@
             a.name AS name,
             asset_category.code AS asset_category_code,
             asset_category.name AS asset_category_name,
+            asset_category.is_deleted AS asset_category_value_is_deleted,
             department.name AS department_name,
             a.status_code AS status_code,
             asset_status.name AS status_name,

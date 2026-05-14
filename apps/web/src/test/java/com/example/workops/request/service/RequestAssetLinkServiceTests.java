@@ -222,6 +222,7 @@ class RequestAssetLinkServiceTests {
                 REQUEST_TYPE_VALUE_ID,
                 "EQUIPMENT_PURCHASE",
                 "備品購入申請",
+                false,
                 statusCode,
                 statusCode,
                 "申請件名",

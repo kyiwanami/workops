@@ -16,7 +16,7 @@
             <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
                 <div>
                     <span class="badge text-bg-secondary" th:text="${request.statusName()}">ステータス</span>
-                    <span class="badge text-bg-light border ms-2" th:text="${request.requestTypeName()}">申請種別</span>
+                    <span class="badge text-bg-light border ms-2" th:text="${request.requestTypeName() + (request.requestTypeValueIsDeleted() == true ? '（削除済み）' : '')}">申請種別</span>
                 </div>
                 <div class="d-flex gap-2">
                     <a th:if="${canEdit}" class="btn btn-primary btn-sm" th:href="@{/requests/{id}/edit(id=${request.id()})}">編集</a>
@@ -47,7 +47,7 @@
 
                 <dt class="col-sm-3 text-secondary">申請種別</dt>
                 <dd class="col-sm-9">
-                    <span th:text="${request.requestTypeName()}">備品購入申請</span>
+                    <span th:text="${request.requestTypeName() + (request.requestTypeValueIsDeleted() == true ? '（削除済み）' : '')}">備品購入申請</span>
                     <span class="text-secondary" th:text="'(' + ${request.requestTypeCode()} + ')'">(EQUIPMENT_PURCHASE)</span>
                 </dd>
 

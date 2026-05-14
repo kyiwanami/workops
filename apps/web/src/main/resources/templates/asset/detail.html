@@ -16,7 +16,7 @@
             <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
                 <div>
                     <span class="badge text-bg-secondary" th:text="${asset.statusName()}">ステータス</span>
-                    <span class="badge text-bg-light border ms-2" th:text="${asset.assetCategoryName()}">カテゴリ</span>
+                    <span class="badge text-bg-light border ms-2" th:text="${asset.assetCategoryName() + (asset.assetCategoryValueIsDeleted() == true ? '（削除済み）' : '')}">カテゴリ</span>
                 </div>
                 <div class="d-flex gap-2">
                     <a th:if="${canEdit}" class="btn btn-primary btn-sm" th:href="@{/assets/{id}/edit(id=${asset.id()})}">編集</a>
@@ -42,7 +42,7 @@
 
                 <dt class="col-sm-3 text-secondary">カテゴリ</dt>
                 <dd class="col-sm-9">
-                    <span th:text="${asset.assetCategoryName()}">ノートPC</span>
+                    <span th:text="${asset.assetCategoryName() + (asset.assetCategoryValueIsDeleted() == true ? '（削除済み）' : '')}">ノートPC</span>
                     <span class="text-secondary" th:text="'(' + ${asset.assetCategoryCode()} + ')'">(NOTE_PC)</span>
                 </dd>
 

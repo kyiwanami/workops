@@ -257,6 +257,7 @@ class AssetCommandServiceTests {
                 "テスト資産",
                 "NOTE_PC",
                 "ノートPC",
+                false,
                 "情報システム部",
                 "AVAILABLE",
                 "利用可能",

@@ -90,7 +90,7 @@
                         <td th:text="${asset.code()}">KTHM-NB-001</td>
                         <td th:text="${asset.name()}">営業部ノートPC</td>
                         <td>
-                            <span th:text="${asset.assetCategoryName()}">ノートPC</span>
+                            <span th:text="${asset.assetCategoryName() + (asset.assetCategoryValueIsDeleted() == true ? '（削除済み）' : '')}">ノートPC</span>
                             <span class="text-secondary d-block small" th:text="${asset.assetCategoryCode()}">NOTE_PC</span>
                         </td>
                         <td th:text="${asset.departmentName() != null ? asset.departmentName() : '-'}">情報システム部</td>

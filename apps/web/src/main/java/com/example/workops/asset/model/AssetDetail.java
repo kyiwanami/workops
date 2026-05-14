@@ -13,6 +13,7 @@ public record AssetDetail(
         String name,
         String assetCategoryCode,
         String assetCategoryName,
+        Boolean assetCategoryValueIsDeleted,
         String departmentName,
         String statusCode,
         String statusName,

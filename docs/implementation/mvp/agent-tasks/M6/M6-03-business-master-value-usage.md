@@ -108,3 +108,50 @@
 - 実装結果
 - 確認結果
 - 残課題
+
+### 実装方針
+
+- 業務画面の一覧・詳細取得では、参照先 `generic_master_values` の論理削除済み行も取得対象にする
+- 新規作成・編集・検索フォームの選択肢取得では、既存どおり `is_deleted = FALSE` だけを取得対象にする
+- POST 拒否は既存の selectable 判定を維持し、削除済み値を不正なマスタ値として扱う
+- 画面表示用モデルには参照先マスタ値の `is_deleted` を表す `requestTypeValueIsDeleted` / `assetCategoryValueIsDeleted` を追加する
+- 削除済み参照は一覧・詳細画面だけで `名称（削除済み）` と表示する
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/request/model/RequestListItem.java`
+- `apps/web/src/main/java/com/example/workops/request/model/RequestDetail.java`
+- `apps/web/src/main/resources/mapper/request/RequestMapper.xml`
+- `apps/web/src/main/resources/templates/request/list.html`
+- `apps/web/src/main/resources/templates/request/detail.html`
+- `apps/web/src/main/java/com/example/workops/asset/model/AssetListItem.java`
+- `apps/web/src/main/java/com/example/workops/asset/model/AssetDetail.java`
+- `apps/web/src/main/resources/mapper/asset/AssetMapper.xml`
+- `apps/web/src/main/resources/templates/asset/list.html`
+- `apps/web/src/main/resources/templates/asset/detail.html`
+- `apps/web/src/test/java/com/example/workops/request/service/RequestQueryServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/request/service/RequestCommandServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/request/service/RequestAssetLinkServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/asset/service/AssetQueryServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/asset/service/AssetCommandServiceTests.java`
+- `docs/implementation/mvp/agent-tasks/M6/M6-03-business-master-value-usage.md`
+
+### 実装結果
+
+- 申請一覧・詳細は、削除済み `REQUEST_TYPE` を参照していても親申請を表示し続けるようにした
+- 申請一覧・詳細では、削除済み `REQUEST_TYPE` 名の末尾に「（削除済み）」を付けるようにした
+- 申請作成・編集フォームの選択肢取得と POST 拒否条件は `is_deleted = FALSE` のまま維持した
+- 資産一覧・詳細は、削除済み `ASSET_CATEGORY` を参照していても親資産を表示し続けるようにした
+- 資産一覧・詳細では、削除済み `ASSET_CATEGORY` 名の末尾に「（削除済み）」を付けるようにした
+- 資産登録・編集・検索フォームの選択肢取得と POST 拒否条件は `is_deleted = FALSE` のまま維持した
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功
+- 既存 Service テスト 48 件が成功
+- local profile 起動中の `/requests`、`/requests/new`、`/assets`、`/assets/new` が HTTP 200 を返すことを確認
+
+### 残課題
+
+- M6-04 で Service テストを追加する
+- 削除済みマスタ値を参照する実データでのブラウザ画面確認を行う
