@@ -1,9 +1,11 @@
 package com.example.workops.asset.service;
 
+import java.lang.reflect.RecordComponent;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,8 @@ import com.example.workops.asset.form.AssetForm;
 import com.example.workops.asset.form.AssetStatusForm;
 import com.example.workops.asset.mapper.AssetMapper;
 import com.example.workops.asset.model.AssetDetail;
+import com.example.workops.common.logging.OperationLogRecord;
+import com.example.workops.common.logging.OperationLogger;
 import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
 import com.example.workops.common.security.PermissionSetContext;
@@ -32,7 +36,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @SpringJUnitConfig(AssetCommandServiceTests.AssetCommandServiceTestConfig.class)
@@ -51,9 +57,12 @@ class AssetCommandServiceTests {
     @Autowired
     private AssetMapper assetMapper;
 
+    @Autowired
+    private OperationLogger operationLogger;
+
     @BeforeEach
     void setUp() {
-        reset(assetMapper);
+        reset(assetMapper, operationLogger);
         SecurityContextHolder.clearContext();
     }
 
@@ -74,6 +83,7 @@ class AssetCommandServiceTests {
         Long createdId = assetCommandService.createAsset(assetForm());
 
         assertThat(createdId).isEqualTo(200L);
+        assertSuccessLog("ASSET_CREATE", 200L);
         verify(assetMapper).insertAsset(
                 COMPANY_ID,
                 ASSET_CATEGORY_VALUE_ID,
@@ -98,6 +108,7 @@ class AssetCommandServiceTests {
 
         assetCommandService.updateAsset(ASSET_ID, assetForm());
 
+        assertSuccessLog("ASSET_UPDATE", ASSET_ID);
         verify(assetMapper).updateAssetByIdAndCompanyId(
                 ASSET_ID,
                 COMPANY_ID,
@@ -119,6 +130,7 @@ class AssetCommandServiceTests {
 
         assetCommandService.updateStatus(ASSET_ID, new AssetStatusForm("REPAIRING"));
 
+        assertSuccessLog("ASSET_STATUS_CHANGE", ASSET_ID);
         verify(assetMapper).updateAssetStatusByIdAndCompanyId(
                 ASSET_ID,
                 COMPANY_ID,
@@ -134,6 +146,7 @@ class AssetCommandServiceTests {
 
         assetCommandService.deleteAsset(ASSET_ID);
 
+        assertSuccessLog("ASSET_DELETE", ASSET_ID);
         verify(assetMapper).logicalDeleteAssetByIdAndCompanyId(ASSET_ID, COMPANY_ID, MANAGER_USER_ID);
     }
 
@@ -149,6 +162,7 @@ class AssetCommandServiceTests {
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> assetCommandService.deleteAsset(ASSET_ID))
                 .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(operationLogger);
     }
 
     @Test
@@ -157,6 +171,7 @@ class AssetCommandServiceTests {
 
         assertThatThrownBy(() -> assetCommandService.deleteAsset(ASSET_ID))
                 .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(operationLogger);
     }
 
     @Test
@@ -173,6 +188,10 @@ class AssetCommandServiceTests {
         assertThatThrownBy(() -> assetCommandService.deleteAsset(ASSET_ID))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertRejectedLogs(
+                List.of("ASSET_UPDATE", "ASSET_STATUS_CHANGE", "ASSET_DELETE"),
+                List.of(ASSET_ID, ASSET_ID, ASSET_ID),
+                List.of("COMPANY_MISMATCH", "COMPANY_MISMATCH", "COMPANY_MISMATCH"));
     }
 
     @Test
@@ -183,6 +202,7 @@ class AssetCommandServiceTests {
         assertThatThrownBy(() -> assetCommandService.createAsset(assetForm()))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertRejectedLog("ASSET_CREATE", null, "INVALID_ASSET_CATEGORY");
     }
 
     @Test
@@ -205,6 +225,7 @@ class AssetCommandServiceTests {
                 "AVAILABLE",
                 "備考",
                 EDITOR_USER_ID);
+        assertRejectedLog("ASSET_UPDATE", ASSET_ID, "INVALID_ASSET_CATEGORY");
     }
 
     @Test
@@ -216,6 +237,7 @@ class AssetCommandServiceTests {
         assertThatThrownBy(() -> assetCommandService.createAsset(assetForm()))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertRejectedLog("ASSET_CREATE", null, "INVALID_DEPARTMENT");
     }
 
     @Test
@@ -228,6 +250,20 @@ class AssetCommandServiceTests {
         assertThatThrownBy(() -> assetCommandService.createAsset(assetForm()))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertRejectedLog("ASSET_CREATE", null, "INVALID_ASSET_STATUS");
+    }
+
+    @Test
+    void invalidStatusIsRejectedForStatusChange() {
+        signIn(EDITOR_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
+        when(assetMapper.findDetailByIdAndCompanyId(ASSET_ID, COMPANY_ID))
+                .thenReturn(Optional.of(assetDetail()));
+        when(assetMapper.existsStatusCode("REPAIRING")).thenReturn(false);
+
+        assertThatThrownBy(() -> assetCommandService.updateStatus(ASSET_ID, new AssetStatusForm("REPAIRING")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertRejectedLog("ASSET_STATUS_CHANGE", ASSET_ID, "INVALID_ASSET_STATUS");
     }
 
     @Test
@@ -241,6 +277,52 @@ class AssetCommandServiceTests {
         assertThatThrownBy(() -> assetCommandService.createAsset(assetForm()))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertRejectedLog("ASSET_CREATE", null, "DUPLICATE_ASSET_CODE");
+    }
+
+    private void assertSuccessLog(String operation, Long targetId) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger).logSuccess(captor.capture());
+        assertOperationLogRecord(captor.getValue(), operation, targetId, null, null);
+    }
+
+    private void assertRejectedLog(String operation, Long targetId, String reasonCode) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger).logRejected(captor.capture());
+        assertOperationLogRecord(captor.getValue(), operation, targetId, reasonCode, "ResponseStatusException");
+    }
+
+    private void assertRejectedLogs(List<String> operations, List<Long> targetIds, List<String> reasonCodes) {
+        ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
+        verify(operationLogger, times(operations.size())).logRejected(captor.capture());
+
+        List<OperationLogRecord> records = captor.getAllValues();
+        for (int i = 0; i < records.size(); i++) {
+            assertOperationLogRecord(
+                    records.get(i),
+                    operations.get(i),
+                    targetIds.get(i),
+                    reasonCodes.get(i),
+                    "ResponseStatusException");
+        }
+    }
+
+    private void assertOperationLogRecord(
+            OperationLogRecord record,
+            String operation,
+            Long targetId,
+            String reasonCode,
+            String exceptionType) {
+        assertThat(record.loginUserContext().companyId()).isEqualTo(COMPANY_ID);
+        assertThat(record.operation()).isEqualTo(operation);
+        assertThat(record.targetType()).isEqualTo("ASSET");
+        assertThat(record.targetId()).isEqualTo(targetId);
+        assertThat(record.reasonCode()).isEqualTo(reasonCode);
+        assertThat(record.reasonCommentPresent()).isFalse();
+        assertThat(record.exceptionType()).isEqualTo(exceptionType);
+        assertThat(record.getClass().getRecordComponents())
+                .extracting(RecordComponent::getName)
+                .doesNotContain("assetCode", "assetName", "note", "departmentName", "categoryName");
     }
 
     private void signIn(Long userId, Long companyId, PermissionSetContext permissionSet) {
@@ -304,10 +386,16 @@ class AssetCommandServiceTests {
         }
 
         @Bean
+        OperationLogger operationLogger() {
+            return mock(OperationLogger.class);
+        }
+
+        @Bean
         AssetCommandService assetCommandService(
                 CurrentUserProvider currentUserProvider,
-                AssetMapper assetMapper) {
-            return new AssetCommandService(currentUserProvider, assetMapper);
+                AssetMapper assetMapper,
+                OperationLogger operationLogger) {
+            return new AssetCommandService(currentUserProvider, assetMapper, operationLogger);
         }
     }
 }
