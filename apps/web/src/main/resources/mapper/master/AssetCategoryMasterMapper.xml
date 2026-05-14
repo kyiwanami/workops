@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.workops.master.mapper.AssetCategoryMasterMapper">
+    <resultMap id="AssetCategoryMasterListItemMap" type="com.example.workops.master.model.AssetCategoryMasterListItem">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="java.lang.Integer"/>
+            <arg column="is_deleted" javaType="java.lang.Boolean"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="AssetCategoryMasterDetailMap" type="com.example.workops.master.model.AssetCategoryMasterDetail">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="java.lang.Integer"/>
+            <arg column="is_deleted" javaType="java.lang.Boolean"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="AssetCategoryMasterValueColumns">
+        asset_category.id AS id,
+        asset_category.code AS code,
+        asset_category.name AS name,
+        asset_category.sort_order AS sort_order,
+        asset_category.is_deleted AS is_deleted,
+        asset_category.created_at AS created_at,
+        asset_category.updated_at AS updated_at
+    </sql>
+
+    <select id="findAssetCategoryMasterId" resultType="java.lang.Long">
+        SELECT asset_category_master.id
+        FROM generic_master asset_category_master
+        WHERE asset_category_master.code = 'ASSET_CATEGORY'
+            AND asset_category_master.is_deleted = FALSE
+    </select>
+
+    <select id="findListByCompanyIdAndSearchForm" resultMap="AssetCategoryMasterListItemMap">
+        SELECT
+            <include refid="AssetCategoryMasterValueColumns"/>
+        FROM generic_master asset_category_master
+        INNER JOIN generic_master_values asset_category
+            ON asset_category.generic_master_id = asset_category_master.id
+            AND asset_category.company_id = #{companyId}
+        WHERE asset_category_master.code = 'ASSET_CATEGORY'
+            AND asset_category_master.is_deleted = FALSE
+            <if test="assetCategoryMasterSearchForm.showDeleted != true">
+                AND asset_category.is_deleted = FALSE
+            </if>
+        ORDER BY asset_category.sort_order ASC, asset_category.id ASC
+    </select>
+
+    <select id="findActiveByIdAndCompanyId" resultMap="AssetCategoryMasterDetailMap">
+        SELECT
+            <include refid="AssetCategoryMasterValueColumns"/>
+        FROM generic_master asset_category_master
+        INNER JOIN generic_master_values asset_category
+            ON asset_category.generic_master_id = asset_category_master.id
+            AND asset_category.company_id = #{companyId}
+        WHERE asset_category_master.code = 'ASSET_CATEGORY'
+            AND asset_category_master.is_deleted = FALSE
+            AND asset_category.id = #{id}
+            AND asset_category.is_deleted = FALSE
+    </select>
+
+    <select id="findDeletedByIdAndCompanyId" resultMap="AssetCategoryMasterDetailMap">
+        SELECT
+            <include refid="AssetCategoryMasterValueColumns"/>
+        FROM generic_master asset_category_master
+        INNER JOIN generic_master_values asset_category
+            ON asset_category.generic_master_id = asset_category_master.id
+            AND asset_category.company_id = #{companyId}
+        WHERE asset_category_master.code = 'ASSET_CATEGORY'
+            AND asset_category_master.is_deleted = FALSE
+            AND asset_category.id = #{id}
+            AND asset_category.is_deleted = TRUE
+    </select>
+
+    <select id="existsCodeByCompanyId" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM generic_master asset_category_master
+            INNER JOIN generic_master_values asset_category
+                ON asset_category.generic_master_id = asset_category_master.id
+                AND asset_category.company_id = #{companyId}
+            WHERE asset_category_master.code = 'ASSET_CATEGORY'
+                AND asset_category_master.is_deleted = FALSE
+                AND asset_category.code = #{code}
+        )
+    </select>
+
+    <insert id="insertAssetCategory">
+        INSERT INTO generic_master_values (
+            generic_master_id,
+            company_id,
+            code,
+            name,
+            sort_order,
+            is_deleted,
+            created_by,
+            updated_by
+        ) VALUES (
+            #{genericMasterId},
+            #{companyId},
+            #{code},
+            #{name},
+            #{sortOrder},
+            FALSE,
+            #{createdBy},
+            #{updatedBy}
+        )
+    </insert>
+
+    <update id="updateActiveByIdAndCompanyId">
+        UPDATE generic_master_values asset_category
+        INNER JOIN generic_master asset_category_master
+            ON asset_category_master.id = asset_category.generic_master_id
+            AND asset_category_master.code = 'ASSET_CATEGORY'
+            AND asset_category_master.is_deleted = FALSE
+        SET asset_category.name = #{name},
+            asset_category.sort_order = #{sortOrder},
+            asset_category.updated_by = #{updatedBy}
+        WHERE asset_category.id = #{id}
+            AND asset_category.company_id = #{companyId}
+            AND asset_category.is_deleted = FALSE
+    </update>
+
+    <update id="logicalDeleteActiveByIdAndCompanyId">
+        UPDATE generic_master_values asset_category
+        INNER JOIN generic_master asset_category_master
+            ON asset_category_master.id = asset_category.generic_master_id
+            AND asset_category_master.code = 'ASSET_CATEGORY'
+            AND asset_category_master.is_deleted = FALSE
+        SET asset_category.is_deleted = TRUE,
+            asset_category.updated_by = #{updatedBy}
+        WHERE asset_category.id = #{id}
+            AND asset_category.company_id = #{companyId}
+            AND asset_category.is_deleted = FALSE
+    </update>
+
+    <update id="restoreDeletedByIdAndCompanyId">
+        UPDATE generic_master_values asset_category
+        INNER JOIN generic_master asset_category_master
+            ON asset_category_master.id = asset_category.generic_master_id
+            AND asset_category_master.code = 'ASSET_CATEGORY'
+            AND asset_category_master.is_deleted = FALSE
+        SET asset_category.is_deleted = FALSE,
+            asset_category.updated_by = #{updatedBy}
+        WHERE asset_category.id = #{id}
+            AND asset_category.company_id = #{companyId}
+            AND asset_category.is_deleted = TRUE
+    </update>
+</mapper>

@@ -75,6 +75,7 @@
 
 - `apps/web/src/main/java/com/example/workops/master/web/AssetCategoryMasterController.java`
 - `apps/web/src/main/java/com/example/workops/master/form/AssetCategoryMasterForm.java`
+- `apps/web/src/main/java/com/example/workops/master/form/AssetCategoryMasterSearchForm.java`
 - `apps/web/src/main/java/com/example/workops/master/service/AssetCategoryMasterService.java`
 - `apps/web/src/main/java/com/example/workops/master/mapper/AssetCategoryMasterMapper.java`
 - `apps/web/src/main/java/com/example/workops/master/model/AssetCategoryMasterListItem.java`
@@ -82,6 +83,7 @@
 - `apps/web/src/main/resources/mapper/master/AssetCategoryMasterMapper.xml`
 - `apps/web/src/main/resources/templates/master/asset-category-list.html`
 - `apps/web/src/main/resources/templates/master/asset-category-form.html`
+- `apps/web/src/main/resources/templates/master/request-type-list.html`
 - `apps/web/src/main/resources/templates/index.html`
 - `docs/implementation/mvp/agent-tasks/M6/M6-02-asset-category-master-management.md`
 
@@ -133,3 +135,48 @@ TENANT_VIEWER / TENANT_EDITOR、他社マスタ値、`ASSET_CATEGORY` 以外の�
 - 実装結果
 - 確認結果
 - 残課題
+
+### 実装方針
+
+- `ASSET_CATEGORY` 専用の Controller / Service / Mapper / Form / View を追加し、汎用マスタ共通部品の大きな抽象化は行わない
+- 一覧の「削除済みも表示」は `AssetCategoryMasterSearchForm.showDeleted` の画面条件として扱う
+- 通常一覧では未削除のみを表示し、`showDeleted` が true の場合だけ削除済み行も表示する
+- 削除操作は確認モーダルを経由して POST する
+- 復活操作も確認モーダルを経由して POST する
+- 削除済み行は通常編集・論理削除の対象外とし、復活操作だけを表示する
+- 登録時のコード重複判定は削除済み行も含めて行う
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/master/web/AssetCategoryMasterController.java`
+- `apps/web/src/main/java/com/example/workops/master/form/AssetCategoryMasterForm.java`
+- `apps/web/src/main/java/com/example/workops/master/form/AssetCategoryMasterSearchForm.java`
+- `apps/web/src/main/java/com/example/workops/master/service/AssetCategoryMasterService.java`
+- `apps/web/src/main/java/com/example/workops/master/mapper/AssetCategoryMasterMapper.java`
+- `apps/web/src/main/java/com/example/workops/master/model/AssetCategoryMasterListItem.java`
+- `apps/web/src/main/java/com/example/workops/master/model/AssetCategoryMasterDetail.java`
+- `apps/web/src/main/resources/mapper/master/AssetCategoryMasterMapper.xml`
+- `apps/web/src/main/resources/templates/master/asset-category-list.html`
+- `apps/web/src/main/resources/templates/master/asset-category-form.html`
+- `apps/web/src/main/resources/templates/index.html`
+
+### 実装結果
+
+- TENANT_MANAGER 専用の資産分類一覧、登録、編集、論理削除、復活ルートを追加した
+- Mapper SQL は `company_id` と `ASSET_CATEGORY` で会社境界と対象種別を絞るようにした
+- 削除済み行は一覧で「削除済み」と表示し、復活操作のみを表示するようにした
+- 論理削除と復活は確認モーダル経由で実行するようにした
+- 一覧内の確認モーダルで CSRF トークン生成がページ後半にならないよう、資産分類一覧と同じ構造の申請種別一覧でもページ先頭で CSRF を初期化するようにした
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功
+- 既存 Service テスト 48 件が成功
+- local profile 起動中の `/masters/asset-categories`、`/masters/asset-categories?showDeleted=true`、`/masters/asset-categories/new` が HTTP 200 を返すことを確認
+- 同じ確認モーダル構造の `/masters/request-types`、`/masters/request-types?showDeleted=true`、`/masters/request-types/new` が HTTP 200 を返すことを確認
+- 論理削除と復活が確認モーダル経由の画面構造になっていることをテンプレートで確認
+
+### 残課題
+
+- M6-04 で Service テストを追加する
+- local profile の TENANT_MANAGER によるブラウザ画面操作確認を行う

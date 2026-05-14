@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{layout :: head('申請種別一覧')}"></head>
+<head th:replace="~{layout :: head('資産分類一覧')}"></head>
 <body class="bg-body-tertiary">
 <header th:replace="~{layout :: header}"></header>
 
@@ -8,17 +8,17 @@
     <div th:if="${_csrf != null}" class="d-none" th:data-csrf-name="${_csrf.parameterName}" th:data-csrf-token="${_csrf.token}"></div>
     <section class="workops-page-title mb-4">
         <p class="text-secondary mb-1">Master Management</p>
-        <h1 class="h3 mb-2">申請種別一覧</h1>
-        <p class="text-secondary mb-0">所属会社内の申請種別を管理します。</p>
+        <h1 class="h3 mb-2">資産分類一覧</h1>
+        <p class="text-secondary mb-0">所属会社内の資産分類を管理します。</p>
     </section>
 
     <section class="card">
         <div class="card-body">
             <div class="d-flex justify-content-end mb-3">
-                <a class="btn btn-primary btn-sm" th:href="@{/masters/request-types/new}">新規作成</a>
+                <a class="btn btn-primary btn-sm" th:href="@{/masters/asset-categories/new}">新規作成</a>
             </div>
 
-            <form class="border rounded p-3 mb-3 bg-body" method="get" th:action="@{/masters/request-types}" th:object="${requestTypeMasterSearchForm}">
+            <form class="border rounded p-3 mb-3 bg-body" method="get" th:action="@{/masters/asset-categories}" th:object="${assetCategoryMasterSearchForm}">
                 <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
                     <div class="form-check">
                         <input id="showDeleted"
@@ -28,17 +28,17 @@
                         <label for="showDeleted" class="form-check-label">削除済みも表示</label>
                     </div>
                     <div class="d-flex gap-2">
-                        <a class="btn btn-outline-secondary" th:href="@{/masters/request-types}">クリア</a>
+                        <a class="btn btn-outline-secondary" th:href="@{/masters/asset-categories}">クリア</a>
                         <button type="submit" class="btn btn-primary">表示</button>
                     </div>
                 </div>
             </form>
 
-            <div th:if="${requestTypes.isEmpty()}" class="text-secondary">
-                表示できる申請種別はありません。
+            <div th:if="${assetCategories.isEmpty()}" class="text-secondary">
+                表示できる資産分類はありません。
             </div>
 
-            <div th:unless="${requestTypes.isEmpty()}" class="table-responsive">
+            <div th:unless="${assetCategories.isEmpty()}" class="table-responsive">
                 <table class="table table-sm align-middle mb-0">
                     <thead>
                     <tr>
@@ -52,31 +52,31 @@
                     </tr>
                     </thead>
                     <tbody>
-                    <tr th:each="requestType : ${requestTypes}">
-                        <td th:text="${requestType.code()}">PURCHASE</td>
-                        <td th:text="${requestType.name()}">購入申請</td>
-                        <td th:text="${requestType.sortOrder()}">10</td>
+                    <tr th:each="assetCategory : ${assetCategories}">
+                        <td th:text="${assetCategory.code()}">LAPTOP</td>
+                        <td th:text="${assetCategory.name()}">ノートPC</td>
+                        <td th:text="${assetCategory.sortOrder()}">10</td>
                         <td>
-                            <span th:if="${requestType.isDeleted()}" class="badge text-bg-secondary">削除済み</span>
-                            <span th:unless="${requestType.isDeleted()}" class="badge text-bg-success">有効</span>
+                            <span th:if="${assetCategory.isDeleted()}" class="badge text-bg-secondary">削除済み</span>
+                            <span th:unless="${assetCategory.isDeleted()}" class="badge text-bg-success">有効</span>
                         </td>
-                        <td th:text="${#temporals.format(requestType.createdAt(), 'yyyy-MM-dd HH:mm')}">2026-01-01 09:00</td>
-                        <td th:text="${#temporals.format(requestType.updatedAt(), 'yyyy-MM-dd HH:mm')}">2026-01-01 09:00</td>
+                        <td th:text="${#temporals.format(assetCategory.createdAt(), 'yyyy-MM-dd HH:mm')}">2026-01-01 09:00</td>
+                        <td th:text="${#temporals.format(assetCategory.updatedAt(), 'yyyy-MM-dd HH:mm')}">2026-01-01 09:00</td>
                         <td>
                             <div class="d-flex gap-2">
-                                <a th:unless="${requestType.isDeleted()}"
+                                <a th:unless="${assetCategory.isDeleted()}"
                                    class="btn btn-outline-primary btn-sm"
-                                   th:href="@{/masters/request-types/{id}/edit(id=${requestType.id()})}">編集</a>
-                                <button th:unless="${requestType.isDeleted()}"
+                                   th:href="@{/masters/asset-categories/{id}/edit(id=${assetCategory.id()})}">編集</a>
+                                <button th:unless="${assetCategory.isDeleted()}"
                                         type="button"
                                         class="btn btn-outline-danger btn-sm"
                                         data-bs-toggle="modal"
-                                        th:data-bs-target="${'#deleteRequestTypeModal-' + requestType.id()}">削除</button>
-                                <button th:if="${requestType.isDeleted()}"
+                                        th:data-bs-target="${'#deleteAssetCategoryModal-' + assetCategory.id()}">削除</button>
+                                <button th:if="${assetCategory.isDeleted()}"
                                         type="button"
                                         class="btn btn-outline-primary btn-sm"
                                         data-bs-toggle="modal"
-                                        th:data-bs-target="${'#restoreRequestTypeModal-' + requestType.id()}">復活</button>
+                                        th:data-bs-target="${'#restoreAssetCategoryModal-' + assetCategory.id()}">復活</button>
                             </div>
                         </td>
                     </tr>
@@ -86,24 +86,24 @@
         </div>
     </section>
 
-    <div th:each="requestType : ${requestTypes}"
-         th:if="${requestType.isDeleted() == false}"
+    <div th:each="assetCategory : ${assetCategories}"
+         th:if="${assetCategory.isDeleted() == false}"
          class="modal fade"
-         th:id="${'deleteRequestTypeModal-' + requestType.id()}"
+         th:id="${'deleteAssetCategoryModal-' + assetCategory.id()}"
          tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 class="modal-title fs-5">申請種別を削除します</h2>
+                    <h2 class="modal-title fs-5">資産分類を削除します</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-2">この申請種別を削除してよろしいですか？</p>
-                    <p class="mb-0 fw-semibold" th:text="${requestType.code() + ' / ' + requestType.name()}">EQUIPMENT_PURCHASE / 備品購入申請</p>
+                    <p class="mb-2">この資産分類を削除してよろしいですか？</p>
+                    <p class="mb-0 fw-semibold" th:text="${assetCategory.code() + ' / ' + assetCategory.name()}">LAPTOP / ノートPC</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
-                    <form method="post" th:action="@{/masters/request-types/{id}/delete(id=${requestType.id()})}">
+                    <form method="post" th:action="@{/masters/asset-categories/{id}/delete(id=${assetCategory.id()})}">
                         <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                         <button type="submit" class="btn btn-danger">削除する</button>
                     </form>
@@ -112,24 +112,24 @@
         </div>
     </div>
 
-    <div th:each="requestType : ${requestTypes}"
-         th:if="${requestType.isDeleted() == true}"
+    <div th:each="assetCategory : ${assetCategories}"
+         th:if="${assetCategory.isDeleted() == true}"
          class="modal fade"
-         th:id="${'restoreRequestTypeModal-' + requestType.id()}"
+         th:id="${'restoreAssetCategoryModal-' + assetCategory.id()}"
          tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 class="modal-title fs-5">申請種別を復活します</h2>
+                    <h2 class="modal-title fs-5">資産分類を復活します</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-2">この申請種別を復活してよろしいですか？</p>
-                    <p class="mb-0 fw-semibold" th:text="${requestType.code() + ' / ' + requestType.name()}">EQUIPMENT_PURCHASE / 備品購入申請</p>
+                    <p class="mb-2">この資産分類を復活してよろしいですか？</p>
+                    <p class="mb-0 fw-semibold" th:text="${assetCategory.code() + ' / ' + assetCategory.name()}">LAPTOP / ノートPC</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
-                    <form method="post" th:action="@{/masters/request-types/{id}/restore(id=${requestType.id()})}">
+                    <form method="post" th:action="@{/masters/asset-categories/{id}/restore(id=${assetCategory.id()})}">
                         <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                         <button type="submit" class="btn btn-primary">復活する</button>
                     </form>
@@ -139,10 +139,10 @@
     </div>
 
     <div th:if="${message}" class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div id="request-type-list-toast" class="toast text-bg-success border-0" role="status" data-bs-delay="4000">
+        <div id="asset-category-list-toast" class="toast text-bg-success border-0" role="status" data-bs-delay="4000">
             <div class="d-flex">
                 <div class="toast-body" th:text="${message}">
-                    申請種別を更新しました。
+                    資産分類を更新しました。
                 </div>
                 <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
             </div>
@@ -153,7 +153,7 @@
 <footer th:replace="~{layout :: footer}"></footer>
 <script th:if="${message}">
     document.addEventListener('DOMContentLoaded', () => {
-        const toastElement = document.getElementById('request-type-list-toast');
+        const toastElement = document.getElementById('asset-category-list-toast');
         if (toastElement) {
             bootstrap.Toast.getOrCreateInstance(toastElement).show();
         }
