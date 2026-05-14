@@ -110,3 +110,37 @@ M6-01 から M6-03 の実装結果と確認結果が各 agent task Markdown に�
 - 実装結果
 - 確認結果
 - 残課題
+
+### 実装方針
+
+- 既存 Service テストと同じ `@SpringJUnitConfig`、mock Mapper、`SecurityContextHolder` の構成で追加する
+- Mapper SQL 自体の検証は M8 に寄せ、M6-04 では Service が正しい Mapper メソッドと権限条件を使うことを確認する
+- 申請種別マスタ管理と資産分類マスタ管理は、それぞれ専用 Service テストとして分ける
+- 業務画面の削除済みマスタ値 POST 拒否は、既存の `RequestCommandServiceTests` / `AssetCommandServiceTests` に追加する
+
+### 変更ファイル
+
+- `apps/web/src/test/java/com/example/workops/master/service/RequestTypeMasterServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/master/service/AssetCategoryMasterServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/request/service/RequestCommandServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/asset/service/AssetCommandServiceTests.java`
+- `docs/implementation/mvp/agent-tasks/M6/M6-04-master-service-tests.md`
+
+### 実装結果
+
+- `RequestTypeMasterServiceTests` を追加し、一覧、登録、編集、論理削除、復活、コード重複拒否、マスタ種別未設定時の 500、VIEWER / EDITOR 拒否を確認した
+- `AssetCategoryMasterServiceTests` を追加し、資産分類でも同じ観点を確認した
+- active 行だけ編集・論理削除できることを、`findActiveByIdAndCompanyId` が empty の場合は 404 になり更新系 Mapper が呼ばれない形で確認した
+- deleted 行だけ復活できることを、`findDeletedByIdAndCompanyId` が empty の場合は 404 になり復活 Mapper が呼ばれない形で確認した
+- 申請作成・編集で削除済みまたは他社の `REQUEST_TYPE` が POST された場合に 400 になることを確認した
+- 資産編集で削除済みまたは他社の `ASSET_CATEGORY` が POST された場合に 400 になることを確認した
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功
+- Service テストを含む全 72 件が成功
+- `git diff --check` で空白エラーなし
+
+### 残課題
+
+- Mapper / Testcontainers 強化は M8 で扱う

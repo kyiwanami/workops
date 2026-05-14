@@ -32,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -219,6 +220,39 @@ class RequestCommandServiceTests {
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> requestCommandService.remandSubmitted(REQUEST_ID, new RequestReviewForm("差戻し理由")))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void deletedOrOtherCompanyRequestTypeIsRejectedForCreateAndUpdate() {
+        signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
+        when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+                .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT", null)));
+        when(requestMapper.existsRequestTypeByIdAndCompanyId(REQUEST_TYPE_VALUE_ID, COMPANY_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> requestCommandService.createDraft(new RequestForm(REQUEST_TYPE_VALUE_ID, null, "購入申請", null)))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm(REQUEST_TYPE_VALUE_ID, null, "購入申請", null)))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(requestMapper, never()).insertDraft(
+                COMPANY_ID,
+                REQUESTER_USER_ID,
+                null,
+                REQUEST_TYPE_VALUE_ID,
+                "購入申請",
+                null,
+                REQUESTER_USER_ID,
+                REQUESTER_USER_ID);
+        verify(requestMapper, never()).updateDraftByIdAndCompanyId(
+                REQUEST_ID,
+                COMPANY_ID,
+                REQUESTER_USER_ID,
+                null,
+                REQUEST_TYPE_VALUE_ID,
+                "購入申請",
+                null,
+                REQUESTER_USER_ID);
     }
 
     @Test

@@ -30,6 +30,7 @@ import com.example.workops.common.security.PermissionSetContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -182,6 +183,28 @@ class AssetCommandServiceTests {
         assertThatThrownBy(() -> assetCommandService.createAsset(assetForm()))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void deletedOrOtherCompanyAssetCategoryIsRejectedForUpdate() {
+        signIn(EDITOR_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
+        when(assetMapper.findDetailByIdAndCompanyId(ASSET_ID, COMPANY_ID))
+                .thenReturn(Optional.of(assetDetail()));
+        when(assetMapper.existsAssetCategoryByIdAndCompanyId(ASSET_CATEGORY_VALUE_ID, COMPANY_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> assetCommandService.updateAsset(ASSET_ID, assetForm()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(assetMapper, never()).updateAssetByIdAndCompanyId(
+                ASSET_ID,
+                COMPANY_ID,
+                ASSET_CATEGORY_VALUE_ID,
+                DEPARTMENT_ID,
+                "KTHM-TEST-001",
+                "テスト資産",
+                "AVAILABLE",
+                "備考",
+                EDITOR_USER_ID);
     }
 
     @Test
