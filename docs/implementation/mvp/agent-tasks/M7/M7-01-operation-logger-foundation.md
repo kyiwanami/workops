@@ -102,10 +102,41 @@ MVP の主要更新系業務操作を追跡するため、Spring Boot 標準の 
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- Spring Boot 標準の SLF4J + Logback だけを使い、追加依存は入れない
+- Service 層から直接呼び出す前提の薄い `OperationLogger` と、ID 中心の `OperationLogRecord` を追加する
+- ロガー名は `com.example.workops.operation` とし、通常のクラスロガーとは分ける
+- `requestId` は MDC の `requestId` から取得し、未設定時は `-` として出力する
+- 出力順序は `requestId userId companyId actorType authorities operation targetType targetId result reasonCode reasonCommentPresent exceptionType` で固定する
+- コメント本文や業務本文を持てないよう、`OperationLogRecord` のフィールドは ID、コード、boolean、例外種別だけにする
+- M7-01 では Service への組み込みは行わず、共通部品と出力形式確認までに限定する
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/common/logging/OperationLogger.java`
+- `apps/web/src/main/java/com/example/workops/common/logging/OperationLogRecord.java`
+- `apps/web/src/test/java/com/example/workops/common/logging/OperationLoggerTests.java`
+- `docs/implementation/mvp/agent-tasks/M7/M7-01-operation-logger-foundation.md`
+
+### 実装結果
+
+- `OperationLogger` を追加し、`logSuccess` で INFO、`logRejected` で WARN の業務操作ログを出力できるようにした
+- `OperationLogRecord` を追加し、`LoginUserContext`、操作コード、対象種別、対象ID、理由コード、理由コメント有無、例外種別だけを保持するようにした
+- `targetId`、`reasonCode`、`exceptionType`、`requestId` の未設定値は `-` として出力するようにした
+- `authorities` は `LoginUserContext.permissionSets().code()` を現在順のカンマ区切りで出力し、空の場合は `-` とした
+- `OperationLoggerTests` を追加し、key=value 形式、INFO / WARN、MDC 未設定、複数権限、null / 空文字の `-` 表現、業務本文フィールドを持たないことを確認した
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` 成功
+- 全 76 件が成功
+- `OperationLoggerTests` は 4 件成功
+- `git diff --check` で空白エラーなし
+
+### 残課題
+
+- 申請 Service への組み込みは M7-02 で扱う
+- 資産 Service への組み込みは M7-03 で扱う
+- マスタ Service への組み込みは M7-04 で扱う
+- `requestId` を設定する Filter は M7-01 では追加していない
