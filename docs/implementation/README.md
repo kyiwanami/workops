@@ -12,6 +12,7 @@ Notion は、要件定義、基本設計、スコープ管理、ADR、Phase 別�
 このディレクトリでは、各 Phase の実装フェーズ、合意済み agent task、実装時に決まった具体事項、確認結果を管理します。
 
 MVP 固有の M1 から M8 の詳細は `mvp/phases.md` で管理します。
+MVP のローカル再現と動作確認シナリオは、ルート `README.md` と `mvp/verification-scenario.md` で管理します。
 Phase 2 以降は、各 Phase の着手前に対応する `phases.md` を作成します。
 
 ## Notion とリポジトリの役割
@@ -47,6 +48,17 @@ Notion 側では、次を管理します。
 - 保存・更新・削除など、画面遷移後にユーザーへ完了を知らせる通知は Bootstrap Toast で表示します。
 - フォーム上部の alert は、入力エラーや画面内に残す必要がある警告に使います。
 - MVP では SPA 化せず、SSR の flash message を Toast として表示します。
+
+## MVP 再現ドキュメント
+
+M8 完了時点で、MVP をローカルで再現・説明する入口は次の通りです。
+
+- ルート `README.md`: Docker Compose MySQL、Flyway、seed、local profile 起動、local 疑似ユーザー、テスト実行、主要URLを管理する
+- `mvp/verification-scenario.md`: 申請、資産、マスタ、業務操作ログの動作確認シナリオを管理する
+- `mvp/phases.md`: MVP の M1 から M8 までのフェーズ定義と完了条件を管理する
+- `db/schema.md`: DB 定義を人間が読みやすい形で整理する。実行上の正本は Flyway migration SQL とする
+
+Phase 2 以降の AWS デプロイ、Cognito 本格連携、ECS、RDS、CDK、GitHub Actions deploy、PDF、メール、バッチ、CloudWatch Logs 連携は、後続 Phase の着手時に別途整理します。
 
 ## 後続フェーズの実装運用ルール
 

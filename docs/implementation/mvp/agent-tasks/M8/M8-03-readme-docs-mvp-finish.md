@@ -88,10 +88,43 @@ README に従って WorkOps MVP をローカルで再現できる手順が整理
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- M8-03 はドキュメント整理のみとし、コード、DB、Flyway migration、seed、画面仕様は変更しない。
+- ルート README は MVP のローカル再現入口として、起動、テスト、local 疑似ユーザー、主要URL、主要業務操作を整理する。
+- 詳細な動作確認シナリオは `docs/implementation/mvp/verification-scenario.md` に分離する。
+- Phase 2 以降の AWS / Cognito 本格連携 / ECS / RDS / CDK / deploy / PDF / メール / バッチ / CloudWatch Logs 詳細手順は含めない。
+
+### 変更ファイル
+
+- `README.md`
+- `docs/implementation/README.md`
+- `docs/implementation/mvp/phases.md`
+- `docs/implementation/mvp/verification-scenario.md`
+- `docs/implementation/mvp/agent-tasks/M8/M8-03-readme-docs-mvp-finish.md`
+
+### 実装結果
+
+- `README.md` を M8 時点の入口文書として更新した。
+  - Docker Compose MySQL、Flyway V1 から V4、seed、DB再構築、Spring Boot local profile 起動、HTTP確認、停止手順を現行構成に合わせた。
+  - `.\mvnw.cmd test` が Docker Desktop 起動前提で、Service テストと Testcontainers MySQL 統合テストを実行することを明記した。
+  - `WORKOPS_LOCAL_COGNITO_SUB` による local 疑似ユーザー6件の切替方法を記載した。
+  - 申請、資産、マスタ、業務操作ログの MVP 確認概要と主要URLを整理した。
+  - Cognito 最小接続は M3 の確認資産として残し、通常の MVP 再現は `local` profile を使う説明に寄せた。
+- `docs/implementation/mvp/verification-scenario.md` を追加した。
+  - 申請、資産、申請種別マスタ、資産分類マスタ、業務操作ログの確認シナリオを整理した。
+  - UI の最終目視判断はユーザー実施であることを明記した。
+- `docs/implementation/README.md` に M8 完了時点の MVP 再現ドキュメント導線を追加した。
+- `docs/implementation/mvp/phases.md` の M8 完了条件に `verification-scenario.md` の導線を追加した。
+
+### 確認結果
+
+- 実行コマンド: `cd apps/web && .\mvnw.cmd test`
+- 結果: 成功
+- テスト結果: `Tests run: 97, Failures: 0, Errors: 0, Skipped: 0`
+- README に記載した主要コマンドと現行 `compose.yaml`、`application.yml`、Flyway migration、seed、Controller URL、local 認証実装の整合を確認した。
+- Phase 2 以降の詳細手順を README / docs に追加していないことを確認した。
+
+### 残課題
+
+- UI の最終目視確認・操作感確認はユーザー実施とする。
