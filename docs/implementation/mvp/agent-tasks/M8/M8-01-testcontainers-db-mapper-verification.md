@@ -89,3 +89,45 @@ Testcontainers MySQL 上で Flyway migration と seed 前提データの最小�
 - 実装結果
 - 確認結果
 - 残課題
+
+## 実装時の記録 2026-05-15
+
+### 実装方針
+
+- `@SpringBootTest`、`@ActiveProfiles("local")`、`@Testcontainers` を使う Testcontainers MySQL 統合テスト基盤を追加した。
+- Testcontainers の MySQL image は `compose.yaml` と同じ `mysql:9.7.0` を使った。
+- `application-local.yml` は追加せず、`@DynamicPropertySource` で datasource を Testcontainers の接続先へ差し替えた。
+- Spring TestContext の context cache と Testcontainers の停止タイミングがずれないよう、JVM 内で同一 MySQL コンテナを明示起動して再利用する構成にした。
+- 各統合テストは `@Transactional` で実行し、テスト内で追加・更新したデータをロールバックする。
+- Flyway migration / seed / Mapper / DB 制約の確認に限定し、DDL、seed、Mapper XML、README は変更しなかった。
+
+### 変更ファイル
+
+- `apps/web/src/test/java/com/example/workops/integration/MapperIntegrationTestBase.java`
+- `apps/web/src/test/java/com/example/workops/integration/SeedMigrationIntegrationTests.java`
+- `apps/web/src/test/java/com/example/workops/integration/RequestMapperIntegrationTests.java`
+- `apps/web/src/test/java/com/example/workops/integration/AssetMapperIntegrationTests.java`
+- `apps/web/src/test/java/com/example/workops/integration/BusinessMasterMapperIntegrationTests.java`
+- `apps/web/src/test/java/com/example/workops/integration/DatabaseConstraintIntegrationTests.java`
+- `docs/implementation/mvp/agent-tasks/M8/M8-01-testcontainers-db-mapper-verification.md`
+
+### 実装結果
+
+- Testcontainers MySQL 上で Flyway `V1` から `V4` までが適用され、MVP schema と local / sample seed が成立することを確認する統合テストを追加した。
+- 2社、6ユーザー、3権限、`REQUEST_STATUS` / `ASSET_STATUS`、`ASSET_CATEGORY` / `REQUEST_TYPE` の seed 確認を追加した。
+- `UserAccountMapper` で local 疑似ユーザー用 `cognito_sub` から `TENANT_MANAGER` ユーザーと権限を取得できることを確認した。
+- `RequestMapper` で申請作成、一覧、詳細、提出、会社境界、他社データ更新不可、削除済み資産参照、削除済み申請種別参照、選択肢での削除済み除外を確認した。
+- `AssetMapper` で資産作成、一覧、検索、詳細、ステータス更新、論理削除、会社境界、他社データ更新不可、削除済み資産分類参照、選択肢での削除済み除外を確認した。
+- `RequestTypeMasterMapper` / `AssetCategoryMasterMapper` で登録、編集、論理削除、削除済み表示、復活、会社境界、削除済みコードの存在判定を確認した。
+- `JdbcTemplate` で NOT NULL、外部キー、一意制約、`generic_master_id + company_id + code` の一意性、削除済みコード再利用禁止を確認した。
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test` を実行し、93 tests / failures 0 / errors 0 を確認した。
+- 初回実行では `@Container` 管理により最初の統合テストクラス終了後に MySQL コンテナが停止し、Spring context cache が停止済み JDBC URL を再利用して失敗した。
+- 上記はテスト基盤の起動方式を JVM 内の明示起動コンテナ再利用へ変更して解消した。
+- Flyway は MySQL 9.7 に対して「Flyway の最新検証済み MySQL は 8.1」という WARN を出すが、既存の WorkOps 方針どおり MySQL 9.7.0 を使い、migration とテストは成功した。
+
+### 残課題
+
+- なし。
