@@ -371,14 +371,47 @@ class RequestCommandServiceTests {
     }
 
     @Test
-    void otherCompanyRequestReturnsNotFound() {
+    void otherCompanyRequestReturnsNotFoundForApplicantOperations() {
         signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
         when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID)).thenReturn(Optional.empty());
 
+        assertThatThrownBy(() -> requestCommandService.updateDraft(REQUEST_ID, new RequestForm(REQUEST_TYPE_VALUE_ID, null, "購入申請", null)))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
         assertThatThrownBy(() -> requestCommandService.submitDraft(REQUEST_ID))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
-        assertRejectedLog("REQUEST_SUBMIT", REQUEST_ID, "COMPANY_MISMATCH", "ResponseStatusException");
+        assertThatThrownBy(() -> requestCommandService.withdrawSubmitted(REQUEST_ID))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertRejectedLogs(
+                List.of("REQUEST_UPDATE", "REQUEST_SUBMIT", "REQUEST_WITHDRAW"),
+                List.of(REQUEST_ID, REQUEST_ID, REQUEST_ID),
+                List.of("COMPANY_MISMATCH", "COMPANY_MISMATCH", "COMPANY_MISMATCH"),
+                List.of("ResponseStatusException", "ResponseStatusException", "ResponseStatusException"));
+    }
+
+    @Test
+    void otherCompanyRequestReturnsNotFoundForReviewOperations() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, permission("TENANT_MANAGER", "管理者"));
+        when(requestMapper.findDetailByIdAndCompanyId(201L, COMPANY_ID)).thenReturn(Optional.empty());
+        when(requestMapper.findDetailByIdAndCompanyId(202L, COMPANY_ID)).thenReturn(Optional.empty());
+        when(requestMapper.findDetailByIdAndCompanyId(203L, COMPANY_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> requestCommandService.approveSubmitted(201L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertThatThrownBy(() -> requestCommandService.rejectSubmitted(202L, new RequestReviewForm("却下理由")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertThatThrownBy(() -> requestCommandService.remandSubmitted(203L, new RequestReviewForm("差戻し理由")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertRejectedLogs(
+                List.of("REQUEST_APPROVE", "REQUEST_REJECT", "REQUEST_REMAND"),
+                List.of(201L, 202L, 203L),
+                List.of("COMPANY_MISMATCH", "COMPANY_MISMATCH", "COMPANY_MISMATCH"),
+                List.of("ResponseStatusException", "ResponseStatusException", "ResponseStatusException"));
     }
 
     private void assertSuccessLog(String operation, Long targetId, boolean reasonCommentPresent) {

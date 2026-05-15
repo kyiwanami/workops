@@ -66,10 +66,44 @@ M4 から M7 で追加済みの Service テストを前提に、MVP の重要な
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- 既存 Service テストは M4 から M7 の時点で大部分が整備済みのため、全面的な作り直しは行わない。
+- M8-02 では、既存テストで薄かった「他社・削除済み相当で詳細取得できない場合の操作別拒否」と「資産更新時の不正参照・重複コード拒否」に限定して補強する。
+- 業務操作ログは現行 reasonCode の確認に留め、M7 の拒否理由細分化やログ精度向上のための Service 実装変更は行わない。
+
+### 変更ファイル
+
+- `apps/web/src/test/java/com/example/workops/request/service/RequestCommandServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/asset/service/AssetCommandServiceTests.java`
+- `docs/implementation/mvp/agent-tasks/M8/M8-02-service-test-hardening.md`
+
+### 実装結果
+
+- 申請 Service テストに、他社・削除済み相当で `findDetailByIdAndCompanyId` が空になる場合の申請者操作を追加した。
+  - `REQUEST_UPDATE`
+  - `REQUEST_SUBMIT`
+  - `REQUEST_WITHDRAW`
+  - いずれも `COMPANY_MISMATCH` / `ResponseStatusException` として記録されることを確認する。
+- 申請 Service テストに、同じく他社・削除済み相当の場合の承認者操作を追加した。
+  - `REQUEST_APPROVE`
+  - `REQUEST_REJECT`
+  - `REQUEST_REMAND`
+  - いずれも `COMPANY_MISMATCH` / `ResponseStatusException` として記録されることを確認する。
+- 資産 Service テストに、資産更新時の管理部署不正、資産ステータス不正、重複資産コードの拒否を追加した。
+  - `INVALID_DEPARTMENT`
+  - `INVALID_ASSET_STATUS`
+  - `DUPLICATE_ASSET_CODE`
+- Service 本体、Mapper、DB、seed、README は変更していない。
+
+### 確認結果
+
+- 実行コマンド: `cd apps/web && .\mvnw.cmd test`
+- 結果: 成功
+- テスト結果: `Tests run: 97, Failures: 0, Errors: 0, Skipped: 0`
+- Testcontainers MySQL 上の M8-01 統合テストも同時に通過した。
+
+### 残課題
+
+- Mockito の dynamic agent warning は既存の警告として残る。M8-02 の対象外。
+- Flyway が MySQL 9.7 を最新検証済みバージョンより新しいものとして警告する。M8-01 と同じく、プロジェクト方針の MySQL 9.7.0 を使い、テストは成功しているため本タスクでは変更しない。

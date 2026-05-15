@@ -241,6 +241,20 @@ class AssetCommandServiceTests {
     }
 
     @Test
+    void invalidDepartmentIsRejectedForUpdate() {
+        signIn(EDITOR_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
+        when(assetMapper.findDetailByIdAndCompanyId(ASSET_ID, COMPANY_ID))
+                .thenReturn(Optional.of(assetDetail()));
+        when(assetMapper.existsAssetCategoryByIdAndCompanyId(ASSET_CATEGORY_VALUE_ID, COMPANY_ID)).thenReturn(true);
+        when(assetMapper.existsDepartmentByIdAndCompanyId(DEPARTMENT_ID, COMPANY_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> assetCommandService.updateAsset(ASSET_ID, assetForm()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertRejectedLog("ASSET_UPDATE", ASSET_ID, "INVALID_DEPARTMENT");
+    }
+
+    @Test
     void invalidStatusIsRejected() {
         signIn(EDITOR_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
         when(assetMapper.existsAssetCategoryByIdAndCompanyId(ASSET_CATEGORY_VALUE_ID, COMPANY_ID)).thenReturn(true);
@@ -251,6 +265,21 @@ class AssetCommandServiceTests {
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
         assertRejectedLog("ASSET_CREATE", null, "INVALID_ASSET_STATUS");
+    }
+
+    @Test
+    void invalidStatusIsRejectedForUpdate() {
+        signIn(EDITOR_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
+        when(assetMapper.findDetailByIdAndCompanyId(ASSET_ID, COMPANY_ID))
+                .thenReturn(Optional.of(assetDetail()));
+        when(assetMapper.existsAssetCategoryByIdAndCompanyId(ASSET_CATEGORY_VALUE_ID, COMPANY_ID)).thenReturn(true);
+        when(assetMapper.existsDepartmentByIdAndCompanyId(DEPARTMENT_ID, COMPANY_ID)).thenReturn(true);
+        when(assetMapper.existsStatusCode("AVAILABLE")).thenReturn(false);
+
+        assertThatThrownBy(() -> assetCommandService.updateAsset(ASSET_ID, assetForm()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertRejectedLog("ASSET_UPDATE", ASSET_ID, "INVALID_ASSET_STATUS");
     }
 
     @Test
@@ -278,6 +307,22 @@ class AssetCommandServiceTests {
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
         assertRejectedLog("ASSET_CREATE", null, "DUPLICATE_ASSET_CODE");
+    }
+
+    @Test
+    void duplicateCodeIsRejectedForUpdate() {
+        signIn(EDITOR_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
+        when(assetMapper.findDetailByIdAndCompanyId(ASSET_ID, COMPANY_ID))
+                .thenReturn(Optional.of(assetDetail()));
+        when(assetMapper.existsAssetCategoryByIdAndCompanyId(ASSET_CATEGORY_VALUE_ID, COMPANY_ID)).thenReturn(true);
+        when(assetMapper.existsDepartmentByIdAndCompanyId(DEPARTMENT_ID, COMPANY_ID)).thenReturn(true);
+        when(assetMapper.existsStatusCode("AVAILABLE")).thenReturn(true);
+        when(assetMapper.existsOtherAssetCodeByCompanyId(ASSET_ID, "KTHM-TEST-001", COMPANY_ID)).thenReturn(true);
+
+        assertThatThrownBy(() -> assetCommandService.updateAsset(ASSET_ID, assetForm()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertRejectedLog("ASSET_UPDATE", ASSET_ID, "DUPLICATE_ASSET_CODE");
     }
 
     private void assertSuccessLog(String operation, Long targetId) {
