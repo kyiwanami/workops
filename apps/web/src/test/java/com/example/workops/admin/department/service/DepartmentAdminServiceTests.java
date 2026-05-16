@@ -22,6 +22,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.workops.admin.department.form.DepartmentForm;
+import com.example.workops.admin.department.form.DepartmentSearchForm;
 import com.example.workops.admin.department.mapper.DepartmentAdminMapper;
 import com.example.workops.admin.department.model.DepartmentListItem;
 import com.example.workops.admin.department.model.DepartmentListPage;
@@ -74,13 +75,16 @@ class DepartmentAdminServiceTests {
         signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
         DepartmentListItem department = departmentListItem();
         givenActiveCompany(COMPANY_ID);
-        when(departmentAdminMapper.findActiveDepartmentsByCompanyId(COMPANY_ID)).thenReturn(List.of(department));
+        DepartmentSearchForm departmentSearchForm = new DepartmentSearchForm(false);
+        when(departmentAdminMapper.findDepartmentsByCompanyIdAndSearchForm(COMPANY_ID, departmentSearchForm))
+                .thenReturn(List.of(department));
 
-        DepartmentListPage result = departmentAdminService.findPlatformDepartmentList(COMPANY_ID);
+        DepartmentListPage result = departmentAdminService.findPlatformDepartmentList(COMPANY_ID, departmentSearchForm);
 
         assertCompanyPage(result, COMPANY_ID);
+        assertThat(result.showDeleted()).isFalse();
         assertThat(result.departments()).containsExactly(department);
-        verify(departmentAdminMapper).findActiveDepartmentsByCompanyId(COMPANY_ID);
+        verify(departmentAdminMapper).findDepartmentsByCompanyIdAndSearchForm(COMPANY_ID, departmentSearchForm);
     }
 
     @Test
@@ -107,13 +111,16 @@ class DepartmentAdminServiceTests {
         signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
         DepartmentListItem department = departmentListItem();
         givenActiveCompany(COMPANY_ID);
-        when(departmentAdminMapper.findActiveDepartmentsByCompanyId(COMPANY_ID)).thenReturn(List.of(department));
+        DepartmentSearchForm departmentSearchForm = new DepartmentSearchForm(true);
+        when(departmentAdminMapper.findDepartmentsByCompanyIdAndSearchForm(COMPANY_ID, departmentSearchForm))
+                .thenReturn(List.of(department));
 
-        DepartmentListPage result = departmentAdminService.findTenantDepartmentList();
+        DepartmentListPage result = departmentAdminService.findTenantDepartmentList(departmentSearchForm);
 
         assertCompanyPage(result, COMPANY_ID);
+        assertThat(result.showDeleted()).isTrue();
         assertThat(result.departments()).containsExactly(department);
-        verify(departmentAdminMapper).findActiveDepartmentsByCompanyId(COMPANY_ID);
+        verify(departmentAdminMapper).findDepartmentsByCompanyIdAndSearchForm(COMPANY_ID, departmentSearchForm);
     }
 
     @Test
@@ -154,6 +161,91 @@ class DepartmentAdminServiceTests {
     }
 
     @Test
+    void platformAdminCanUpdateDepartmentForSpecifiedCompany() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        givenActiveCompany(OTHER_COMPANY_ID);
+        when(departmentAdminMapper.findActiveDepartmentByIdAndCompanyId(DEPARTMENT_ID, OTHER_COMPANY_ID))
+                .thenReturn(Optional.of(departmentListItem()));
+
+        departmentAdminService.updatePlatformDepartment(OTHER_COMPANY_ID, DEPARTMENT_ID, departmentForm());
+
+        verify(departmentAdminMapper).updateActiveDepartmentNameByIdAndCompanyId(
+                DEPARTMENT_ID,
+                OTHER_COMPANY_ID,
+                "人事部",
+                PLATFORM_USER_ID);
+        assertSuccessLog("DEPARTMENT_UPDATE", PLATFORM_USER_ID, null, DEPARTMENT_ID);
+    }
+
+    @Test
+    void tenantManagerCanUpdateOwnCompanyDepartment() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        givenActiveCompany(COMPANY_ID);
+        when(departmentAdminMapper.findActiveDepartmentByIdAndCompanyId(DEPARTMENT_ID, COMPANY_ID))
+                .thenReturn(Optional.of(departmentListItem()));
+
+        departmentAdminService.updateTenantDepartment(DEPARTMENT_ID, departmentForm());
+
+        verify(departmentAdminMapper).updateActiveDepartmentNameByIdAndCompanyId(
+                DEPARTMENT_ID,
+                COMPANY_ID,
+                "人事部",
+                MANAGER_USER_ID);
+        assertSuccessLog("DEPARTMENT_UPDATE", MANAGER_USER_ID, COMPANY_ID, DEPARTMENT_ID);
+    }
+
+    @Test
+    void platformAdminCanDeleteDepartmentForSpecifiedCompany() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        givenActiveCompany(OTHER_COMPANY_ID);
+        when(departmentAdminMapper.findActiveDepartmentByIdAndCompanyId(DEPARTMENT_ID, OTHER_COMPANY_ID))
+                .thenReturn(Optional.of(departmentListItem()));
+
+        departmentAdminService.deletePlatformDepartment(OTHER_COMPANY_ID, DEPARTMENT_ID);
+
+        verify(departmentAdminMapper).logicalDeleteActiveDepartmentByIdAndCompanyId(
+                DEPARTMENT_ID,
+                OTHER_COMPANY_ID,
+                PLATFORM_USER_ID);
+        assertSuccessLog("DEPARTMENT_DELETE", PLATFORM_USER_ID, null, DEPARTMENT_ID);
+    }
+
+    @Test
+    void tenantManagerCanDeleteOwnCompanyDepartmentEvenWithActiveUsers() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        givenActiveCompany(COMPANY_ID);
+        when(departmentAdminMapper.findActiveDepartmentByIdAndCompanyId(DEPARTMENT_ID, COMPANY_ID))
+                .thenReturn(Optional.of(departmentListItem()));
+
+        departmentAdminService.deleteTenantDepartment(DEPARTMENT_ID);
+
+        verify(departmentAdminMapper).logicalDeleteActiveDepartmentByIdAndCompanyId(
+                DEPARTMENT_ID,
+                COMPANY_ID,
+                MANAGER_USER_ID);
+        assertSuccessLog("DEPARTMENT_DELETE", MANAGER_USER_ID, COMPANY_ID, DEPARTMENT_ID);
+    }
+
+    @Test
+    void missingOrDeletedDepartmentReturnsNotFoundForUpdateAndDelete() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        givenActiveCompany(COMPANY_ID);
+        when(departmentAdminMapper.findActiveDepartmentByIdAndCompanyId(DEPARTMENT_ID, COMPANY_ID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> departmentAdminService.updateTenantDepartment(DEPARTMENT_ID, departmentForm()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertRejectedLog("DEPARTMENT_UPDATE", DEPARTMENT_ID, "DEPARTMENT_NOT_FOUND_OR_FORBIDDEN");
+
+        reset(operationLogger);
+        assertThatThrownBy(() -> departmentAdminService.deleteTenantDepartment(DEPARTMENT_ID))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertRejectedLog("DEPARTMENT_DELETE", DEPARTMENT_ID, "DEPARTMENT_NOT_FOUND_OR_FORBIDDEN");
+    }
+
+    @Test
     void missingCompanyReturnsNotFound() {
         signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
         when(departmentAdminMapper.findActiveCompanyId(999L)).thenReturn(Optional.empty());
@@ -174,9 +266,15 @@ class DepartmentAdminServiceTests {
     void tenantManagerCannotInvokePlatformMethods() {
         signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
 
-        assertThatThrownBy(() -> departmentAdminService.findPlatformDepartmentList(OTHER_COMPANY_ID))
+        assertThatThrownBy(() -> departmentAdminService.findPlatformDepartmentList(
+                OTHER_COMPANY_ID,
+                new DepartmentSearchForm(false)))
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> departmentAdminService.createPlatformDepartment(OTHER_COMPANY_ID, departmentForm()))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> departmentAdminService.updatePlatformDepartment(OTHER_COMPANY_ID, DEPARTMENT_ID, departmentForm()))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> departmentAdminService.deletePlatformDepartment(OTHER_COMPANY_ID, DEPARTMENT_ID))
                 .isInstanceOf(AccessDeniedException.class);
         verifyNoInteractions(departmentAdminMapper);
         verifyNoInteractions(operationLogger);
@@ -187,10 +285,18 @@ class DepartmentAdminServiceTests {
         signIn(1L, COMPANY_ID, "TENANT", permission("TENANT_VIEWER", "閲覧者"));
         assertThatThrownBy(() -> departmentAdminService.createTenantDepartment(departmentForm()))
                 .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> departmentAdminService.updateTenantDepartment(DEPARTMENT_ID, departmentForm()))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> departmentAdminService.deleteTenantDepartment(DEPARTMENT_ID))
+                .isInstanceOf(AccessDeniedException.class);
 
         SecurityContextHolder.clearContext();
         signIn(2L, COMPANY_ID, "TENANT", permission("TENANT_EDITOR", "編集者"));
         assertThatThrownBy(() -> departmentAdminService.createTenantDepartment(departmentForm()))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> departmentAdminService.updateTenantDepartment(DEPARTMENT_ID, departmentForm()))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> departmentAdminService.deleteTenantDepartment(DEPARTMENT_ID))
                 .isInstanceOf(AccessDeniedException.class);
 
         verifyNoInteractions(departmentAdminMapper);
@@ -198,12 +304,16 @@ class DepartmentAdminServiceTests {
     }
 
     private void assertSuccessLog(Long userId, Long companyId, Long departmentId) {
+        assertSuccessLog("DEPARTMENT_CREATE", userId, companyId, departmentId);
+    }
+
+    private void assertSuccessLog(String operation, Long userId, Long companyId, Long departmentId) {
         ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
         verify(operationLogger).logSuccess(captor.capture());
         OperationLogRecord record = captor.getValue();
         assertThat(record.loginUserContext().userId()).isEqualTo(userId);
         assertThat(record.loginUserContext().companyId()).isEqualTo(companyId);
-        assertThat(record.operation()).isEqualTo("DEPARTMENT_CREATE");
+        assertThat(record.operation()).isEqualTo(operation);
         assertThat(record.targetType()).isEqualTo("DEPARTMENT");
         assertThat(record.targetId()).isEqualTo(departmentId);
         assertThat(record.reasonCode()).isNull();
@@ -215,13 +325,17 @@ class DepartmentAdminServiceTests {
     }
 
     private void assertRejectedLog() {
+        assertRejectedLog("DEPARTMENT_CREATE", null, "DUPLICATE_DEPARTMENT_CODE");
+    }
+
+    private void assertRejectedLog(String operation, Long departmentId, String reasonCode) {
         ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
         verify(operationLogger).logRejected(captor.capture());
         OperationLogRecord record = captor.getValue();
-        assertThat(record.operation()).isEqualTo("DEPARTMENT_CREATE");
+        assertThat(record.operation()).isEqualTo(operation);
         assertThat(record.targetType()).isEqualTo("DEPARTMENT");
-        assertThat(record.targetId()).isNull();
-        assertThat(record.reasonCode()).isEqualTo("DUPLICATE_DEPARTMENT_CODE");
+        assertThat(record.targetId()).isEqualTo(departmentId);
+        assertThat(record.reasonCode()).isEqualTo(reasonCode);
         assertThat(record.reasonCommentPresent()).isFalse();
         assertThat(record.exceptionType()).isEqualTo("ResponseStatusException");
     }
@@ -265,6 +379,8 @@ class DepartmentAdminServiceTests {
                 DEPARTMENT_ID,
                 "ADMIN",
                 "総務部",
+                false,
+                2L,
                 LocalDateTime.of(2026, 5, 1, 9, 0),
                 LocalDateTime.of(2026, 5, 1, 9, 0));
     }

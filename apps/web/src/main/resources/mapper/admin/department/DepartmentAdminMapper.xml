@@ -8,6 +8,8 @@
             <arg column="id" javaType="java.lang.Long"/>
             <arg column="code" javaType="java.lang.String"/>
             <arg column="name" javaType="java.lang.String"/>
+            <arg column="is_deleted" javaType="java.lang.Boolean"/>
+            <arg column="active_user_count" javaType="java.lang.Long"/>
             <arg column="created_at" javaType="java.time.LocalDateTime"/>
             <arg column="updated_at" javaType="java.time.LocalDateTime"/>
         </constructor>
@@ -34,17 +36,46 @@
             AND company.is_deleted = FALSE
     </select>
 
-    <select id="findActiveDepartmentsByCompanyId" resultMap="DepartmentListItemMap">
+    <select id="findDepartmentsByCompanyIdAndSearchForm" resultMap="DepartmentListItemMap">
         SELECT
             department.id AS id,
             department.code AS code,
             department.name AS name,
+            department.is_deleted AS is_deleted,
+            (
+                SELECT COUNT(*)
+                FROM users user_account
+                WHERE user_account.department_id = department.id
+                    AND user_account.is_deleted = FALSE
+            ) AS active_user_count,
             department.created_at AS created_at,
             department.updated_at AS updated_at
         FROM departments department
         WHERE department.company_id = #{companyId}
-            AND department.is_deleted = FALSE
+            <if test="departmentSearchForm.showDeleted != true">
+                AND department.is_deleted = FALSE
+            </if>
         ORDER BY department.code ASC, department.id ASC
+    </select>
+
+    <select id="findActiveDepartmentByIdAndCompanyId" resultMap="DepartmentListItemMap">
+        SELECT
+            department.id AS id,
+            department.code AS code,
+            department.name AS name,
+            department.is_deleted AS is_deleted,
+            (
+                SELECT COUNT(*)
+                FROM users user_account
+                WHERE user_account.department_id = department.id
+                    AND user_account.is_deleted = FALSE
+            ) AS active_user_count,
+            department.created_at AS created_at,
+            department.updated_at AS updated_at
+        FROM departments department
+        WHERE department.id = #{departmentId}
+            AND department.company_id = #{companyId}
+            AND department.is_deleted = FALSE
     </select>
 
     <select id="existsDepartmentCodeByCompanyId" resultType="boolean">
@@ -73,6 +104,24 @@
             #{updatedBy}
         )
     </insert>
+
+    <update id="updateActiveDepartmentNameByIdAndCompanyId">
+        UPDATE departments
+        SET name = #{name},
+            updated_by = #{updatedBy}
+        WHERE id = #{departmentId}
+            AND company_id = #{companyId}
+            AND is_deleted = FALSE
+    </update>
+
+    <update id="logicalDeleteActiveDepartmentByIdAndCompanyId">
+        UPDATE departments
+        SET is_deleted = TRUE,
+            updated_by = #{updatedBy}
+        WHERE id = #{departmentId}
+            AND company_id = #{companyId}
+            AND is_deleted = FALSE
+    </update>
 
     <select id="findLastInsertId" resultType="java.lang.Long">
         SELECT LAST_INSERT_ID()

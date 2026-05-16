@@ -97,10 +97,62 @@ TENANT_MANAGER が自社部署を編集・論理削除でき、削除済み部�
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- 削除済み表示切替は既存マスタ管理と同じ `showDeleted` request parameter と `DepartmentSearchForm(Boolean showDeleted)` で扱った
+- 会社存在確認と会社表示項目取得は、M9-03 と同じく `DepartmentAdminService` / `DepartmentAdminMapper` に閉じた
+- 部署編集では `name` だけを更新し、`code` と `company_id` は更新対象にしない
+- 部署削除は `departments.is_deleted = TRUE` と `updated_by` 更新による論理削除で実装した
+- 所属ユーザー数は一覧行に持たせ、削除確認モーダルで警告表示に使った
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/admin/department/form/DepartmentForm.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/form/DepartmentSearchForm.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/mapper/DepartmentAdminMapper.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/model/DepartmentListItem.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/model/DepartmentListPage.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/service/DepartmentAdminService.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/web/DepartmentAdminController.java`
+- `apps/web/src/main/resources/mapper/admin/department/DepartmentAdminMapper.xml`
+- `apps/web/src/main/resources/templates/admin/department/department-form.html`
+- `apps/web/src/main/resources/templates/admin/department/department-list.html`
+- `apps/web/src/test/java/com/example/workops/admin/department/service/DepartmentAdminServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/integration/DepartmentAdminMapperIntegrationTests.java`
+- `docs/implementation/mvp/agent-tasks/M9/M9-04-department-edit-delete-deleted-view.md`
+
+### 実装結果
+
+- PLATFORM_ADMIN 用の部署編集・論理削除・削除済み表示を追加した
+- TENANT_MANAGER 用の自社部署編集・論理削除・削除済み表示を追加した
+- 通常一覧では未削除部署だけを表示し、`showDeleted=true` では削除済み部署も表示する
+- 削除済み部署は一覧上で「削除済み」状態を表示し、編集・削除操作を出さない
+- 所属中の未削除ユーザー数を一覧と削除確認モーダルに表示する
+- 所属ユーザーがいる部署も論理削除できる
+- DB schema migration は追加していない
+- ユーザー一覧・ユーザー詳細画面は現時点で存在しないため、ユーザー表示側の部署名補正は行っていない
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test`
+  - 130 tests
+  - Failures: 0
+  - Errors: 0
+  - Skipped: 0
+- PLATFORM_ADMIN local profile
+  - 部署登録: 200 / 一覧表示
+  - 部署編集: 200 / 更新後一覧表示
+  - 部署論理削除: 通常一覧から非表示
+  - `showDeleted=true`: 削除済み部署と削除済み badge を表示
+  - 所属ユーザーあり部署の削除確認モーダル警告を表示
+- TENANT_MANAGER local profile
+  - 自社部署登録: 200 / 一覧表示
+  - 自社部署編集: 200 / 更新後一覧表示
+  - 自社部署論理削除: 通常一覧から非表示
+  - `showDeleted=true`: 削除済み部署と削除済み badge を表示
+  - PLATFORM_ADMIN 用編集 URL は 403
+
+### 残課題
+
+- 部署復活、物理削除、所属ユーザーの部署自動解除は M9-04 では扱わない
+- ユーザー管理画面が追加された段階で、削除済み部署名を「部署名（削除済み）」として表示する対応を行う

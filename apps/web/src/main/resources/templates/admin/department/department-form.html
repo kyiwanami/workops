@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="ja" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{layout :: head('部署登録')}"></head>
+<head th:replace="~{layout :: head(${edit} ? '部署編集' : '部署登録')}"></head>
 <body class="bg-body-tertiary">
 <header th:replace="~{layout :: header}"></header>
 
 <main class="container-fluid px-4 py-4">
     <section class="workops-page-title mb-4">
         <p class="text-secondary mb-1">Department Management</p>
-        <h1 class="h3 mb-2">部署登録</h1>
+        <h1 class="h3 mb-2" th:text="${edit} ? '部署編集' : '部署登録'">部署登録</h1>
         <p class="text-secondary mb-0" th:text="${departmentListPage.companyCode() + ' / ' + departmentListPage.companyName()}">
             KTHM_PRECISION / 北浜精密機器株式会社
         </p>
@@ -16,7 +16,7 @@
     <section class="card">
         <div class="card-body">
             <form method="post"
-                  th:action="${platformAdmin} ? @{/admin/companies/{companyId}/departments(companyId=${departmentListPage.companyId()})} : @{/departments}"
+                  th:action="${formAction}"
                   th:object="${departmentForm}">
                 <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
@@ -26,6 +26,7 @@
                            type="text"
                            class="form-control"
                            th:field="*{code}"
+                           th:readonly="${edit}"
                            th:classappend="${#fields.hasErrors('code')} ? ' is-invalid'">
                     <div class="invalid-feedback" th:if="${#fields.hasErrors('code')}" th:errors="*{code}">
                         部署コードを入力してください。
@@ -45,13 +46,8 @@
                 </div>
 
                 <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">登録</button>
-                    <a th:if="${platformAdmin}"
-                       class="btn btn-outline-secondary"
-                       th:href="@{/admin/companies/{companyId}/departments(companyId=${departmentListPage.companyId()})}">キャンセル</a>
-                    <a th:unless="${platformAdmin}"
-                       class="btn btn-outline-secondary"
-                       th:href="@{/departments}">キャンセル</a>
+                    <button type="submit" class="btn btn-primary" th:text="${edit} ? '保存' : '登録'">登録</button>
+                    <a class="btn btn-outline-secondary" th:href="${cancelHref}">キャンセル</a>
                 </div>
             </form>
         </div>

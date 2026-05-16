@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import com.example.workops.admin.department.form.DepartmentSearchForm;
 import com.example.workops.admin.department.mapper.DepartmentAdminMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,9 +22,25 @@ class DepartmentAdminMapperIntegrationTests extends MapperIntegrationTestBase {
     void findActiveDepartmentsByCompanyIdExcludesDeletedRows() {
         jdbcTemplate.update("UPDATE departments SET is_deleted = TRUE WHERE id = ?", 1L);
 
-        assertThat(departmentAdminMapper.findActiveDepartmentsByCompanyId(1L))
+        assertThat(departmentAdminMapper.findDepartmentsByCompanyIdAndSearchForm(1L, new DepartmentSearchForm(false)))
                 .extracting("code")
                 .containsExactly("IT", "MFG", "SALES");
+    }
+
+    @Test
+    void findDepartmentsByCompanyIdIncludesDeletedRowsWhenRequested() {
+        jdbcTemplate.update("UPDATE departments SET is_deleted = TRUE WHERE id = ?", 1L);
+
+        assertThat(departmentAdminMapper.findDepartmentsByCompanyIdAndSearchForm(1L, new DepartmentSearchForm(true)))
+                .extracting("code")
+                .containsExactly("ADMIN", "IT", "MFG", "SALES");
+    }
+
+    @Test
+    void findActiveDepartmentByIdAndCompanyIdRejectsDeletedRows() {
+        jdbcTemplate.update("UPDATE departments SET is_deleted = TRUE WHERE id = ?", 1L);
+
+        assertThat(departmentAdminMapper.findActiveDepartmentByIdAndCompanyId(1L, 1L)).isEmpty();
     }
 
     @Test
@@ -56,6 +73,53 @@ class DepartmentAdminMapperIntegrationTests extends MapperIntegrationTestBase {
 
         assertThat(createdBy).isEqualTo(7L);
         assertThat(updatedBy).isEqualTo(7L);
+    }
+
+    @Test
+    void updateDepartmentChangesNameAndUpdatedByButKeepsCode() {
+        departmentAdminMapper.updateActiveDepartmentNameByIdAndCompanyId(1L, 1L, "総務企画部", 7L);
+
+        String code = jdbcTemplate.queryForObject(
+                "SELECT code FROM departments WHERE id = ?",
+                String.class,
+                1L);
+        String name = jdbcTemplate.queryForObject(
+                "SELECT name FROM departments WHERE id = ?",
+                String.class,
+                1L);
+        Long updatedBy = jdbcTemplate.queryForObject(
+                "SELECT updated_by FROM departments WHERE id = ?",
+                Long.class,
+                1L);
+
+        assertThat(code).isEqualTo("ADMIN");
+        assertThat(name).isEqualTo("総務企画部");
+        assertThat(updatedBy).isEqualTo(7L);
+    }
+
+    @Test
+    void logicalDeleteDepartmentSetsDeletedAndUpdatedBy() {
+        departmentAdminMapper.logicalDeleteActiveDepartmentByIdAndCompanyId(1L, 1L, 7L);
+
+        Boolean isDeleted = jdbcTemplate.queryForObject(
+                "SELECT is_deleted FROM departments WHERE id = ?",
+                Boolean.class,
+                1L);
+        Long updatedBy = jdbcTemplate.queryForObject(
+                "SELECT updated_by FROM departments WHERE id = ?",
+                Long.class,
+                1L);
+
+        assertThat(isDeleted).isTrue();
+        assertThat(updatedBy).isEqualTo(7L);
+    }
+
+    @Test
+    void departmentListItemsIncludeActiveUserCount() {
+        assertThat(departmentAdminMapper.findDepartmentsByCompanyIdAndSearchForm(1L, new DepartmentSearchForm(false)))
+                .filteredOn(department -> department.code().equals("ADMIN"))
+                .extracting("activeUserCount")
+                .containsExactly(1L);
     }
 
     @Test

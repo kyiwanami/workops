@@ -9,6 +9,8 @@ public record DepartmentListItem(
         Long id,
         String code,
         String name,
+        Boolean isDeleted,
+        Long activeUserCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 }

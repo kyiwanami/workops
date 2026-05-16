@@ -3,8 +3,10 @@ package com.example.workops.admin.department.form;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import com.example.workops.admin.department.model.DepartmentListItem;
+
 /**
- * 部署作成フォーム入力を保持する。
+ * 部署登録・編集フォーム入力を保持する。
  */
 public record DepartmentForm(
         @NotBlank(message = "部署コードを入力してください。")
@@ -16,5 +18,9 @@ public record DepartmentForm(
 
     public static DepartmentForm empty() {
         return new DepartmentForm(null, null);
+    }
+
+    public static DepartmentForm from(DepartmentListItem department) {
+        return new DepartmentForm(department.code(), department.name());
     }
 }

@@ -5,6 +5,7 @@
 <header th:replace="~{layout :: header}"></header>
 
 <main class="container-fluid px-4 py-4">
+    <div th:if="${_csrf != null}" class="d-none" th:data-csrf-name="${_csrf.parameterName}" th:data-csrf-token="${_csrf.token}"></div>
     <section class="workops-page-title mb-4">
         <p class="text-secondary mb-1">Department Management</p>
         <h1 class="h3 mb-2">部署一覧</h1>
@@ -25,6 +26,30 @@
                    th:href="@{/departments/new}">新規作成</a>
             </div>
 
+            <form class="border rounded p-3 mb-3 bg-body"
+                  method="get"
+                  th:action="${platformAdmin} ? @{/admin/companies/{companyId}/departments(companyId=${departmentListPage.companyId()})} : @{/departments}"
+                  th:object="${departmentSearchForm}">
+                <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                    <div class="form-check">
+                        <input id="showDeleted"
+                               type="checkbox"
+                               class="form-check-input"
+                               th:field="*{showDeleted}">
+                        <label for="showDeleted" class="form-check-label">削除済みも表示</label>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a th:if="${platformAdmin}"
+                           class="btn btn-outline-secondary"
+                           th:href="@{/admin/companies/{companyId}/departments(companyId=${departmentListPage.companyId()})}">クリア</a>
+                        <a th:unless="${platformAdmin}"
+                           class="btn btn-outline-secondary"
+                           th:href="@{/departments}">クリア</a>
+                        <button type="submit" class="btn btn-primary">表示</button>
+                    </div>
+                </div>
+            </form>
+
             <div th:if="${departmentListPage.departments().isEmpty()}" class="text-secondary">
                 表示できる部署はありません。
             </div>
@@ -35,22 +60,83 @@
                     <tr>
                         <th scope="col">コード</th>
                         <th scope="col">名称</th>
+                        <th scope="col">所属ユーザー</th>
+                        <th scope="col">状態</th>
                         <th scope="col">作成日時</th>
                         <th scope="col">更新日時</th>
+                        <th scope="col">操作</th>
                     </tr>
                     </thead>
                     <tbody>
                     <tr th:each="department : ${departmentListPage.departments()}">
                         <td th:text="${department.code()}">ADMIN</td>
                         <td th:text="${department.name()}">総務部</td>
+                        <td th:text="${department.activeUserCount()}">2</td>
+                        <td>
+                            <span th:if="${department.isDeleted()}" class="badge text-bg-secondary">削除済み</span>
+                            <span th:unless="${department.isDeleted()}" class="badge text-bg-success">有効</span>
+                        </td>
                         <td th:text="${#temporals.format(department.createdAt(), 'yyyy-MM-dd HH:mm')}">2026-01-01 09:00</td>
                         <td th:text="${#temporals.format(department.updatedAt(), 'yyyy-MM-dd HH:mm')}">2026-01-01 09:00</td>
+                        <td>
+                            <div th:unless="${department.isDeleted()}" class="d-flex gap-2">
+                                <a th:if="${platformAdmin}"
+                                   class="btn btn-outline-primary btn-sm"
+                                   th:href="@{/admin/companies/{companyId}/departments/{departmentId}/edit(companyId=${departmentListPage.companyId()},departmentId=${department.id()})}">編集</a>
+                                <a th:unless="${platformAdmin}"
+                                   class="btn btn-outline-primary btn-sm"
+                                   th:href="@{/departments/{departmentId}/edit(departmentId=${department.id()})}">編集</a>
+                                <button type="button"
+                                        class="btn btn-outline-danger btn-sm"
+                                        data-bs-toggle="modal"
+                                        th:data-bs-target="${'#deleteDepartmentModal-' + department.id()}">削除</button>
+                            </div>
+                        </td>
                     </tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </section>
+
+    <div th:each="department : ${departmentListPage.departments()}"
+         th:if="${department.isDeleted() == false}"
+         class="modal fade"
+         th:id="${'deleteDepartmentModal-' + department.id()}"
+         tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5">部署を削除します</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">この部署を削除してよろしいですか？</p>
+                    <p class="mb-2 fw-semibold" th:text="${department.code() + ' / ' + department.name()}">ADMIN / 総務部</p>
+                    <p th:if="${department.activeUserCount() > 0}"
+                       class="text-danger mb-0"
+                       th:text="${'この部署には未削除ユーザーが ' + department.activeUserCount() + ' 件所属しています。'}">
+                        この部署には未削除ユーザーが 2 件所属しています。
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <form th:if="${platformAdmin}"
+                          method="post"
+                          th:action="@{/admin/companies/{companyId}/departments/{departmentId}/delete(companyId=${departmentListPage.companyId()},departmentId=${department.id()})}">
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" class="btn btn-danger">削除する</button>
+                    </form>
+                    <form th:unless="${platformAdmin}"
+                          method="post"
+                          th:action="@{/departments/{departmentId}/delete(departmentId=${department.id()})}">
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" class="btn btn-danger">削除する</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div th:if="${message}" class="toast-container position-fixed bottom-0 end-0 p-3">
         <div id="department-list-toast" class="toast text-bg-success border-0" role="status" data-bs-delay="4000">

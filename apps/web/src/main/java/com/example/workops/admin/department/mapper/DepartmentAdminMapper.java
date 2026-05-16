@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import com.example.workops.admin.department.form.DepartmentSearchForm;
 import com.example.workops.admin.department.model.DepartmentListItem;
 
 /**
@@ -20,7 +21,13 @@ public interface DepartmentAdminMapper {
 
     Optional<String> findActiveCompanyNameById(@Param("companyId") Long companyId);
 
-    List<DepartmentListItem> findActiveDepartmentsByCompanyId(@Param("companyId") Long companyId);
+    List<DepartmentListItem> findDepartmentsByCompanyIdAndSearchForm(
+            @Param("companyId") Long companyId,
+            @Param("departmentSearchForm") DepartmentSearchForm departmentSearchForm);
+
+    Optional<DepartmentListItem> findActiveDepartmentByIdAndCompanyId(
+            @Param("departmentId") Long departmentId,
+            @Param("companyId") Long companyId);
 
     boolean existsDepartmentCodeByCompanyId(
             @Param("companyId") Long companyId,
@@ -31,6 +38,17 @@ public interface DepartmentAdminMapper {
             @Param("code") String code,
             @Param("name") String name,
             @Param("createdBy") Long createdBy,
+            @Param("updatedBy") Long updatedBy);
+
+    int updateActiveDepartmentNameByIdAndCompanyId(
+            @Param("departmentId") Long departmentId,
+            @Param("companyId") Long companyId,
+            @Param("name") String name,
+            @Param("updatedBy") Long updatedBy);
+
+    int logicalDeleteActiveDepartmentByIdAndCompanyId(
+            @Param("departmentId") Long departmentId,
+            @Param("companyId") Long companyId,
             @Param("updatedBy") Long updatedBy);
 
     Long findLastInsertId();

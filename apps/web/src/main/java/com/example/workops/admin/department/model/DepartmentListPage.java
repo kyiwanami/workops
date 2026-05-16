@@ -9,6 +9,7 @@ public record DepartmentListPage(
         Long companyId,
         String companyCode,
         String companyName,
+        Boolean showDeleted,
         List<DepartmentListItem> departments) {
 
     public DepartmentListPage {
