@@ -8,8 +8,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -17,12 +16,13 @@ import org.testcontainers.utility.DockerImageName;
  */
 @SpringBootTest
 @ActiveProfiles("local")
-@Testcontainers
 @Transactional
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class MapperIntegrationTestBase {
 
-    private static final MySQLContainer<?> MYSQL = new MySQLContainer<>(DockerImageName.parse("mysql:9.7.0"))
+    @SuppressWarnings("resource")
+    // Testcontainers singleton container pattern keeps this container for the test JVM lifecycle.
+    private static final MySQLContainer MYSQL = new MySQLContainer(DockerImageName.parse("mysql:9.7.0"))
             .withDatabaseName("workops")
             .withUsername("workops")
             .withPassword("workops")
@@ -31,12 +31,15 @@ abstract class MapperIntegrationTestBase {
                     "--collation-server=utf8mb4_0900_ai_ci",
                     "--default-time-zone=+09:00");
 
+    static {
+        MYSQL.start();
+    }
+
     @Autowired
     protected JdbcTemplate jdbcTemplate;
 
     @DynamicPropertySource
     static void registerDataSourceProperties(DynamicPropertyRegistry registry) {
-        MYSQL.start();
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);

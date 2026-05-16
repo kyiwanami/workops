@@ -1,0 +1,61 @@
+package com.example.workops.admin.company.web;
+
+import jakarta.validation.Valid;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.example.workops.admin.company.form.CompanyForm;
+import com.example.workops.admin.company.service.CompanyAdminService;
+
+/**
+ * PLATFORM_ADMIN向け会社作成画面を表示するController。
+ */
+@Controller
+public class CompanyAdminController {
+
+    private final CompanyAdminService companyAdminService;
+
+    public CompanyAdminController(CompanyAdminService companyAdminService) {
+        this.companyAdminService = companyAdminService;
+    }
+
+    @GetMapping("/admin/companies/new")
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public String newForm(Model model) {
+        model.addAttribute("companyForm", CompanyForm.empty());
+        return "admin/company/company-form";
+    }
+
+    @PostMapping("/admin/companies")
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public String create(
+            @Valid @ModelAttribute("companyForm") CompanyForm companyForm,
+            BindingResult bindingResult,
+            RedirectAttributes redirectAttributes) {
+        if (bindingResult.hasErrors()) {
+            return "admin/company/company-form";
+        }
+
+        try {
+            companyAdminService.create(companyForm);
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().value() == HttpStatus.BAD_REQUEST.value()) {
+                bindingResult.rejectValue("code", "duplicate", "会社コードは既に使用されています。");
+                return "admin/company/company-form";
+            }
+            throw exception;
+        }
+
+        redirectAttributes.addFlashAttribute("message", "会社を登録しました。");
+        return "redirect:/admin/companies/new";
+    }
+}

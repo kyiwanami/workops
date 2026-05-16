@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.workops.admin.company.mapper.CompanyAdminMapper">
+    <select id="existsCompanyCode" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM companies company
+            WHERE company.code = #{code}
+        )
+    </select>
+
+    <insert id="insertCompany">
+        INSERT INTO companies (
+            code,
+            name,
+            is_deleted,
+            created_by,
+            updated_by
+        ) VALUES (
+            #{code},
+            #{name},
+            FALSE,
+            #{createdBy},
+            #{updatedBy}
+        )
+    </insert>
+
+    <select id="findLastInsertId" resultType="java.lang.Long">
+        SELECT LAST_INSERT_ID()
+    </select>
+
+    <select id="findActiveGenericMasterIdByCode" resultType="java.lang.Long">
+        SELECT generic_master.id
+        FROM generic_master
+        WHERE generic_master.code = #{code}
+            AND generic_master.is_deleted = FALSE
+    </select>
+
+    <insert id="insertGenericMasterValue">
+        INSERT INTO generic_master_values (
+            generic_master_id,
+            company_id,
+            code,
+            name,
+            sort_order,
+            is_deleted,
+            created_by,
+            updated_by
+        ) VALUES (
+            #{genericMasterId},
+            #{companyId},
+            #{code},
+            #{name},
+            #{sortOrder},
+            FALSE,
+            #{createdBy},
+            #{updatedBy}
+        )
+    </insert>
+
+    <select id="countGenericMasterValuesByCompanyIdAndMasterCode" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM generic_master_values master_value
+        INNER JOIN generic_master master
+            ON master.id = master_value.generic_master_id
+            AND master.code = #{genericMasterCode}
+            AND master.is_deleted = FALSE
+        WHERE master_value.company_id = #{companyId}
+    </select>
+</mapper>
