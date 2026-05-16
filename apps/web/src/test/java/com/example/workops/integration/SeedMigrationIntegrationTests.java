@@ -19,8 +19,8 @@ class SeedMigrationIntegrationTests extends MapperIntegrationTestBase {
     @Test
     void flywayAppliesMvpSchemaAndLocalSeed() {
         assertThat(countRows("companies")).isEqualTo(2L);
-        assertThat(countRows("users")).isEqualTo(6L);
-        assertThat(countRows("permission_sets")).isEqualTo(3L);
+        assertThat(countRows("users")).isEqualTo(7L);
+        assertThat(countRows("permission_sets")).isEqualTo(4L);
         assertThat(countRows("common_master")).isEqualTo(2L);
         assertThat(countRows("generic_master")).isEqualTo(2L);
 
@@ -47,6 +47,20 @@ class SeedMigrationIntegrationTests extends MapperIntegrationTestBase {
         assertThat(userAccountMapper.findPermissionSetsByUserId(user.userId()))
                 .extracting("code")
                 .containsExactly("TENANT_MANAGER");
+    }
+
+    @Test
+    void userAccountMapperFindsPlatformAdminLocalLoginUserAndPermissionSet() {
+        UserAccountRow user = userAccountMapper
+                .findByCognitoSub("00000000-0000-0000-0000-000000000000")
+                .orElseThrow();
+
+        assertThat(user.userId()).isEqualTo(7L);
+        assertThat(user.companyId()).isNull();
+        assertThat(user.actorType()).isEqualTo("PLATFORM");
+        assertThat(userAccountMapper.findPermissionSetsByUserId(user.userId()))
+                .extracting("code")
+                .containsExactly("PLATFORM_ADMIN");
     }
 
     private Long countByCode(String tableName, String code) {

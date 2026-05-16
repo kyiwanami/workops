@@ -58,7 +58,7 @@
                         </tr>
                         <tr>
                             <td class="fw-semibold">companyId</td>
-                            <td th:text="${loginUserContext.companyId()}">companyId</td>
+                            <td th:text="${loginUserContext.companyId() == null ? 'null' : loginUserContext.companyId()}">companyId</td>
                         </tr>
                         <tr>
                             <td class="fw-semibold">permissionSets</td>

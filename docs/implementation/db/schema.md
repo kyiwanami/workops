@@ -8,6 +8,7 @@
 正本:
 
 - `apps/web/src/main/resources/db/migration/V1__create_mvp_schema.sql`
+- `apps/web/src/main/resources/db/migration/V5__platform_admin_local_prerequisite.sql`
 
 Notion は DB 設計方針、ADR、テーブル群の役割を管理します。
 リポジトリは Flyway migration SQL、カラム、型、NULL 可否、制約、seed SQL、確認 SQL を管理します。
@@ -79,6 +80,8 @@ Phase 2 以降では CloudWatch Logs で確認する前提です。
 - 全社共通で一意であるべきコードは `code` で一意にする
 - 削除済み行も一意制約の対象に含め、MVP では削除済みコードの再利用を許可しない
 - 会社境界は `company_id` で表現する
+- PLATFORM ユーザーは会社に所属しないため `users.company_id` を `NULL` とする
+- TENANT ユーザーは必ず会社に所属するため `users.company_id` を必須とする
 - 会社境界をまたぐ不正参照の防止は、MVP では Service 層の認可・会社境界チェックで扱う
 
 ## companies
@@ -125,14 +128,15 @@ Phase 2 以降では CloudWatch Logs で確認する前提です。
 
 ## users
 
-会社に所属するアプリ利用者情報の正本を表します。
+アプリ利用者情報の正本を表します。
+PLATFORM ユーザーは WorkOps 運営側ユーザーとして会社に所属せず、TENANT ユーザーは会社に所属します。
 ログイン可否と無効化は Cognito 側で制御し、`users.status` は持ちません。
 Cognito ログイン時は `cognito_sub` で `users` と突合します。
 
 | カラム | 型 | NULL | 既定値 | 説明 |
 | --- | --- | --- | --- | --- |
 | id | BIGINT | NO | AUTO_INCREMENT | 主キー |
-| company_id | BIGINT | NO |  | 所属会社ID |
+| company_id | BIGINT | YES |  | 所属会社ID。PLATFORM は NULL、TENANT は必須 |
 | department_id | BIGINT | YES |  | 所属部署ID |
 | cognito_sub | CHAR(36) | YES |  | Cognito sub |
 | username | VARCHAR(100) | NO |  | アプリ利用者名 |
@@ -153,11 +157,13 @@ Cognito ログイン時は `cognito_sub` で `users` と突合します。
 - `UNIQUE KEY uq_users_company_email (company_id, email)`
 - `CONSTRAINT fk_users_company FOREIGN KEY (company_id) REFERENCES companies (id)`
 - `CONSTRAINT fk_users_department FOREIGN KEY (department_id) REFERENCES departments (id)`
+- `CONSTRAINT ck_users_actor_company CHECK ((actor_type = 'PLATFORM' AND company_id IS NULL) OR (actor_type = 'TENANT' AND company_id IS NOT NULL))`
 
 ## permission_sets
 
 権限セットの入れ物を表します。
 `TENANT_VIEWER`、`TENANT_EDITOR`、`TENANT_MANAGER` の seed は M2-04 で投入します。
+`PLATFORM_ADMIN` の seed は M9-01 で投入します。
 
 | カラム | 型 | NULL | 既定値 | 説明 |
 | --- | --- | --- | --- | --- |

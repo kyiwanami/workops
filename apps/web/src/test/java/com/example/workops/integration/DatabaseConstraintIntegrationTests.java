@@ -1,6 +1,7 @@
 package com.example.workops.integration;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -78,5 +79,49 @@ class DatabaseConstraintIntegrationTests extends MapperIntegrationTestBase {
                 "M8削除済みコード再利用",
                 999))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void tenantUserRejectsNullCompanyId() {
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                """
+                INSERT INTO users (
+                    company_id,
+                    cognito_sub,
+                    username,
+                    name,
+                    email,
+                    actor_type
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                null,
+                "10000000-0000-0000-0000-000000000001",
+                "m9-tenant-null-company",
+                "M9 テナント会社なし",
+                "m9-tenant-null-company@example.local",
+                "TENANT"))
+                .isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
+    void platformUserRejectsCompanyId() {
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                """
+                INSERT INTO users (
+                    company_id,
+                    cognito_sub,
+                    username,
+                    name,
+                    email,
+                    actor_type
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                1L,
+                "10000000-0000-0000-0000-000000000002",
+                "m9-platform-with-company",
+                "M9 会社ありPLATFORM",
+                "m9-platform-with-company@example.local",
+                "PLATFORM"))
+                .isInstanceOf(DataAccessException.class);
     }
 }

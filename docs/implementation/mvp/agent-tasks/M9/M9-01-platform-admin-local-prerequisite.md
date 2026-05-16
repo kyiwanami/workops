@@ -69,10 +69,52 @@ PLATFORM_ADMIN 疑似ユーザーは `users.actor_type = 'PLATFORM'`、`users.co
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- 既存の `users` テーブルを正本として使い、PLATFORM / TENANT の区別は `users.actor_type` に集約した
+- PLATFORM ユーザーは `users.company_id = NULL`、TENANT ユーザーは `users.company_id` 必須とする DB 制約を追加した
+- local profile の現在ユーザー解決は既存の `LocalAuthenticationFilter` と `WORKOPS_LOCAL_COGNITO_SUB` を使い、Fake Bean や疑似 `cognito_sub` 発行は追加しなかった
+- `PLATFORM_ADMIN` 権限セットと local PLATFORM_ADMIN 疑似ユーザーを Flyway seed として追加した
+- `/auth/claims` は PLATFORM ユーザーの `companyId = null` を画面上で確認できるようにした
+
+### 変更ファイル
+
+- `apps/web/src/main/resources/db/migration/V5__platform_admin_local_prerequisite.sql`
+- `apps/web/src/main/resources/templates/auth/claims.html`
+- `apps/web/src/test/java/com/example/workops/integration/DatabaseConstraintIntegrationTests.java`
+- `apps/web/src/test/java/com/example/workops/integration/SeedMigrationIntegrationTests.java`
+- `docs/implementation/db/schema.md`
+- `docs/implementation/mvp/agent-tasks/M9/M9-01-platform-admin-local-prerequisite.md`
+
+### 実装結果
+
+- `users.company_id` を nullable に変更し、`ck_users_actor_company` で次を強制した
+  - `actor_type = 'PLATFORM'` の場合は `company_id IS NULL`
+  - `actor_type = 'TENANT'` の場合は `company_id IS NOT NULL`
+- `permission_sets` に `PLATFORM_ADMIN` を追加した
+- `users` に local PLATFORM_ADMIN 疑似ユーザーを追加した
+  - `id = 7`
+  - `cognito_sub = '00000000-0000-0000-0000-000000000000'`
+  - `username = 'platform-admin'`
+  - `actor_type = 'PLATFORM'`
+  - `company_id = NULL`
+- `user_permission_sets` で PLATFORM_ADMIN 疑似ユーザーへ `PLATFORM_ADMIN` を割り当てた
+- Testcontainers MySQL 上で PLATFORM_ADMIN seed と actor/company 制約を検証した
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test`
+  - `Tests run: 100, Failures: 0, Errors: 0, Skipped: 0`
+- `WORKOPS_LOCAL_COGNITO_SUB=00000000-0000-0000-0000-000000000000` で local 起動し、`/auth/claims` が HTTP 200 を返すことを確認した
+- PLATFORM_ADMIN の `/auth/claims` で `actorType=PLATFORM`、`companyId=null`、`PLATFORM_ADMIN` が表示されることを確認した
+- `WORKOPS_LOCAL_COGNITO_SUB=00000000-0000-0000-0000-000000000003` で local 起動し、TENANT_MANAGER の `/auth/claims` が HTTP 200 を返すことを確認した
+- TENANT_MANAGER で次の既存画面が HTTP 200 を返すことを確認した
+  - `/requests`
+  - `/assets`
+  - `/masters/request-types`
+  - `/masters/asset-categories`
+
+### 残課題
+
+- 初期 TENANT_MANAGER 作成、ユーザー作成、権限割当・変更、local Cognito Fake Bean、疑似 `cognito_sub` 発行は M10 で扱う
+- Cognito 本物 API 呼び出し、Cognito Hosted UI ログインの本格確認、PLATFORM / TENANT App Client 分離は M9 では扱わない
