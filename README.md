@@ -83,6 +83,7 @@ Spring Boot 起動時に Flyway が `apps/web/src/main/resources/db/migration` �
 | `V2__insert_local_seed.sql` | 2社、ユーザー、権限、共通/汎用マスタ |
 | `V3__insert_request_sample_seed.sql` | 申請サンプル |
 | `V4__insert_asset_sample_seed.sql` | 資産サンプル |
+| `V5__platform_admin_local_prerequisite.sql` | local PLATFORM_ADMIN 前提 |
 
 local DB を空から作り直す場合は、MySQL ボリュームを削除してから起動します。
 
@@ -131,6 +132,7 @@ seed には次の疑似ユーザーがあります。
 
 | cognito_sub | 会社 | ユーザー | 権限 |
 | --- | --- | --- | --- |
+| `00000000-0000-0000-0000-000000000000` | なし | platform-admin | PLATFORM_ADMIN |
 | `00000000-0000-0000-0000-000000000001` | 北浜精密機器株式会社 | kthm-viewer | TENANT_VIEWER |
 | `00000000-0000-0000-0000-000000000002` | 北浜精密機器株式会社 | kthm-editor | TENANT_EDITOR |
 | `00000000-0000-0000-0000-000000000003` | 北浜精密機器株式会社 | kthm-manager | TENANT_MANAGER |
@@ -151,6 +153,8 @@ $env:WORKOPS_LOCAL_COGNITO_SUB = "00000000-0000-0000-0000-000000000002"
 - 申請管理: 一覧、詳細、下書き作成、編集、提出、取下げ、承認、却下、差戻し
 - 資産管理: 一覧、検索、詳細、登録、編集、ステータス変更、論理削除
 - マスタ管理: 申請種別と資産分類の一覧、登録、編集、論理削除、復活、削除済み表示
+- 会社管理: PLATFORM_ADMIN による会社登録と会社別初期マスタ投入
+- 部署管理: PLATFORM_ADMIN による会社指定管理、TENANT_MANAGER による自社管理
 - 権限: 閲覧者、編集者、管理者の操作可否
 - 会社境界: `company_id` による他社データの参照・更新防止
 - 業務操作ログ: 申請、資産、マスタ操作の成功・拒否ログ
@@ -168,13 +172,16 @@ $env:WORKOPS_LOCAL_COGNITO_SUB = "00000000-0000-0000-0000-000000000002"
 | `/assets` | 資産一覧 |
 | `/masters/request-types` | 申請種別マスタ |
 | `/masters/asset-categories` | 資産分類マスタ |
+| `/admin/companies/new` | 会社登録 |
+| `/admin/companies/1/departments` | PLATFORM_ADMIN 向け部署管理 |
+| `/departments` | TENANT_MANAGER 向け部署管理 |
 | `/auth/claims` | 認証情報確認 |
 | `/auth/authorization/manager` | 管理者認可確認 |
 
 ## テスト
 
 Docker Desktop が起動している状態で実行します。
-M8 時点のテストには、通常の Service テストと Testcontainers MySQL を使う DB / Mapper 統合テストが含まれます。
+M9 時点のテストには、通常の Service テストと Testcontainers MySQL を使う DB / Mapper 統合テストが含まれます。
 
 ```powershell
 cd C:\git\workops\apps\web

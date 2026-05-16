@@ -88,7 +88,7 @@ PLATFORM_ADMIN が local profile で会社を作成できる。
 - PLATFORM_ADMIN 専用の会社作成 Controller / Service / Mapper / Thymeleaf template を `admin/company` 配下に新設した
 - 会社作成と会社別 `generic_master_values` 初期投入は `CompanyAdminService#create` の同一トランザクションで扱う
 - `TenantInitializationService#initializeTenant` は `Propagation.MANDATORY` とし、会社作成トランザクション内からだけ呼び出す
-- 会社作成後は M9-03 の部署一覧が未実装のため `/admin/companies/new` にリダイレクトし、Bootstrap Toast で完了を表示する
+- 会社作成後は M9-03 で追加した作成会社の部署一覧 `/admin/companies/{createdCompanyId}/departments` にリダイレクトし、Bootstrap Toast で完了を表示する
 
 ### 変更ファイル
 
@@ -121,7 +121,7 @@ PLATFORM_ADMIN が local profile で会社を作成できる。
 - `cd apps/web && .\mvnw.cmd test`
   - `Tests run: 107, Failures: 0, Errors: 0, Skipped: 0`
 - local profile の PLATFORM_ADMIN で `GET /admin/companies/new` が HTTP 200 を返すことを確認した
-- local profile の PLATFORM_ADMIN で会社作成 POST が HTTP 302 を返し、`/admin/companies/new` へリダイレクトすることを確認した
+- local profile の PLATFORM_ADMIN で会社作成後に `/admin/companies/{createdCompanyId}/departments` へリダイレクトし、作成会社の部署一覧を表示することを確認した
 - リダイレクト後の画面に Bootstrap Toast の `会社を登録しました。` が表示されることを確認した
 - 作成会社が `companies` に登録されることを確認した
 - 作成会社の `ASSET_CATEGORY` 初期値が6件登録されることを確認した
@@ -131,5 +131,5 @@ PLATFORM_ADMIN が local profile で会社を作成できる。
 ### 残課題
 
 - 会社一覧、会社詳細、会社編集、会社論理削除は M9-02 では未実装
-- 会社作成後の部署一覧遷移は M9-03 の部署一覧実装後に扱う
+- 会社作成後の部署一覧遷移は M9-03 で対応済み
 - 初期 TENANT_MANAGER 作成、ユーザー作成、権限割当・変更、local Cognito Fake Bean、疑似 `cognito_sub` 発行は M10 で扱う
