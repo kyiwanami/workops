@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.workops.admin.department.mapper.DepartmentAdminMapper">
+    <resultMap id="DepartmentListItemMap" type="com.example.workops.admin.department.model.DepartmentListItem">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findActiveCompanyId" resultType="java.lang.Long">
+        SELECT company.id
+        FROM companies company
+        WHERE company.id = #{companyId}
+            AND company.is_deleted = FALSE
+    </select>
+
+    <select id="findActiveCompanyCodeById" resultType="java.lang.String">
+        SELECT company.code
+        FROM companies company
+        WHERE company.id = #{companyId}
+            AND company.is_deleted = FALSE
+    </select>
+
+    <select id="findActiveCompanyNameById" resultType="java.lang.String">
+        SELECT company.name
+        FROM companies company
+        WHERE company.id = #{companyId}
+            AND company.is_deleted = FALSE
+    </select>
+
+    <select id="findActiveDepartmentsByCompanyId" resultMap="DepartmentListItemMap">
+        SELECT
+            department.id AS id,
+            department.code AS code,
+            department.name AS name,
+            department.created_at AS created_at,
+            department.updated_at AS updated_at
+        FROM departments department
+        WHERE department.company_id = #{companyId}
+            AND department.is_deleted = FALSE
+        ORDER BY department.code ASC, department.id ASC
+    </select>
+
+    <select id="existsDepartmentCodeByCompanyId" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM departments department
+            WHERE department.company_id = #{companyId}
+                AND department.code = #{code}
+        )
+    </select>
+
+    <insert id="insertDepartment">
+        INSERT INTO departments (
+            company_id,
+            code,
+            name,
+            is_deleted,
+            created_by,
+            updated_by
+        ) VALUES (
+            #{companyId},
+            #{code},
+            #{name},
+            FALSE,
+            #{createdBy},
+            #{updatedBy}
+        )
+    </insert>
+
+    <select id="findLastInsertId" resultType="java.lang.Long">
+        SELECT LAST_INSERT_ID()
+    </select>
+</mapper>

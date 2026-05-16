@@ -45,8 +45,9 @@ public class CompanyAdminController {
             return "admin/company/company-form";
         }
 
+        Long companyId;
         try {
-            companyAdminService.create(companyForm);
+            companyId = companyAdminService.create(companyForm);
         } catch (ResponseStatusException exception) {
             if (exception.getStatusCode().value() == HttpStatus.BAD_REQUEST.value()) {
                 bindingResult.rejectValue("code", "duplicate", "会社コードは既に使用されています。");
@@ -56,6 +57,6 @@ public class CompanyAdminController {
         }
 
         redirectAttributes.addFlashAttribute("message", "会社を登録しました。");
-        return "redirect:/admin/companies/new";
+        return "redirect:/admin/companies/" + companyId + "/departments";
     }
 }

@@ -88,10 +88,62 @@ TENANT_MANAGER は他社部署を一覧表示・作成できない。
 
 ## 実装時の記録
 
-実装後に、次をこのファイルへ追記する。
+### 実装方針
 
-- 実装方針
-- 変更ファイル
-- 実装結果
-- 確認結果
-- 残課題
+- 部署管理は `admin/department` 配下に Controller / Form / Service / Mapper / Model / Thymeleaf template を置いた
+- 会社存在確認と会社表示項目取得は部署管理 Service / Mapper に閉じ、汎用会社参照 Service は作らない
+- 部署一覧画面の会社表示は `DepartmentListPage` の `companyId`、`companyCode`、`companyName` で扱う
+- PLATFORM_ADMIN は path の `companyId` を対象会社にする
+- TENANT_MANAGER は現在ユーザーの `companyId` を対象会社にする
+- 部署コード重複は Service で検出し、Controller で `BindingResult.rejectValue("code", ...)` に変換する
+- M9-02 の会社作成後リダイレクトは、作成会社の部署一覧へ変更した
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/admin/company/web/CompanyAdminController.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/form/DepartmentForm.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/mapper/DepartmentAdminMapper.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/model/DepartmentListItem.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/model/DepartmentListPage.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/service/DepartmentAdminService.java`
+- `apps/web/src/main/java/com/example/workops/admin/department/web/DepartmentAdminController.java`
+- `apps/web/src/main/resources/mapper/admin/department/DepartmentAdminMapper.xml`
+- `apps/web/src/main/resources/templates/admin/department/department-form.html`
+- `apps/web/src/main/resources/templates/admin/department/department-list.html`
+- `apps/web/src/main/resources/templates/index.html`
+- `apps/web/src/test/java/com/example/workops/admin/department/service/DepartmentAdminServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/integration/DepartmentAdminMapperIntegrationTests.java`
+- `docs/implementation/mvp/agent-tasks/M9/M9-03-department-list-create.md`
+
+### 実装結果
+
+- PLATFORM_ADMIN 用の部署一覧・作成ルートを追加した
+- TENANT_MANAGER 用の部署一覧・作成ルートを追加した
+- 会社未存在または論理削除済みは `404 NOT_FOUND` として扱う
+- 部署一覧は `is_deleted = FALSE` の部署だけを表示する
+- 部署作成時に `created_by` / `updated_by` へ現在ユーザー ID を設定する
+- 同一会社内の部署コード重複は、削除済み行を含めて拒否する
+- 会社作成後は `/admin/companies/{createdCompanyId}/departments` へ redirect する
+- DB schema migration は追加していない
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test`
+  - 120 tests
+  - Failures: 0
+  - Errors: 0
+  - Skipped: 0
+- PLATFORM_ADMIN local profile
+  - `GET /admin/companies/1/departments`: 200
+  - `GET /admin/companies/1/departments/new`: 200
+  - `POST /admin/companies/1/departments`: 作成後一覧へ遷移し、Toast と作成部署コードを表示
+- TENANT_MANAGER local profile
+  - `GET /departments`: 200
+  - `GET /departments/new`: 200
+  - `POST /departments`: 作成後一覧へ遷移し、Toast と作成部署コードを表示
+  - `GET /admin/companies/2/departments`: 403
+
+### 残課題
+
+- 部署編集、論理削除、削除済み表示は M9-04 で扱う
+- PLATFORM_ADMIN 向け会社一覧・会社選択導線は M9-03 では作らない
