@@ -38,4 +38,4 @@ spring:
               - email
         provider:
           cognito:
-            issuer-uri: ${WORKOPS_COGNITO_ISSUER_URI:}
+            issuer-uri: https://cognito-idp.${AWS_REGION:ap-northeast-1}.amazonaws.com/${WORKOPS_COGNITO_USER_POOL_ID:}

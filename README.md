@@ -205,13 +205,16 @@ cd C:\git\workops\apps\web
 .\mvnw.cmd spring-boot:run
 ```
 
-`.env.local` に書くキーは次の3つです。
+`.env.local` に書くキーは次の4つです。
 
 ```text
-WORKOPS_COGNITO_ISSUER_URI
+AWS_REGION
+WORKOPS_COGNITO_USER_POOL_ID
 WORKOPS_COGNITO_CLIENT_ID
 WORKOPS_COGNITO_REDIRECT_URI
 ```
+
+Cognito issuer URI は `AWS_REGION` と `WORKOPS_COGNITO_USER_POOL_ID` からアプリ側で構成します。
 
 Cognito 本格連携、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、CDK による Cognito 構築、AWS dev 環境デプロイは後続 Phase で扱います。
 

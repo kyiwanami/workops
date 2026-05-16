@@ -175,10 +175,13 @@ M3-02 以降、アプリは Cognito 接続値を環境変数で受け取りま�
 キー名とダミー値だけを `.env.example` に置きます。
 
 ```text
-WORKOPS_COGNITO_ISSUER_URI
+AWS_REGION
+WORKOPS_COGNITO_USER_POOL_ID
 WORKOPS_COGNITO_CLIENT_ID
 WORKOPS_COGNITO_REDIRECT_URI
 ```
+
+Cognito issuer URI は `AWS_REGION` と `WORKOPS_COGNITO_USER_POOL_ID` からアプリ側で構成します。
 
 PowerShellでCognito接続確認用に起動する場合は、`apps/web` で `.\mvnw.cmd spring-boot:run` を実行します。
 通常のローカル開発では `local` profile を付けるため、Cognitoへリダイレクトしません。
