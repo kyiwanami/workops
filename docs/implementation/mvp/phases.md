@@ -329,8 +329,103 @@ MVP の詳細な動作確認シナリオは `verification-scenario.md` で確認
 この M フェーズの具体的な agent task 分割は、M8 着手前にコーディングエージェントが提案する。
 Notion 側では、この時点で M8-01 / M8-02 のような具体タスク粒度は固定しない。
 
+## M9. 会社・部署管理
+
+### 目的
+
+会社作成、部署管理の DB・画面・業務ルールをローカルで成立させる。
+部署は users の所属、会社境界、部署コード一意性、論理削除方針に関わるため、MVP の管理導線として確定する。
+会社作成時に初期 TENANT_MANAGER を必ず 1 人作る運用仕様は維持するが、実装順としては M10 のユーザー・権限管理で扱う。
+
+### 成果物
+
+- 会社作成
+- 部署一覧
+- 部署作成
+- 部署編集
+- 部署論理削除
+- 削除済み部署の表示
+- ユーザー作成時に利用する所属部署の任意選択肢
+
+### 除外範囲
+
+- Cognito 本物 API 呼び出し
+- Cognito Hosted UI ログインの本格確認
+- PLATFORM / TENANT App Client 分離
+- ユーザー無効化
+- 初期 TENANT_MANAGER 作成
+- ユーザー作成
+- 権限割当
+- 部署階層
+- 所属履歴
+- 組織改編履歴
+- 部署の有効期間管理
+- 部署ごとの権限管理
+- 部署単位の承認ルート
+- 部署の物理削除
+- 削除済み部署コードの再利用
+
+### 完了条件
+
+ローカル環境で、PLATFORM_ADMIN が会社を作成できる。
+会社ごとの部署を一覧、作成、編集、論理削除でき、ユーザー作成時の所属部署として任意利用できる。
+部署削除は物理削除せず、所属ユーザーがいる部署も警告表示したうえで論理削除できる。
+
+### agent task 分割方針
+
+この M フェーズの具体的な agent task 分割は、M9 着手前にコーディングエージェントが提案する。
+ユーザーが分割案を確認し、合意した後にだけ `agent-tasks/M9/*.md` を作成する。
+Notion 側およびこのファイルでは、この時点で M9-01 / M9-02 のような具体タスク粒度を固定しない。
+
+## M10. ユーザー・権限管理
+
+### 目的
+
+ユーザー作成、権限割当・変更、local profile 用の疑似 `cognito_sub` 発行を含む DB・画面・業務ルールをローカルで成立させる。
+
+### 成果物
+
+- 会社作成時に必ず 1 人作る初期 TENANT_MANAGER 作成
+- PLATFORM_ADMIN による PLATFORM ユーザー作成
+- PLATFORM_ADMIN による全テナントの TENANT ユーザー作成
+- TENANT_MANAGER による所属会社内ユーザー作成
+- ユーザー一覧
+- ユーザー詳細
+- ユーザー作成時の権限セット割当
+- ユーザー作成後の権限セット変更
+- local profile 用の疑似 `cognito_sub` 発行コンポーネント
+- 疑似 `cognito_sub` の発行と `users.cognito_sub` 登録
+
+### 除外範囲
+
+- Cognito 本物 API 呼び出し
+- Cognito Hosted UI ログインの本格確認
+- PLATFORM / TENANT App Client 分離
+- Cognito Trigger
+- Pre Token Generation
+- 初回ログイン時の `users` 自動作成
+- ユーザー無効化
+- Cognito 側ユーザー属性の変更
+- 権限セット定義そのものの CRUD
+
+### 完了条件
+
+ローカル環境で、PLATFORM_ADMIN が会社作成時の初期 TENANT_MANAGER、PLATFORM ユーザー、全テナントの TENANT ユーザーを作成できる。
+TENANT_MANAGER が所属会社内のユーザーを作成できる。
+ユーザー作成時および作成後に、許可された範囲で権限セットを割当・変更できる。
+対象会社の TENANT_MANAGER 数が 0 になる権限変更は、更新後の count による業務バリデーションで不可にする。
+`users.cognito_sub` は local profile 用の疑似値で登録する。
+
+### agent task 分割方針
+
+この M フェーズの具体的な agent task 分割は、M10 着手前にコーディングエージェントが提案する。
+ユーザーが分割案を確認し、合意した後にだけ `agent-tasks/M10/*.md` を作成する。
+Notion 側およびこのファイルでは、この時点で M10-01 / M10-02 のような具体タスク粒度を固定しない。
+
 ## MVP では扱わないもの
 
+- Cognito 本格連携
+- Cognito 本物 API によるユーザー作成
 - Cognitoユーザー登録時の `users` 自動登録
 - Cognito Trigger / Pre Token Generation
 - AWS dev 環境
@@ -338,9 +433,7 @@ Notion 側では、この時点で M8-01 / M8-02 のような具体タスク粒�
 - RDS
 - CDK
 - GitHub Actions deploy
-- ユーザー管理
-- 権限割当
-- PLATFORM 管理画面
+- PLATFORM / TENANT App Client 分離後の管理画面確認
 - PDF 出力
 - メール通知
 - バッチ
