@@ -74,4 +74,53 @@ TENANT_MANAGER は他社ユーザー詳細を参照できない。
 
 ## 実装時の記録
 
-M10-02 実装時に、実装方針、変更ファイル、実装結果、確認結果、残課題を記録する。
+### 実装方針
+
+- M10-02 は既存ユーザーの参照だけを扱い、ユーザー作成・編集・権限変更・削除は実装しない
+- PLATFORM_ADMIN は `/admin/users` と `/admin/users/{userId}` で全未削除ユーザーを参照する
+- TENANT_MANAGER は `/users` と `/users/{userId}` で自社 TENANT の未削除ユーザーだけを参照する
+- TENANT_MANAGER が他社ユーザーまたは PLATFORM ユーザーを詳細参照した場合は `404 NOT_FOUND` とする
+- 削除済み部署表示と未所属部署表示は Mapper SQL で表示文字列へ変換する
+- E2E 用に直接 DB 追加した `e2e-cognito-dummy` は削除・変更しない
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/admin/user/web/UserAdminController.java`
+- `apps/web/src/main/java/com/example/workops/admin/user/service/UserAdminService.java`
+- `apps/web/src/main/java/com/example/workops/admin/user/mapper/UserAdminMapper.java`
+- `apps/web/src/main/java/com/example/workops/admin/user/model/UserListItem.java`
+- `apps/web/src/main/java/com/example/workops/admin/user/model/UserDetail.java`
+- `apps/web/src/main/resources/mapper/admin/user/UserAdminMapper.xml`
+- `apps/web/src/main/resources/templates/admin/user/user-list.html`
+- `apps/web/src/main/resources/templates/admin/user/user-detail.html`
+- `apps/web/src/main/resources/templates/index.html`
+- `apps/web/src/test/java/com/example/workops/admin/user/service/UserAdminServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/integration/UserAdminMapperIntegrationTests.java`
+- `docs/implementation/mvp/agent-tasks/M10/M10-02-user-list-detail.md`
+
+### 実装結果
+
+- PLATFORM_ADMIN 向けユーザー一覧・詳細画面を追加した
+- TENANT_MANAGER 向け自社ユーザー一覧・詳細画面を追加した
+- Controller と Service の public メソッドに `@PreAuthorize` を追加した
+- ユーザー一覧には username、表示名、email、actor_type、会社、部署、権限セット、更新日時を表示する
+- ユーザー詳細には一覧項目に加えて `cognito_sub`、作成日時、状態を表示する
+- 部署未所属ユーザーは `未設定` と表示する
+- 削除済み部署に所属するユーザーは `部署名（削除済み）` と表示する
+- トップ画面に `ユーザー管理 Platform` と `ユーザー管理 Tenant` の確認用リンクを追加した
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test`
+  - `Tests run: 153, Failures: 0, Errors: 0, Skipped: 0`
+- Service テストで PLATFORM_ADMIN / TENANT_MANAGER の参照スコープと認可を確認した
+- Mapper 統合テストで全ユーザー一覧、自社 TENANT ユーザー一覧、他社詳細拒否、PLATFORM 詳細拒否、権限セット表示、削除済み部署表示、部署未設定表示を確認した
+- 起動中の非 local 環境で `/admin/users` を表示し、E2E 用ダミーユーザー `e2e-cognito-dummy` が PLATFORM 管理者として表示されることを確認した
+- 起動中の非 local 環境で `/admin/users/8` を表示し、E2E 用ダミーユーザー詳細へ遷移できることを確認した
+- 起動中の非 local 環境で `/users` は、現在ログイン中の PLATFORM_ADMIN では TENANT_MANAGER 権限がないため `403 Forbidden` になることを確認した
+
+### 残課題
+
+- ユーザー作成は M10-03 / M10-04 で扱う
+- ユーザー編集と権限変更は M10-05 で扱う
+- ユーザー無効化・削除は M10 範囲外
