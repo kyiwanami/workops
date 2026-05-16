@@ -1,0 +1,91 @@
+# M9-02 会社作成 / テナント初期化
+
+## 目的
+
+PLATFORM_ADMIN が会社を作成できるようにし、会社作成時に会社別 `generic_master_values` の初期値を投入する。
+
+## M9 共通方針
+
+- M9 の範囲は、会社作成、部署管理、会社作成時の会社別 `generic_master_values` 初期投入までとする
+- 初期 TENANT_MANAGER 作成、ユーザー作成、権限割当・変更、local Cognito Fake Bean、疑似 `cognito_sub` 発行は M10 で扱う
+- 会社作成時の会社別 `generic_master_values` 初期投入は、会社作成に伴うテナント初期化処理として M9 に含める
+- `generic_master` 種別管理やマスタ管理画面の拡張は M9 で扱わない
+- 会社別初期値は既存の `generic_master` 種別に対する `generic_master_values` として投入する
+- 削除済みコードの再利用は許可しない
+- Git commit は実行しない
+
+## 対応範囲
+
+- PLATFORM_ADMIN 専用の会社作成画面を作成する
+- `GET /admin/companies/new` を追加する
+- `POST /admin/companies` を追加する
+- Controller の会社作成系メソッドには `@PreAuthorize("hasAuthority('PLATFORM_ADMIN')")` を付ける
+- Service の会社作成系 public メソッドにも `@PreAuthorize("hasAuthority('PLATFORM_ADMIN')")` を付ける
+- 会社作成時は `companies.code`、`companies.name` を入力する
+- 会社作成時は `companies.created_by`、`companies.updated_by` に現在ユーザーの `userId` を設定する
+- 会社コード重複は画面入力エラーとしてフォームに戻す
+- 会社作成と会社別 `generic_master_values` 初期投入は同一トランザクションで扱う
+- 会社作成後、既存 `generic_master` の `REQUEST_TYPE` と `ASSET_CATEGORY` に対する会社別初期値を `generic_master_values` へ投入する
+- 初期投入する `REQUEST_TYPE` と `ASSET_CATEGORY` のコード、名称、表示順を実装内で固定し、作成会社ごとに同じ初期値を投入する
+- `generic_master` に `REQUEST_TYPE` または `ASSET_CATEGORY` が存在しない場合は 500 として扱い、会社作成を完了させない
+- 初期 TENANT_MANAGER 作成は呼び出さない
+- 会社作成後は、作成会社の部署一覧または会社作成完了を確認できる画面へリダイレクトする
+- Bootstrap Toast で会社作成完了を表示する
+
+## 対応ファイル
+
+- `apps/web/src/main/java/com/example/workops/admin/company/web/CompanyAdminController.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/form/CompanyForm.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/service/CompanyAdminService.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/service/TenantInitializationService.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/mapper/CompanyAdminMapper.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/model/*.java`
+- `apps/web/src/main/resources/mapper/admin/company/CompanyAdminMapper.xml`
+- `apps/web/src/main/resources/templates/admin/company/company-form.html`
+- `apps/web/src/main/resources/templates/index.html`
+- `apps/web/src/test/java/com/example/workops/admin/company/**/*.java`
+- `docs/implementation/mvp/agent-tasks/M9/M9-02-company-create-tenant-initialization.md`
+
+## 除外範囲
+
+- 会社一覧
+- 会社詳細
+- 会社編集
+- 会社論理削除
+- 初期 TENANT_MANAGER 作成
+- ユーザー作成
+- 権限割当・変更
+- local Cognito Fake Bean
+- `generic_master` 種別追加・編集
+- 申請種別マスタ管理画面の拡張
+- 資産分類マスタ管理画面の拡張
+- Cognito 本物 API 呼び出し
+
+## 完了条件
+
+PLATFORM_ADMIN が local profile で会社を作成できる。
+会社コード重複は拒否される。
+会社作成時に、作成会社の `REQUEST_TYPE` と `ASSET_CATEGORY` の会社別初期 `generic_master_values` が投入される。
+会社作成処理では、初期 TENANT_MANAGER 作成、ユーザー作成、権限割当、Cognito 関連処理を実行しない。
+
+## 確認方法
+
+- `cd apps/web && .\mvnw.cmd test`
+- local profile の PLATFORM_ADMIN で `GET /admin/companies/new` が HTTP 200 を返すことを確認する
+- local profile の PLATFORM_ADMIN で会社を作成できることを確認する
+- 作成会社が `companies` に登録されることを確認する
+- 作成会社の `REQUEST_TYPE` 初期値が `generic_master_values` に登録されることを確認する
+- 作成会社の `ASSET_CATEGORY` 初期値が `generic_master_values` に登録されることを確認する
+- 既存会社コードと同じコードで会社作成するとフォーム入力エラーになることを確認する
+- TENANT_MANAGER が会社作成画面へアクセスできないことを確認する
+- Service テストで、会社作成とテナント初期化が同一トランザクション内の処理として呼ばれることを確認する
+
+## 実装時の記録
+
+実装後に、次をこのファイルへ追記する。
+
+- 実装方針
+- 変更ファイル
+- 実装結果
+- 確認結果
+- 残課題
