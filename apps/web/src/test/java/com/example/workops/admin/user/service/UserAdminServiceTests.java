@@ -187,6 +187,84 @@ class UserAdminServiceTests {
     }
 
     @Test
+    void tenantManagerCanCreateOwnCompanyTenantUser() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        when(userAdminMapper.findActiveCompanyId(COMPANY_ID)).thenReturn(Optional.of(COMPANY_ID));
+        when(userAdminMapper.findActiveDepartmentIdByCompanyId(DEPARTMENT_ID, COMPANY_ID))
+                .thenReturn(Optional.of(DEPARTMENT_ID));
+        when(userAdminMapper.existsTenantUsername(COMPANY_ID, "new-tenant")).thenReturn(false);
+        when(userAdminMapper.existsTenantEmail(COMPANY_ID, "new-tenant@example.local")).thenReturn(false);
+        when(cognitoUserProvisioner.provision(new CognitoUserProvisionRequest("new-tenant", "new-tenant@example.local")))
+                .thenReturn(new ProvisionedCognitoUser(COGNITO_SUB));
+        when(userAdminMapper.findLastInsertId()).thenReturn(USER_ID);
+
+        Long result = userAdminService.createTenantUser(
+                new UserForm("PLATFORM", 999L, DEPARTMENT_ID, "new-tenant", "新TENANT",
+                        "new-tenant@example.local", List.of("TENANT_EDITOR")));
+
+        assertThat(result).isEqualTo(USER_ID);
+        verify(userAdminMapper).insertUser(
+                COMPANY_ID,
+                DEPARTMENT_ID,
+                COGNITO_SUB,
+                "new-tenant",
+                "新TENANT",
+                "new-tenant@example.local",
+                "TENANT",
+                MANAGER_USER_ID,
+                MANAGER_USER_ID);
+        verify(userAdminMapper).insertUserPermissionSetByCode(USER_ID, "TENANT_EDITOR");
+    }
+
+    @Test
+    void tenantManagerCannotAssignPlatformAdminBeforeCognitoProvision() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        when(userAdminMapper.findActiveCompanyId(COMPANY_ID)).thenReturn(Optional.of(COMPANY_ID));
+
+        assertThatThrownBy(() -> userAdminService.createTenantUser(
+                new UserForm("TENANT", COMPANY_ID, null, "new-tenant", "新TENANT",
+                        "new-tenant@example.local", List.of("PLATFORM_ADMIN"))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verifyNoInteractions(cognitoUserProvisioner);
+    }
+
+    @Test
+    void tenantManagerCannotUseOtherCompanyOrDeletedDepartmentBeforeCognitoProvision() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        when(userAdminMapper.findActiveCompanyId(COMPANY_ID)).thenReturn(Optional.of(COMPANY_ID));
+        when(userAdminMapper.findActiveDepartmentIdByCompanyId(DEPARTMENT_ID, COMPANY_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userAdminService.createTenantUser(
+                new UserForm("TENANT", COMPANY_ID, DEPARTMENT_ID, "new-tenant", "新TENANT",
+                        "new-tenant@example.local", List.of("TENANT_MANAGER"))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verifyNoInteractions(cognitoUserProvisioner);
+    }
+
+    @Test
+    void tenantManagerDuplicateUsernameAndEmailAreRejectedBeforeCognitoProvision() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        when(userAdminMapper.findActiveCompanyId(COMPANY_ID)).thenReturn(Optional.of(COMPANY_ID));
+        when(userAdminMapper.existsTenantUsername(COMPANY_ID, "new-tenant")).thenReturn(true);
+
+        assertThatThrownBy(() -> userAdminService.createTenantUser(tenantUserForm(List.of("TENANT_MANAGER"), null)))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        reset(userAdminMapper);
+        when(userAdminMapper.findActiveCompanyId(COMPANY_ID)).thenReturn(Optional.of(COMPANY_ID));
+        when(userAdminMapper.existsTenantUsername(COMPANY_ID, "new-tenant")).thenReturn(false);
+        when(userAdminMapper.existsTenantEmail(COMPANY_ID, "new-tenant@example.local")).thenReturn(true);
+
+        assertThatThrownBy(() -> userAdminService.createTenantUser(tenantUserForm(List.of("TENANT_MANAGER"), null)))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verifyNoInteractions(cognitoUserProvisioner);
+    }
+
+    @Test
     void invalidPermissionSetCombinationIsRejectedBeforeCognitoProvision() {
         signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
 
@@ -256,11 +334,15 @@ class UserAdminServiceTests {
         signIn(1L, COMPANY_ID, "TENANT", permission("TENANT_VIEWER", "閲覧者"));
         assertThatThrownBy(() -> userAdminService.findTenantUsers()).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> userAdminService.createPlatformUser(platformUserForm())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> userAdminService.createTenantUser(tenantUserForm(List.of("TENANT_MANAGER"), null)))
+                .isInstanceOf(AccessDeniedException.class);
 
         SecurityContextHolder.clearContext();
         signIn(2L, COMPANY_ID, "TENANT", permission("TENANT_EDITOR", "編集者"));
         assertThatThrownBy(() -> userAdminService.findTenantUsers()).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> userAdminService.createPlatformUser(platformUserForm())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> userAdminService.createTenantUser(tenantUserForm(List.of("TENANT_MANAGER"), null)))
+                .isInstanceOf(AccessDeniedException.class);
 
         verifyNoInteractions(userAdminMapper);
         verifyNoInteractions(cognitoUserProvisioner);

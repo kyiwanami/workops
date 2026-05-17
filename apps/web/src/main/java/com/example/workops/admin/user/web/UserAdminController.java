@@ -45,7 +45,7 @@ public class UserAdminController {
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public String platformNewForm(Model model) {
         model.addAttribute("userForm", UserForm.empty());
-        prepareFormModel(model);
+        preparePlatformFormModel(model);
         return "admin/user/user-form";
     }
 
@@ -57,7 +57,7 @@ public class UserAdminController {
             Model model,
             RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
-            prepareFormModel(model);
+            preparePlatformFormModel(model);
             return "admin/user/user-form";
         }
 
@@ -67,7 +67,7 @@ public class UserAdminController {
         } catch (ResponseStatusException exception) {
             if (exception.getStatusCode().value() == HttpStatus.BAD_REQUEST.value()) {
                 rejectCreateError(bindingResult, exception);
-                prepareFormModel(model);
+                preparePlatformFormModel(model);
                 return "admin/user/user-form";
             }
             throw exception;
@@ -93,6 +93,42 @@ public class UserAdminController {
         return "admin/user/user-list";
     }
 
+    @GetMapping("/users/new")
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public String tenantNewForm(Model model) {
+        model.addAttribute("userForm", UserForm.empty());
+        prepareTenantFormModel(model);
+        return "admin/user/user-form";
+    }
+
+    @PostMapping("/users")
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public String tenantCreate(
+            @Valid @ModelAttribute("userForm") UserForm userForm,
+            BindingResult bindingResult,
+            Model model,
+            RedirectAttributes redirectAttributes) {
+        if (bindingResult.hasErrors()) {
+            prepareTenantFormModel(model);
+            return "admin/user/user-form";
+        }
+
+        Long userId;
+        try {
+            userId = userAdminService.createTenantUser(userForm);
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().value() == HttpStatus.BAD_REQUEST.value()) {
+                rejectCreateError(bindingResult, exception);
+                prepareTenantFormModel(model);
+                return "admin/user/user-form";
+            }
+            throw exception;
+        }
+
+        redirectAttributes.addFlashAttribute("message", "ユーザーを登録しました。");
+        return "redirect:/users/" + userId;
+    }
+
     @GetMapping("/users/{userId}")
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public String tenantDetail(@PathVariable Long userId, Model model) {
@@ -106,10 +142,21 @@ public class UserAdminController {
         model.addAttribute("platformAdmin", platformAdmin);
     }
 
-    private void prepareFormModel(Model model) {
+    private void preparePlatformFormModel(Model model) {
+        model.addAttribute("formMode", "platform");
+        model.addAttribute("formAction", "/admin/users");
+        model.addAttribute("cancelHref", "/admin/users");
         model.addAttribute("companies", userAdminService.findActiveCompanies());
         model.addAttribute("departments", userAdminService.findActiveDepartments());
         model.addAttribute("platformPermissionSets", userAdminService.findPlatformPermissionSetOptions());
+        model.addAttribute("tenantPermissionSets", userAdminService.findTenantPermissionSetOptions());
+    }
+
+    private void prepareTenantFormModel(Model model) {
+        model.addAttribute("formMode", "tenant");
+        model.addAttribute("formAction", "/users");
+        model.addAttribute("cancelHref", "/users");
+        model.addAttribute("departments", userAdminService.findTenantActiveDepartments());
         model.addAttribute("tenantPermissionSets", userAdminService.findTenantPermissionSetOptions());
     }
 

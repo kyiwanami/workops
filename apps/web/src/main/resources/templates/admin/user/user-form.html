@@ -8,19 +8,23 @@
     <section class="workops-page-title mb-4">
         <p class="text-secondary mb-1">User Management</p>
         <h1 class="h3 mb-2">ユーザー登録</h1>
-        <p class="text-secondary mb-0">PLATFORMユーザーまたは任意会社のTENANTユーザーを作成します。</p>
+        <p class="text-secondary mb-0"
+           th:text="${formMode == 'platform'} ? 'PLATFORMユーザーまたは任意会社のTENANTユーザーを作成します。' : '自社のTENANTユーザーを作成します。'">
+            自社のTENANTユーザーを作成します。
+        </p>
     </section>
 
     <section class="card">
         <div class="card-body">
-            <form method="post" th:action="@{/admin/users}" th:object="${userForm}">
+            <form method="post" th:action="${formAction}" th:object="${userForm}">
                 <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input th:if="${formMode == 'tenant'}" type="hidden" th:field="*{actorType}" value="TENANT">
 
                 <div class="alert alert-danger" th:if="${#fields.hasGlobalErrors()}">
                     <div th:each="error : ${#fields.globalErrors()}" th:text="${error}">入力内容を確認してください。</div>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-3" th:if="${formMode == 'platform'}">
                     <label for="actorType" class="form-label">actor_type</label>
                     <select id="actorType"
                             class="form-select"
@@ -34,7 +38,7 @@
                     </div>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-3" th:if="${formMode == 'platform'}">
                     <label for="companyId" class="form-label">会社</label>
                     <select id="companyId"
                             class="form-select"
@@ -61,7 +65,7 @@
                         <option value="">未設定</option>
                         <option th:each="department : ${departments}"
                                 th:value="${department.id()}"
-                                th:text="${department.companyCode() + ' / ' + department.name()}">
+                                th:text="${formMode == 'platform' ? department.companyCode() + ' / ' + department.name() : department.name()}">
                             KTHM_PRECISION / 総務部
                         </option>
                     </select>
@@ -110,7 +114,7 @@
                     <fieldset>
                         <legend class="form-label">権限セット</legend>
                         <div class="row g-3">
-                            <div class="col-12 col-lg-6">
+                            <div class="col-12 col-lg-6" th:if="${formMode == 'platform'}">
                                 <div class="border rounded p-3 h-100">
                                     <p class="fw-semibold mb-2">PLATFORM</p>
                                     <div class="form-check" th:each="permissionSet : ${platformPermissionSets}">
@@ -127,7 +131,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-12 col-lg-6">
+                            <div th:class="${formMode == 'platform'} ? 'col-12 col-lg-6' : 'col-12'">
                                 <div class="border rounded p-3 h-100">
                                     <p class="fw-semibold mb-2">TENANT</p>
                                     <div class="form-check" th:each="permissionSet : ${tenantPermissionSets}">
@@ -150,7 +154,7 @@
 
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">登録</button>
-                    <a class="btn btn-outline-secondary" th:href="@{/admin/users}">キャンセル</a>
+                    <a class="btn btn-outline-secondary" th:href="${cancelHref}">キャンセル</a>
                 </div>
             </form>
         </div>

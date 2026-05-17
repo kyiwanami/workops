@@ -160,6 +160,21 @@
         ORDER BY company.code ASC, department.code ASC, department.id ASC
     </select>
 
+    <select id="findActiveDepartmentsByCompanyId" resultMap="DepartmentSelectOptionMap">
+        SELECT
+            department.id AS id,
+            department.company_id AS company_id,
+            company.code AS company_code,
+            department.name AS name
+        FROM departments department
+        INNER JOIN companies company
+            ON company.id = department.company_id
+            AND company.is_deleted = FALSE
+        WHERE department.is_deleted = FALSE
+            AND department.company_id = #{companyId}
+        ORDER BY department.code ASC, department.id ASC
+    </select>
+
     <select id="findActiveCompanyId" resultType="java.lang.Long">
         SELECT company.id
         FROM companies company

@@ -60,6 +60,18 @@ class UserAdminMapperIntegrationTests extends MapperIntegrationTestBase {
     }
 
     @Test
+    void activeDepartmentsByCompanyIdReturnsOnlyOwnActiveDepartments() {
+        jdbcTemplate.update("UPDATE departments SET is_deleted = TRUE WHERE id = ?", 1L);
+
+        assertThat(userAdminMapper.findActiveDepartmentsByCompanyId(1L))
+                .extracting("companyId")
+                .containsOnly(1L);
+        assertThat(userAdminMapper.findActiveDepartmentsByCompanyId(1L))
+                .extracting("id")
+                .doesNotContain(1L);
+    }
+
+    @Test
     void insertPlatformUserAndPermissionSet() {
         userAdminMapper.insertUser(
                 null,

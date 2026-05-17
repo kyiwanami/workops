@@ -32,6 +32,8 @@ public interface UserAdminMapper {
 
     List<DepartmentSelectOption> findActiveDepartments();
 
+    List<DepartmentSelectOption> findActiveDepartmentsByCompanyId(@Param("companyId") Long companyId);
+
     Optional<Long> findActiveCompanyId(@Param("companyId") Long companyId);
 
     Optional<Long> findActiveDepartmentIdByCompanyId(

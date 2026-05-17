@@ -91,13 +91,21 @@ public class UserAdminService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public List<DepartmentSelectOption> findTenantActiveDepartments() {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        Long companyId = resolveRequiredCompanyId(currentUser.companyId());
+        return userAdminMapper.findActiveDepartmentsByCompanyId(companyId);
+    }
+
+    @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public List<PermissionSetOption> findPlatformPermissionSetOptions() {
         return userAdminMapper.findPlatformPermissionSetOptions();
     }
 
     @Transactional(readOnly = true)
-    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('PLATFORM_ADMIN','TENANT_MANAGER')")
     public List<PermissionSetOption> findTenantPermissionSetOptions() {
         return userAdminMapper.findTenantPermissionSetOptions();
     }
@@ -134,6 +142,23 @@ public class UserAdminService {
                     currentUser);
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "actor_typeが不正です。");
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public Long createTenantUser(UserForm userForm) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        Long companyId = resolveRequiredCompanyId(currentUser.companyId());
+        Long departmentId = resolveDepartmentId(companyId, userForm.departmentId());
+        return createUser(
+                companyId,
+                departmentId,
+                ACTOR_TYPE_TENANT,
+                normalizePermissionSetCodes(userForm.permissionSetCodes()),
+                userForm.username(),
+                userForm.name(),
+                userForm.email(),
+                currentUser);
     }
 
     @Transactional

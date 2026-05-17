@@ -20,6 +20,9 @@
                 <a th:if="${platformAdmin}"
                    class="btn btn-primary btn-sm"
                    th:href="@{/admin/users/new}">新規作成</a>
+                <a th:unless="${platformAdmin}"
+                   class="btn btn-primary btn-sm"
+                   th:href="@{/users/new}">新規作成</a>
             </div>
 
             <div th:if="${users.isEmpty()}" class="text-secondary">
