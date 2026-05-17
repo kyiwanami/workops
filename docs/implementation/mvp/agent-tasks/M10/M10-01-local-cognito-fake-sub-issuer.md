@@ -23,7 +23,8 @@ M10 のユーザー作成処理で利用する Cognito ユーザー作成境界�
 - AWS SDK for Java 2.x の BOM と Cognito Identity Provider dependency を追加する
 - Cognito 接続先は `AWS_REGION` と `WORKOPS_COGNITO_USER_POOL_ID` を使う
 - Cognito issuer URI は `AWS_REGION` と `WORKOPS_COGNITO_USER_POOL_ID` から `application.yml` で構成する
-- AWS SDK の region は SDK 標準の region provider chain に任せる
+- AWS SDK の region は Spring 設定として読んだ `AWS_REGION` を明示的に使う
+- AWS SDK の認証情報は Default Credentials Provider Chain に任せる
 - `.env.example` には smoke test 用メールアドレスを載せない
 - `CognitoUserProvisioner` interface を作成する
 - `CognitoUserProvisionRequest` record を作成する
@@ -115,7 +116,8 @@ M10-03 以降のユーザー作成処理が `CognitoUserProvisioner` interface �
 - `.env.example` から `WORKOPS_COGNITO_ISSUER_URI` と `WORKOPS_COGNITO_REGION` を削除した
 - `application.yml` の issuer URI は `AWS_REGION` と `WORKOPS_COGNITO_USER_POOL_ID` から構成するようにした
 - `application.yml` から `workops.cognito.region` と `workops.cognito.user-pool-id` を削除した
-- `CognitoIdentityProviderClient` は AWS SDK 標準の region provider chain を使うようにした
+- `CognitoIdentityProviderClient` は Spring 設定として読んだ `AWS_REGION` を明示的に使うようにした
+- `CognitoIdentityProviderClient` の認証情報は明示せず、AWS SDK の Default Credentials Provider Chain に任せるようにした
 - `CognitoUserProvisioner#provision` で Cognito 作成境界を固定した
 - `LocalCognitoUserProvisioner` は `UUID.randomUUID().toString()` で疑似 `cognito_sub` を返す
 - `AwsCognitoUserProvisioner` は `AdminCreateUser` を呼び、Cognito から返る `sub` を戻り値にする

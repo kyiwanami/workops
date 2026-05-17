@@ -8,6 +8,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.workops.admin.company.form.CompanyForm;
 import com.example.workops.admin.company.mapper.CompanyAdminMapper;
+import com.example.workops.admin.user.service.UserAdminService;
 import com.example.workops.common.logging.OperationLogRecord;
 import com.example.workops.common.logging.OperationLogger;
 import com.example.workops.common.security.CurrentUserProvider;
@@ -27,16 +28,19 @@ public class CompanyAdminService {
     private final CurrentUserProvider currentUserProvider;
     private final CompanyAdminMapper companyAdminMapper;
     private final TenantInitializationService tenantInitializationService;
+    private final UserAdminService userAdminService;
     private final OperationLogger operationLogger;
 
     public CompanyAdminService(
             CurrentUserProvider currentUserProvider,
             CompanyAdminMapper companyAdminMapper,
             TenantInitializationService tenantInitializationService,
+            UserAdminService userAdminService,
             OperationLogger operationLogger) {
         this.currentUserProvider = currentUserProvider;
         this.companyAdminMapper = companyAdminMapper;
         this.tenantInitializationService = tenantInitializationService;
+        this.userAdminService = userAdminService;
         this.operationLogger = operationLogger;
     }
 
@@ -53,6 +57,11 @@ public class CompanyAdminService {
                 currentUser.userId());
         Long companyId = companyAdminMapper.findLastInsertId();
         tenantInitializationService.initializeTenant(companyId, currentUser.userId());
+        userAdminService.createInitialTenantManager(
+                companyId,
+                companyForm.initialTenantManagerUsername(),
+                companyForm.initialTenantManagerName(),
+                companyForm.initialTenantManagerEmail());
         logSuccess(currentUser, companyId);
         return companyId;
     }

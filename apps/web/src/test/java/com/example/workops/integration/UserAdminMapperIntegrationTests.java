@@ -58,4 +58,71 @@ class UserAdminMapperIntegrationTests extends MapperIntegrationTestBase {
         assertThat(userAdminMapper.findPlatformUserById(7L))
                 .hasValueSatisfying(user -> assertThat(user.departmentName()).isEqualTo("未設定"));
     }
+
+    @Test
+    void insertPlatformUserAndPermissionSet() {
+        userAdminMapper.insertUser(
+                null,
+                null,
+                "11111111-1111-1111-1111-111111111111",
+                "new-platform",
+                "新PLATFORM",
+                "new-platform@example.local",
+                "PLATFORM",
+                7L,
+                7L);
+        Long userId = userAdminMapper.findLastInsertId();
+        userAdminMapper.insertUserPermissionSetByCode(userId, "PLATFORM_ADMIN");
+
+        assertThat(userAdminMapper.findPlatformUserById(userId))
+                .hasValueSatisfying(user -> {
+                    assertThat(user.actorType()).isEqualTo("PLATFORM");
+                    assertThat(user.companyId()).isNull();
+                    assertThat(user.permissionSetDisplay()).isEqualTo("PLATFORM_ADMIN / WorkOps管理者");
+                });
+    }
+
+    @Test
+    void insertTenantUserAndPermissionSet() {
+        userAdminMapper.insertUser(
+                1L,
+                2L,
+                "22222222-2222-2222-2222-222222222222",
+                "new-tenant",
+                "新TENANT",
+                "new-tenant@example.local",
+                "TENANT",
+                7L,
+                7L);
+        Long userId = userAdminMapper.findLastInsertId();
+        userAdminMapper.insertUserPermissionSetByCode(userId, "TENANT_MANAGER");
+
+        assertThat(userAdminMapper.findTenantUserByIdAndCompanyId(userId, 1L))
+                .hasValueSatisfying(user -> {
+                    assertThat(user.actorType()).isEqualTo("TENANT");
+                    assertThat(user.companyId()).isEqualTo(1L);
+                    assertThat(user.departmentName()).isEqualTo("情報システム部");
+                    assertThat(user.permissionSetDisplay()).isEqualTo("TENANT_MANAGER / 管理者");
+                });
+    }
+
+    @Test
+    void permissionSetOptionsAreLoadedForUserCreationForm() {
+        assertThat(userAdminMapper.findPlatformPermissionSetOptions())
+                .extracting("code")
+                .containsExactly("PLATFORM_ADMIN");
+        assertThat(userAdminMapper.findTenantPermissionSetOptions())
+                .extracting("code")
+                .containsExactly("TENANT_VIEWER", "TENANT_EDITOR", "TENANT_MANAGER");
+    }
+
+    @Test
+    void scopedUsernameAndEmailDuplicateDetectionWorks() {
+        assertThat(userAdminMapper.existsPlatformUsername("platform-admin")).isTrue();
+        assertThat(userAdminMapper.existsPlatformEmail("platform-admin@example.local")).isTrue();
+        assertThat(userAdminMapper.existsTenantUsername(1L, "kthm-manager")).isTrue();
+        assertThat(userAdminMapper.existsTenantEmail(1L, "kthm-manager@example.local")).isTrue();
+        assertThat(userAdminMapper.existsTenantUsername(2L, "kthm-manager")).isFalse();
+        assertThat(userAdminMapper.existsTenantEmail(2L, "kthm-manager@example.local")).isFalse();
+    }
 }

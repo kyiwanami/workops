@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.workops.admin.company.form.CompanyForm;
 import com.example.workops.admin.company.mapper.CompanyAdminMapper;
+import com.example.workops.admin.user.service.UserAdminService;
 import com.example.workops.common.logging.OperationLogRecord;
 import com.example.workops.common.logging.OperationLogger;
 import com.example.workops.common.security.CurrentUserProvider;
@@ -57,9 +58,12 @@ class CompanyAdminServiceTests {
     @Autowired
     private OperationLogger operationLogger;
 
+    @Autowired
+    private UserAdminService userAdminService;
+
     @BeforeEach
     void setUp() {
-        reset(companyAdminMapper, operationLogger);
+        reset(companyAdminMapper, operationLogger, userAdminService);
         SecurityContextHolder.clearContext();
     }
 
@@ -102,6 +106,11 @@ class CompanyAdminServiceTests {
                 any(),
                 eq(PLATFORM_USER_ID),
                 eq(PLATFORM_USER_ID));
+        verify(userAdminService).createInitialTenantManager(
+                CREATED_COMPANY_ID,
+                "initial-manager",
+                "初期 管理者",
+                "initial-manager@example.local");
         assertSuccessLog(CREATED_COMPANY_ID);
     }
 
@@ -126,6 +135,7 @@ class CompanyAdminServiceTests {
                 any(),
                 any(),
                 any());
+        verifyNoInteractions(userAdminService);
         assertRejectedLog();
     }
 
@@ -153,7 +163,30 @@ class CompanyAdminServiceTests {
                 any(),
                 any(),
                 any());
+        verifyNoInteractions(userAdminService);
         verifyNoInteractions(operationLogger);
+    }
+
+    @Test
+    void initialTenantManagerFailurePreventsCompanyCreateSuccessLog() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        when(companyAdminMapper.existsCompanyCode("NEW_COMPANY")).thenReturn(false);
+        when(companyAdminMapper.findLastInsertId()).thenReturn(CREATED_COMPANY_ID);
+        when(companyAdminMapper.findActiveGenericMasterIdByCode("ASSET_CATEGORY"))
+                .thenReturn(Optional.of(ASSET_CATEGORY_MASTER_ID));
+        when(companyAdminMapper.findActiveGenericMasterIdByCode("REQUEST_TYPE"))
+                .thenReturn(Optional.of(REQUEST_TYPE_MASTER_ID));
+        when(userAdminService.createInitialTenantManager(
+                CREATED_COMPANY_ID,
+                "initial-manager",
+                "初期 管理者",
+                "initial-manager@example.local"))
+                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "emailは既に使用されています。"));
+
+        assertThatThrownBy(() -> companyAdminService.create(companyForm()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(operationLogger, never()).logSuccess(any());
     }
 
     @Test
@@ -214,7 +247,12 @@ class CompanyAdminServiceTests {
     }
 
     private CompanyForm companyForm() {
-        return new CompanyForm("NEW_COMPANY", "新会社");
+        return new CompanyForm(
+                "NEW_COMPANY",
+                "新会社",
+                "initial-manager",
+                "初期 管理者",
+                "initial-manager@example.local");
     }
 
     @Configuration
@@ -237,6 +275,11 @@ class CompanyAdminServiceTests {
         }
 
         @Bean
+        UserAdminService userAdminService() {
+            return mock(UserAdminService.class);
+        }
+
+        @Bean
         TenantInitializationService tenantInitializationService(CompanyAdminMapper companyAdminMapper) {
             return new TenantInitializationService(companyAdminMapper);
         }
@@ -246,11 +289,13 @@ class CompanyAdminServiceTests {
                 CurrentUserProvider currentUserProvider,
                 CompanyAdminMapper companyAdminMapper,
                 TenantInitializationService tenantInitializationService,
+                UserAdminService userAdminService,
                 OperationLogger operationLogger) {
             return new CompanyAdminService(
                     currentUserProvider,
                     companyAdminMapper,
                     tenantInitializationService,
+                    userAdminService,
                     operationLogger);
         }
     }

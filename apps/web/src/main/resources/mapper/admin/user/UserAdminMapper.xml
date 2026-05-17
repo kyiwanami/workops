@@ -35,6 +35,30 @@
         </constructor>
     </resultMap>
 
+    <resultMap id="CompanySelectOptionMap" type="com.example.workops.admin.user.model.CompanySelectOption">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="DepartmentSelectOptionMap" type="com.example.workops.admin.user.model.DepartmentSelectOption">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="company_id" javaType="java.lang.Long"/>
+            <arg column="company_code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="PermissionSetOptionMap" type="com.example.workops.admin.user.model.PermissionSetOption">
+        <constructor>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
     <sql id="UserDisplayColumns">
         user_account.id AS id,
         user_account.company_id AS company_id,
@@ -110,5 +134,143 @@
             AND user_account.is_deleted = FALSE
             AND user_account.actor_type = 'TENANT'
             AND user_account.company_id = #{companyId}
+    </select>
+
+    <select id="findActiveCompanies" resultMap="CompanySelectOptionMap">
+        SELECT
+            company.id AS id,
+            company.code AS code,
+            company.name AS name
+        FROM companies company
+        WHERE company.is_deleted = FALSE
+        ORDER BY company.code ASC, company.id ASC
+    </select>
+
+    <select id="findActiveDepartments" resultMap="DepartmentSelectOptionMap">
+        SELECT
+            department.id AS id,
+            department.company_id AS company_id,
+            company.code AS company_code,
+            department.name AS name
+        FROM departments department
+        INNER JOIN companies company
+            ON company.id = department.company_id
+            AND company.is_deleted = FALSE
+        WHERE department.is_deleted = FALSE
+        ORDER BY company.code ASC, department.code ASC, department.id ASC
+    </select>
+
+    <select id="findActiveCompanyId" resultType="java.lang.Long">
+        SELECT company.id
+        FROM companies company
+        WHERE company.id = #{companyId}
+            AND company.is_deleted = FALSE
+    </select>
+
+    <select id="findActiveDepartmentIdByCompanyId" resultType="java.lang.Long">
+        SELECT department.id
+        FROM departments department
+        WHERE department.id = #{departmentId}
+            AND department.company_id = #{companyId}
+            AND department.is_deleted = FALSE
+    </select>
+
+    <select id="findPlatformPermissionSetOptions" resultMap="PermissionSetOptionMap">
+        SELECT
+            permission_set.code AS code,
+            permission_set.name AS name
+        FROM permission_sets permission_set
+        WHERE permission_set.code = 'PLATFORM_ADMIN'
+            AND permission_set.is_deleted = FALSE
+        ORDER BY permission_set.id ASC
+    </select>
+
+    <select id="findTenantPermissionSetOptions" resultMap="PermissionSetOptionMap">
+        SELECT
+            permission_set.code AS code,
+            permission_set.name AS name
+        FROM permission_sets permission_set
+        WHERE permission_set.code IN ('TENANT_VIEWER', 'TENANT_EDITOR', 'TENANT_MANAGER')
+            AND permission_set.is_deleted = FALSE
+        ORDER BY permission_set.id ASC
+    </select>
+
+    <select id="existsPlatformUsername" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM users user_account
+            WHERE user_account.company_id IS NULL
+                AND user_account.username = #{username}
+        )
+    </select>
+
+    <select id="existsPlatformEmail" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM users user_account
+            WHERE user_account.company_id IS NULL
+                AND user_account.email = #{email}
+        )
+    </select>
+
+    <select id="existsTenantUsername" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM users user_account
+            WHERE user_account.company_id = #{companyId}
+                AND user_account.username = #{username}
+        )
+    </select>
+
+    <select id="existsTenantEmail" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM users user_account
+            WHERE user_account.company_id = #{companyId}
+                AND user_account.email = #{email}
+        )
+    </select>
+
+    <insert id="insertUser">
+        INSERT INTO users (
+            company_id,
+            department_id,
+            cognito_sub,
+            username,
+            name,
+            email,
+            actor_type,
+            is_deleted,
+            created_by,
+            updated_by
+        ) VALUES (
+            #{companyId},
+            #{departmentId},
+            #{cognitoSub},
+            #{username},
+            #{name},
+            #{email},
+            #{actorType},
+            FALSE,
+            #{createdBy},
+            #{updatedBy}
+        )
+    </insert>
+
+    <insert id="insertUserPermissionSetByCode">
+        INSERT INTO user_permission_sets (
+            user_id,
+            permission_set_id
+        )
+        SELECT
+            #{userId},
+            permission_set.id
+        FROM permission_sets permission_set
+        WHERE permission_set.code = #{permissionSetCode}
+            AND permission_set.is_deleted = FALSE
+    </insert>
+
+    <select id="findLastInsertId" resultType="java.lang.Long">
+        SELECT LAST_INSERT_ID()
     </select>
 </mapper>

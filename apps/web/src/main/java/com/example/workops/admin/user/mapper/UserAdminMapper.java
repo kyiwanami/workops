@@ -6,6 +6,9 @@ import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import com.example.workops.admin.user.model.CompanySelectOption;
+import com.example.workops.admin.user.model.DepartmentSelectOption;
+import com.example.workops.admin.user.model.PermissionSetOption;
 import com.example.workops.admin.user.model.UserDetail;
 import com.example.workops.admin.user.model.UserListItem;
 
@@ -24,4 +27,47 @@ public interface UserAdminMapper {
     Optional<UserDetail> findTenantUserByIdAndCompanyId(
             @Param("userId") Long userId,
             @Param("companyId") Long companyId);
+
+    List<CompanySelectOption> findActiveCompanies();
+
+    List<DepartmentSelectOption> findActiveDepartments();
+
+    Optional<Long> findActiveCompanyId(@Param("companyId") Long companyId);
+
+    Optional<Long> findActiveDepartmentIdByCompanyId(
+            @Param("departmentId") Long departmentId,
+            @Param("companyId") Long companyId);
+
+    List<PermissionSetOption> findPlatformPermissionSetOptions();
+
+    List<PermissionSetOption> findTenantPermissionSetOptions();
+
+    boolean existsPlatformUsername(@Param("username") String username);
+
+    boolean existsPlatformEmail(@Param("email") String email);
+
+    boolean existsTenantUsername(
+            @Param("companyId") Long companyId,
+            @Param("username") String username);
+
+    boolean existsTenantEmail(
+            @Param("companyId") Long companyId,
+            @Param("email") String email);
+
+    int insertUser(
+            @Param("companyId") Long companyId,
+            @Param("departmentId") Long departmentId,
+            @Param("cognitoSub") String cognitoSub,
+            @Param("username") String username,
+            @Param("name") String name,
+            @Param("email") String email,
+            @Param("actorType") String actorType,
+            @Param("createdBy") Long createdBy,
+            @Param("updatedBy") Long updatedBy);
+
+    int insertUserPermissionSetByCode(
+            @Param("userId") Long userId,
+            @Param("permissionSetCode") String permissionSetCode);
+
+    Long findLastInsertId();
 }

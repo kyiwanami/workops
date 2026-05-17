@@ -8,13 +8,17 @@
     <section class="workops-page-title mb-4">
         <p class="text-secondary mb-1">Platform Administration</p>
         <h1 class="h3 mb-2">会社登録</h1>
-        <p class="text-secondary mb-0">会社を作成し、申請種別と資産分類の初期値を投入します。</p>
+        <p class="text-secondary mb-0">会社を作成し、申請種別・資産分類の初期値と初期管理者を登録します。</p>
     </section>
 
     <section class="card">
         <div class="card-body">
             <form method="post" th:action="@{/admin/companies}" th:object="${companyForm}">
                 <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+                <div class="alert alert-danger" th:if="${#fields.hasGlobalErrors()}">
+                    <div th:each="error : ${#fields.globalErrors()}" th:text="${error}">入力内容を確認してください。</div>
+                </div>
 
                 <div class="mb-3">
                     <label for="code" class="form-label">会社コード</label>
@@ -39,6 +43,52 @@
                         会社名を入力してください。
                     </div>
                 </div>
+
+                <fieldset class="border rounded p-3 mb-4">
+                    <legend class="float-none w-auto px-2 fs-6">初期TENANT_MANAGER</legend>
+
+                    <div class="mb-3">
+                        <label for="initialTenantManagerUsername" class="form-label">ユーザー名</label>
+                        <input id="initialTenantManagerUsername"
+                               type="text"
+                               class="form-control"
+                               th:field="*{initialTenantManagerUsername}"
+                               th:classappend="${#fields.hasErrors('initialTenantManagerUsername')} ? ' is-invalid'">
+                        <div class="invalid-feedback"
+                             th:if="${#fields.hasErrors('initialTenantManagerUsername')}"
+                             th:errors="*{initialTenantManagerUsername}">
+                            初期管理者のユーザー名を入力してください。
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="initialTenantManagerName" class="form-label">表示名</label>
+                        <input id="initialTenantManagerName"
+                               type="text"
+                               class="form-control"
+                               th:field="*{initialTenantManagerName}"
+                               th:classappend="${#fields.hasErrors('initialTenantManagerName')} ? ' is-invalid'">
+                        <div class="invalid-feedback"
+                             th:if="${#fields.hasErrors('initialTenantManagerName')}"
+                             th:errors="*{initialTenantManagerName}">
+                            初期管理者の表示名を入力してください。
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label for="initialTenantManagerEmail" class="form-label">email</label>
+                        <input id="initialTenantManagerEmail"
+                               type="email"
+                               class="form-control"
+                               th:field="*{initialTenantManagerEmail}"
+                               th:classappend="${#fields.hasErrors('initialTenantManagerEmail')} ? ' is-invalid'">
+                        <div class="invalid-feedback"
+                             th:if="${#fields.hasErrors('initialTenantManagerEmail')}"
+                             th:errors="*{initialTenantManagerEmail}">
+                            初期管理者のemailを入力してください。
+                        </div>
+                    </div>
+                </fieldset>
 
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">登録</button>

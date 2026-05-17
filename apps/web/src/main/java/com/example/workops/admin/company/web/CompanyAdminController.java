@@ -50,7 +50,7 @@ public class CompanyAdminController {
             companyId = companyAdminService.create(companyForm);
         } catch (ResponseStatusException exception) {
             if (exception.getStatusCode().value() == HttpStatus.BAD_REQUEST.value()) {
-                bindingResult.rejectValue("code", "duplicate", "会社コードは既に使用されています。");
+                rejectCreateError(bindingResult, exception);
                 return "admin/company/company-form";
             }
             throw exception;
@@ -58,5 +58,22 @@ public class CompanyAdminController {
 
         redirectAttributes.addFlashAttribute("message", "会社を登録しました。");
         return "redirect:/admin/companies/" + companyId + "/departments";
+    }
+
+    private void rejectCreateError(BindingResult bindingResult, ResponseStatusException exception) {
+        String reason = exception.getReason();
+        if ("会社コードは既に使用されています。".equals(reason)) {
+            bindingResult.rejectValue("code", "duplicate", reason);
+            return;
+        }
+        if ("ユーザー名は既に使用されています。".equals(reason)) {
+            bindingResult.rejectValue("initialTenantManagerUsername", "duplicate", reason);
+            return;
+        }
+        if ("emailは既に使用されています。".equals(reason)) {
+            bindingResult.rejectValue("initialTenantManagerEmail", "duplicate", reason);
+            return;
+        }
+        bindingResult.reject("invalid", reason);
     }
 }

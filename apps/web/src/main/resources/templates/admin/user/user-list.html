@@ -17,6 +17,9 @@
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <a class="btn btn-outline-secondary btn-sm" th:href="@{/}">トップへ戻る</a>
+                <a th:if="${platformAdmin}"
+                   class="btn btn-primary btn-sm"
+                   th:href="@{/admin/users/new}">新規作成</a>
             </div>
 
             <div th:if="${users.isEmpty()}" class="text-secondary">
