@@ -16,8 +16,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.example.workops.admin.user.form.UserEditForm;
 import com.example.workops.admin.user.form.UserForm;
 import com.example.workops.admin.user.model.UserDetail;
+import com.example.workops.admin.user.model.UserEditTarget;
 import com.example.workops.admin.user.model.UserListItem;
 import com.example.workops.admin.user.service.UserAdminService;
 
@@ -85,6 +87,44 @@ public class UserAdminController {
         return "admin/user/user-detail";
     }
 
+    @GetMapping("/admin/users/{userId}/edit")
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public String platformEditForm(@PathVariable Long userId, Model model) {
+        UserEditTarget user = userAdminService.findPlatformUserEditTarget(userId);
+        model.addAttribute("userEditForm", userAdminService.findPlatformUserEditForm(userId));
+        preparePlatformEditModel(model, user);
+        return "admin/user/user-edit";
+    }
+
+    @PostMapping("/admin/users/{userId}/edit")
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public String platformUpdate(
+            @PathVariable Long userId,
+            @Valid @ModelAttribute("userEditForm") UserEditForm userEditForm,
+            BindingResult bindingResult,
+            Model model,
+            RedirectAttributes redirectAttributes) {
+        UserEditTarget user = userAdminService.findPlatformUserEditTarget(userId);
+        if (bindingResult.hasErrors()) {
+            preparePlatformEditModel(model, user);
+            return "admin/user/user-edit";
+        }
+
+        try {
+            userAdminService.updatePlatformUser(userId, userEditForm);
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().value() == HttpStatus.BAD_REQUEST.value()) {
+                rejectEditError(bindingResult, exception);
+                preparePlatformEditModel(model, user);
+                return "admin/user/user-edit";
+            }
+            throw exception;
+        }
+
+        redirectAttributes.addFlashAttribute("message", "ユーザーを更新しました。");
+        return "redirect:/admin/users/" + userId;
+    }
+
     @GetMapping("/users")
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public String tenantList(Model model) {
@@ -137,6 +177,44 @@ public class UserAdminController {
         return "admin/user/user-detail";
     }
 
+    @GetMapping("/users/{userId}/edit")
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public String tenantEditForm(@PathVariable Long userId, Model model) {
+        UserEditTarget user = userAdminService.findTenantUserEditTarget(userId);
+        model.addAttribute("userEditForm", userAdminService.findTenantUserEditForm(userId));
+        prepareTenantEditModel(model, user);
+        return "admin/user/user-edit";
+    }
+
+    @PostMapping("/users/{userId}/edit")
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public String tenantUpdate(
+            @PathVariable Long userId,
+            @Valid @ModelAttribute("userEditForm") UserEditForm userEditForm,
+            BindingResult bindingResult,
+            Model model,
+            RedirectAttributes redirectAttributes) {
+        UserEditTarget user = userAdminService.findTenantUserEditTarget(userId);
+        if (bindingResult.hasErrors()) {
+            prepareTenantEditModel(model, user);
+            return "admin/user/user-edit";
+        }
+
+        try {
+            userAdminService.updateTenantUser(userId, userEditForm);
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().value() == HttpStatus.BAD_REQUEST.value()) {
+                rejectEditError(bindingResult, exception);
+                prepareTenantEditModel(model, user);
+                return "admin/user/user-edit";
+            }
+            throw exception;
+        }
+
+        redirectAttributes.addFlashAttribute("message", "ユーザーを更新しました。");
+        return "redirect:/users/" + userId;
+    }
+
     private void prepareListModel(Model model, List<UserListItem> users, boolean platformAdmin) {
         model.addAttribute("users", users);
         model.addAttribute("platformAdmin", platformAdmin);
@@ -164,6 +242,27 @@ public class UserAdminController {
         model.addAttribute("user", user);
         model.addAttribute("platformAdmin", platformAdmin);
         model.addAttribute("listHref", platformAdmin ? "/admin/users" : "/users");
+        model.addAttribute("editHref", platformAdmin ? "/admin/users/" + user.id() + "/edit" : "/users/" + user.id() + "/edit");
+    }
+
+    private void preparePlatformEditModel(Model model, UserEditTarget user) {
+        model.addAttribute("user", user);
+        model.addAttribute("formAction", "/admin/users/" + user.id() + "/edit");
+        model.addAttribute("cancelHref", "/admin/users/" + user.id());
+        model.addAttribute("departments", userAdminService.findActiveDepartmentsByCompanyId(user.companyId()));
+        if ("PLATFORM".equals(user.actorType())) {
+            model.addAttribute("permissionSets", userAdminService.findPlatformPermissionSetOptions());
+        } else {
+            model.addAttribute("permissionSets", userAdminService.findTenantPermissionSetOptions());
+        }
+    }
+
+    private void prepareTenantEditModel(Model model, UserEditTarget user) {
+        model.addAttribute("user", user);
+        model.addAttribute("formAction", "/users/" + user.id() + "/edit");
+        model.addAttribute("cancelHref", "/users/" + user.id());
+        model.addAttribute("departments", userAdminService.findTenantActiveDepartments());
+        model.addAttribute("permissionSets", userAdminService.findTenantPermissionSetOptions());
     }
 
     private void rejectCreateError(BindingResult bindingResult, ResponseStatusException exception) {
@@ -186,6 +285,26 @@ public class UserAdminController {
         }
         if ("actor_typeが不正です。".equals(reason)) {
             bindingResult.rejectValue("actorType", "invalid", reason);
+            return;
+        }
+        bindingResult.reject("invalid", reason);
+    }
+
+    private void rejectEditError(BindingResult bindingResult, ResponseStatusException exception) {
+        String reason = exception.getReason();
+        if ("emailは既に使用されています。".equals(reason)) {
+            bindingResult.rejectValue("email", "duplicate", reason);
+            return;
+        }
+        if ("所属部署が見つかりません。".equals(reason) || "PLATFORMユーザーには部署を指定できません。".equals(reason)) {
+            bindingResult.rejectValue("departmentId", "invalid", reason);
+            return;
+        }
+        if ("権限セットを選択してください。".equals(reason)
+                || "PLATFORMユーザーの権限セットが不正です。".equals(reason)
+                || "TENANTユーザーの権限セットが不正です。".equals(reason)
+                || "TENANT_MANAGERは最低1人必要です。".equals(reason)) {
+            bindingResult.rejectValue("permissionSetCodes", "invalid", reason);
             return;
         }
         bindingResult.reject("invalid", reason);

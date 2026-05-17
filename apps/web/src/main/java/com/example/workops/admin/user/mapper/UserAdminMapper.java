@@ -10,6 +10,7 @@ import com.example.workops.admin.user.model.CompanySelectOption;
 import com.example.workops.admin.user.model.DepartmentSelectOption;
 import com.example.workops.admin.user.model.PermissionSetOption;
 import com.example.workops.admin.user.model.UserDetail;
+import com.example.workops.admin.user.model.UserEditTarget;
 import com.example.workops.admin.user.model.UserListItem;
 
 /**
@@ -27,6 +28,14 @@ public interface UserAdminMapper {
     Optional<UserDetail> findTenantUserByIdAndCompanyId(
             @Param("userId") Long userId,
             @Param("companyId") Long companyId);
+
+    Optional<UserEditTarget> findPlatformUserEditTarget(@Param("userId") Long userId);
+
+    Optional<UserEditTarget> findTenantUserEditTargetByIdAndCompanyId(
+            @Param("userId") Long userId,
+            @Param("companyId") Long companyId);
+
+    List<String> findPermissionSetCodesByUserId(@Param("userId") Long userId);
 
     List<CompanySelectOption> findActiveCompanies();
 
@@ -55,6 +64,26 @@ public interface UserAdminMapper {
     boolean existsTenantEmail(
             @Param("companyId") Long companyId,
             @Param("email") String email);
+
+    boolean existsPlatformEmailExcludingUser(
+            @Param("userId") Long userId,
+            @Param("email") String email);
+
+    boolean existsTenantEmailExcludingUser(
+            @Param("companyId") Long companyId,
+            @Param("userId") Long userId,
+            @Param("email") String email);
+
+    int updateUserEditableFields(
+            @Param("userId") Long userId,
+            @Param("name") String name,
+            @Param("email") String email,
+            @Param("departmentId") Long departmentId,
+            @Param("updatedBy") Long updatedBy);
+
+    int deleteUserPermissionSets(@Param("userId") Long userId);
+
+    int countActiveTenantManagersByCompanyId(@Param("companyId") Long companyId);
 
     int insertUser(
             @Param("companyId") Long companyId,

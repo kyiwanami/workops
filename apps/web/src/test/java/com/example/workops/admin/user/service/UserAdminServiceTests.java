@@ -19,8 +19,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.workops.admin.user.form.UserEditForm;
 import com.example.workops.admin.user.form.UserForm;
 import com.example.workops.admin.user.mapper.UserAdminMapper;
+import com.example.workops.admin.user.model.UserEditTarget;
 import com.example.workops.admin.user.model.UserListItem;
 import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
@@ -330,11 +332,143 @@ class UserAdminServiceTests {
     }
 
     @Test
+    void platformAdminCanUpdatePlatformUser() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        when(userAdminMapper.findPlatformUserEditTarget(USER_ID)).thenReturn(Optional.of(platformEditTarget()));
+        when(userAdminMapper.existsPlatformEmailExcludingUser(USER_ID, "updated-platform@example.local")).thenReturn(false);
+
+        userAdminService.updatePlatformUser(
+                USER_ID,
+                new UserEditForm("更新PLATFORM", "updated-platform@example.local", null, List.of("PLATFORM_ADMIN")));
+
+        verify(userAdminMapper).updateUserEditableFields(
+                USER_ID,
+                "更新PLATFORM",
+                "updated-platform@example.local",
+                null,
+                PLATFORM_USER_ID);
+        verify(userAdminMapper).deleteUserPermissionSets(USER_ID);
+        verify(userAdminMapper).insertUserPermissionSetByCode(USER_ID, "PLATFORM_ADMIN");
+        verifyNoInteractions(cognitoUserProvisioner);
+    }
+
+    @Test
+    void platformAdminCanUpdateTenantUser() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        when(userAdminMapper.findPlatformUserEditTarget(USER_ID)).thenReturn(Optional.of(tenantEditTarget()));
+        when(userAdminMapper.findActiveDepartmentIdByCompanyId(DEPARTMENT_ID, COMPANY_ID)).thenReturn(Optional.of(DEPARTMENT_ID));
+        when(userAdminMapper.existsTenantEmailExcludingUser(COMPANY_ID, USER_ID, "updated-tenant@example.local")).thenReturn(false);
+        when(userAdminMapper.countActiveTenantManagersByCompanyId(COMPANY_ID)).thenReturn(1);
+
+        userAdminService.updatePlatformUser(
+                USER_ID,
+                new UserEditForm("更新TENANT", "updated-tenant@example.local", DEPARTMENT_ID, List.of("TENANT_EDITOR")));
+
+        verify(userAdminMapper).updateUserEditableFields(
+                USER_ID,
+                "更新TENANT",
+                "updated-tenant@example.local",
+                DEPARTMENT_ID,
+                PLATFORM_USER_ID);
+        verify(userAdminMapper).deleteUserPermissionSets(USER_ID);
+        verify(userAdminMapper).insertUserPermissionSetByCode(USER_ID, "TENANT_EDITOR");
+    }
+
+    @Test
+    void tenantManagerCanUpdateOwnCompanyTenantUser() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        when(userAdminMapper.findTenantUserEditTargetByIdAndCompanyId(USER_ID, COMPANY_ID)).thenReturn(Optional.of(tenantEditTarget()));
+        when(userAdminMapper.findActiveDepartmentIdByCompanyId(DEPARTMENT_ID, COMPANY_ID)).thenReturn(Optional.of(DEPARTMENT_ID));
+        when(userAdminMapper.existsTenantEmailExcludingUser(COMPANY_ID, USER_ID, "updated-tenant@example.local")).thenReturn(false);
+        when(userAdminMapper.countActiveTenantManagersByCompanyId(COMPANY_ID)).thenReturn(1);
+
+        userAdminService.updateTenantUser(
+                USER_ID,
+                new UserEditForm("更新TENANT", "updated-tenant@example.local", DEPARTMENT_ID, List.of("TENANT_MANAGER")));
+
+        verify(userAdminMapper).updateUserEditableFields(
+                USER_ID,
+                "更新TENANT",
+                "updated-tenant@example.local",
+                DEPARTMENT_ID,
+                MANAGER_USER_ID);
+        verify(userAdminMapper).insertUserPermissionSetByCode(USER_ID, "TENANT_MANAGER");
+    }
+
+    @Test
+    void tenantManagerCannotUpdateOtherCompanyOrPlatformUser() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        when(userAdminMapper.findTenantUserEditTargetByIdAndCompanyId(USER_ID, COMPANY_ID)).thenReturn(Optional.empty());
+        when(userAdminMapper.findTenantUserEditTargetByIdAndCompanyId(PLATFORM_USER_ID, COMPANY_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userAdminService.updateTenantUser(USER_ID, editForm(List.of("TENANT_MANAGER"))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertThatThrownBy(() -> userAdminService.updateTenantUser(PLATFORM_USER_ID, editForm(List.of("TENANT_MANAGER"))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void invalidUpdatePermissionIsRejected() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        when(userAdminMapper.findTenantUserEditTargetByIdAndCompanyId(USER_ID, COMPANY_ID)).thenReturn(Optional.of(tenantEditTarget()));
+
+        assertThatThrownBy(() -> userAdminService.updateTenantUser(USER_ID, editForm(List.of("PLATFORM_ADMIN"))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(userAdminMapper, never()).updateUserEditableFields(
+                USER_ID,
+                "更新ユーザー",
+                "updated@example.local",
+                DEPARTMENT_ID,
+                MANAGER_USER_ID);
+    }
+
+    @Test
+    void invalidDepartmentAndDuplicateEmailAreRejectedOnUpdate() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        when(userAdminMapper.findTenantUserEditTargetByIdAndCompanyId(USER_ID, COMPANY_ID)).thenReturn(Optional.of(tenantEditTarget()));
+        when(userAdminMapper.findActiveDepartmentIdByCompanyId(DEPARTMENT_ID, COMPANY_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userAdminService.updateTenantUser(USER_ID, editForm(List.of("TENANT_MANAGER"))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        reset(userAdminMapper);
+        when(userAdminMapper.findTenantUserEditTargetByIdAndCompanyId(USER_ID, COMPANY_ID)).thenReturn(Optional.of(tenantEditTarget()));
+        when(userAdminMapper.findActiveDepartmentIdByCompanyId(DEPARTMENT_ID, COMPANY_ID)).thenReturn(Optional.of(DEPARTMENT_ID));
+        when(userAdminMapper.existsTenantEmailExcludingUser(COMPANY_ID, USER_ID, "updated@example.local")).thenReturn(true);
+
+        assertThatThrownBy(() -> userAdminService.updateTenantUser(USER_ID, editForm(List.of("TENANT_MANAGER"))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void tenantManagerCountZeroIsRejectedAsBusinessValidation() {
+        signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+        when(userAdminMapper.findTenantUserEditTargetByIdAndCompanyId(USER_ID, COMPANY_ID)).thenReturn(Optional.of(tenantEditTarget()));
+        when(userAdminMapper.findActiveDepartmentIdByCompanyId(DEPARTMENT_ID, COMPANY_ID)).thenReturn(Optional.of(DEPARTMENT_ID));
+        when(userAdminMapper.existsTenantEmailExcludingUser(COMPANY_ID, USER_ID, "updated@example.local")).thenReturn(false);
+        when(userAdminMapper.countActiveTenantManagersByCompanyId(COMPANY_ID)).thenReturn(0);
+
+        assertThatThrownBy(() -> userAdminService.updateTenantUser(USER_ID, editForm(List.of("TENANT_EDITOR"))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(userAdminMapper).deleteUserPermissionSets(USER_ID);
+        verify(userAdminMapper).insertUserPermissionSetByCode(USER_ID, "TENANT_EDITOR");
+    }
+
+    @Test
     void tenantViewerAndEditorCannotInvokeUserAdminService() {
         signIn(1L, COMPANY_ID, "TENANT", permission("TENANT_VIEWER", "閲覧者"));
         assertThatThrownBy(() -> userAdminService.findTenantUsers()).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> userAdminService.createPlatformUser(platformUserForm())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> userAdminService.createTenantUser(tenantUserForm(List.of("TENANT_MANAGER"), null)))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> userAdminService.findTenantUserEditForm(USER_ID)).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> userAdminService.updateTenantUser(USER_ID, editForm(List.of("TENANT_MANAGER"))))
                 .isInstanceOf(AccessDeniedException.class);
 
         SecurityContextHolder.clearContext();
@@ -342,6 +476,9 @@ class UserAdminServiceTests {
         assertThatThrownBy(() -> userAdminService.findTenantUsers()).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> userAdminService.createPlatformUser(platformUserForm())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> userAdminService.createTenantUser(tenantUserForm(List.of("TENANT_MANAGER"), null)))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> userAdminService.findTenantUserEditForm(USER_ID)).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> userAdminService.updateTenantUser(USER_ID, editForm(List.of("TENANT_MANAGER"))))
                 .isInstanceOf(AccessDeniedException.class);
 
         verifyNoInteractions(userAdminMapper);
@@ -392,6 +529,40 @@ class UserAdminServiceTests {
                 "新TENANT",
                 "new-tenant@example.local",
                 permissionSetCodes);
+    }
+
+    private UserEditForm editForm(List<String> permissionSetCodes) {
+        return new UserEditForm(
+                "更新ユーザー",
+                "updated@example.local",
+                DEPARTMENT_ID,
+                permissionSetCodes);
+    }
+
+    private UserEditTarget platformEditTarget() {
+        return new UserEditTarget(
+                USER_ID,
+                null,
+                null,
+                "platform-user",
+                "PLATFORMユーザー",
+                "platform-user@example.local",
+                "PLATFORM",
+                "WorkOps",
+                COGNITO_SUB);
+    }
+
+    private UserEditTarget tenantEditTarget() {
+        return new UserEditTarget(
+                USER_ID,
+                COMPANY_ID,
+                DEPARTMENT_ID,
+                "tenant-user",
+                "TENANTユーザー",
+                "tenant-user@example.local",
+                "TENANT",
+                "北浜精密機器株式会社",
+                COGNITO_SUB);
     }
 
     private UserListItem userListItem(Long userId, String username, String actorType, String companyName) {

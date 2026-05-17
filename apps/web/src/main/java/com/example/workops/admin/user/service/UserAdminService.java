@@ -9,12 +9,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.workops.admin.user.form.UserEditForm;
 import com.example.workops.admin.user.form.UserForm;
 import com.example.workops.admin.user.mapper.UserAdminMapper;
 import com.example.workops.admin.user.model.CompanySelectOption;
 import com.example.workops.admin.user.model.DepartmentSelectOption;
 import com.example.workops.admin.user.model.PermissionSetOption;
 import com.example.workops.admin.user.model.UserDetail;
+import com.example.workops.admin.user.model.UserEditTarget;
 import com.example.workops.admin.user.model.UserListItem;
 import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
@@ -88,6 +90,15 @@ public class UserAdminService {
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public List<DepartmentSelectOption> findActiveDepartments() {
         return userAdminMapper.findActiveDepartments();
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public List<DepartmentSelectOption> findActiveDepartmentsByCompanyId(Long companyId) {
+        if (companyId == null) {
+            return List.of();
+        }
+        return userAdminMapper.findActiveDepartmentsByCompanyId(companyId);
     }
 
     @Transactional(readOnly = true)
@@ -181,6 +192,48 @@ public class UserAdminService {
                 currentUser);
     }
 
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public UserEditTarget findPlatformUserEditTarget(Long userId) {
+        return requirePlatformUserEditTarget(userId);
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public UserEditForm findPlatformUserEditForm(Long userId) {
+        UserEditTarget target = requirePlatformUserEditTarget(userId);
+        return toEditForm(target);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public void updatePlatformUser(Long userId, UserEditForm userEditForm) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        UserEditTarget target = requirePlatformUserEditTarget(userId);
+        updateUser(target, userEditForm, currentUser);
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public UserEditTarget findTenantUserEditTarget(Long userId) {
+        return requireTenantUserEditTarget(userId);
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public UserEditForm findTenantUserEditForm(Long userId) {
+        UserEditTarget target = requireTenantUserEditTarget(userId);
+        return toEditForm(target);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('TENANT_MANAGER')")
+    public void updateTenantUser(Long userId, UserEditForm userEditForm) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        UserEditTarget target = requireTenantUserEditTarget(userId);
+        updateUser(target, userEditForm, currentUser);
+    }
+
     private Long createUser(
             Long companyId,
             Long departmentId,
@@ -211,6 +264,57 @@ public class UserAdminService {
             userAdminMapper.insertUserPermissionSetByCode(userId, permissionSetCode);
         }
         return userId;
+    }
+
+    private UserEditTarget requirePlatformUserEditTarget(Long userId) {
+        return userAdminMapper.findPlatformUserEditTarget(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ユーザーが見つかりません。"));
+    }
+
+    private UserEditTarget requireTenantUserEditTarget(Long userId) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        return userAdminMapper.findTenantUserEditTargetByIdAndCompanyId(userId, currentUser.companyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ユーザーが見つかりません。"));
+    }
+
+    private UserEditForm toEditForm(UserEditTarget target) {
+        return new UserEditForm(
+                target.name(),
+                target.email(),
+                target.departmentId(),
+                userAdminMapper.findPermissionSetCodesByUserId(target.id()));
+    }
+
+    private void updateUser(UserEditTarget target, UserEditForm userEditForm, LoginUserContext currentUser) {
+        List<String> permissionSetCodes = normalizePermissionSetCodes(userEditForm.permissionSetCodes());
+        assertPermissionSets(target.actorType(), permissionSetCodes);
+        Long departmentId = resolveEditDepartmentId(target, userEditForm.departmentId());
+        assertUniqueEmailExcludingUser(target.companyId(), target.id(), userEditForm.email());
+
+        userAdminMapper.updateUserEditableFields(
+                target.id(),
+                userEditForm.name(),
+                userEditForm.email(),
+                departmentId,
+                currentUser.userId());
+        userAdminMapper.deleteUserPermissionSets(target.id());
+        for (String permissionSetCode : permissionSetCodes) {
+            userAdminMapper.insertUserPermissionSetByCode(target.id(), permissionSetCode);
+        }
+        if (ACTOR_TYPE_TENANT.equals(target.actorType())
+                && userAdminMapper.countActiveTenantManagersByCompanyId(target.companyId()) == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "TENANT_MANAGERは最低1人必要です。");
+        }
+    }
+
+    private Long resolveEditDepartmentId(UserEditTarget target, Long departmentId) {
+        if (ACTOR_TYPE_PLATFORM.equals(target.actorType())) {
+            if (departmentId != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "PLATFORMユーザーには部署を指定できません。");
+            }
+            return null;
+        }
+        return resolveDepartmentId(target.companyId(), departmentId);
     }
 
     private Long resolveRequiredCompanyId(Long companyId) {
@@ -259,6 +363,18 @@ public class UserAdminService {
             exists = userAdminMapper.existsPlatformEmail(email);
         } else {
             exists = userAdminMapper.existsTenantEmail(companyId, email);
+        }
+        if (exists) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "emailは既に使用されています。");
+        }
+    }
+
+    private void assertUniqueEmailExcludingUser(Long companyId, Long userId, String email) {
+        boolean exists;
+        if (companyId == null) {
+            exists = userAdminMapper.existsPlatformEmailExcludingUser(userId, email);
+        } else {
+            exists = userAdminMapper.existsTenantEmailExcludingUser(companyId, userId, email);
         }
         if (exists) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "emailは既に使用されています。");

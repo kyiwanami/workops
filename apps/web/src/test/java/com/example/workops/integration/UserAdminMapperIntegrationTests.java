@@ -137,4 +137,61 @@ class UserAdminMapperIntegrationTests extends MapperIntegrationTestBase {
         assertThat(userAdminMapper.existsTenantUsername(2L, "kthm-manager")).isFalse();
         assertThat(userAdminMapper.existsTenantEmail(2L, "kthm-manager@example.local")).isFalse();
     }
+
+    @Test
+    void userEditTargetAndPermissionCodesAreLoaded() {
+        assertThat(userAdminMapper.findPlatformUserEditTarget(3L))
+                .hasValueSatisfying(user -> {
+                    assertThat(user.companyId()).isEqualTo(1L);
+                    assertThat(user.departmentId()).isEqualTo(1L);
+                    assertThat(user.actorType()).isEqualTo("TENANT");
+                    assertThat(user.cognitoSub()).isNotBlank();
+                });
+        assertThat(userAdminMapper.findTenantUserEditTargetByIdAndCompanyId(3L, 1L))
+                .hasValueSatisfying(user -> assertThat(user.username()).isEqualTo("kthm-manager"));
+        assertThat(userAdminMapper.findPermissionSetCodesByUserId(3L))
+                .containsExactly("TENANT_MANAGER");
+    }
+
+    @Test
+    void updateUserEditableFieldsAndReplacePermissionSets() {
+        userAdminMapper.insertUser(
+                1L,
+                1L,
+                "33333333-3333-3333-3333-333333333333",
+                "edit-target",
+                "編集前",
+                "edit-target@example.local",
+                "TENANT",
+                7L,
+                7L);
+        Long userId = userAdminMapper.findLastInsertId();
+        userAdminMapper.insertUserPermissionSetByCode(userId, "TENANT_MANAGER");
+
+        userAdminMapper.updateUserEditableFields(
+                userId,
+                "編集後",
+                "edit-target-updated@example.local",
+                2L,
+                7L);
+        userAdminMapper.deleteUserPermissionSets(userId);
+        userAdminMapper.insertUserPermissionSetByCode(userId, "TENANT_EDITOR");
+
+        assertThat(userAdminMapper.findTenantUserByIdAndCompanyId(userId, 1L))
+                .hasValueSatisfying(user -> {
+                    assertThat(user.name()).isEqualTo("編集後");
+                    assertThat(user.email()).isEqualTo("edit-target-updated@example.local");
+                    assertThat(user.departmentName()).isEqualTo("情報システム部");
+                    assertThat(user.permissionSetDisplay()).isEqualTo("TENANT_EDITOR / 編集者");
+                });
+    }
+
+    @Test
+    void emailDuplicateExcludingUserAndTenantManagerCountWork() {
+        assertThat(userAdminMapper.existsTenantEmailExcludingUser(1L, 3L, "kthm-manager@example.local")).isFalse();
+        assertThat(userAdminMapper.existsTenantEmailExcludingUser(1L, 3L, "kthm-editor@example.local")).isTrue();
+        assertThat(userAdminMapper.existsPlatformEmailExcludingUser(7L, "platform-admin@example.local")).isFalse();
+
+        assertThat(userAdminMapper.countActiveTenantManagersByCompanyId(1L)).isEqualTo(1);
+    }
 }

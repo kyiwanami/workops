@@ -59,6 +59,20 @@
         </constructor>
     </resultMap>
 
+    <resultMap id="UserEditTargetMap" type="com.example.workops.admin.user.model.UserEditTarget">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="company_id" javaType="java.lang.Long"/>
+            <arg column="department_id" javaType="java.lang.Long"/>
+            <arg column="username" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="email" javaType="java.lang.String"/>
+            <arg column="actor_type" javaType="java.lang.String"/>
+            <arg column="company_name" javaType="java.lang.String"/>
+            <arg column="cognito_sub" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
     <sql id="UserDisplayColumns">
         user_account.id AS id,
         user_account.company_id AS company_id,
@@ -134,6 +148,57 @@
             AND user_account.is_deleted = FALSE
             AND user_account.actor_type = 'TENANT'
             AND user_account.company_id = #{companyId}
+    </select>
+
+    <select id="findPlatformUserEditTarget" resultMap="UserEditTargetMap">
+        SELECT
+            user_account.id AS id,
+            user_account.company_id AS company_id,
+            user_account.department_id AS department_id,
+            user_account.username AS username,
+            user_account.name AS name,
+            user_account.email AS email,
+            user_account.actor_type AS actor_type,
+            CASE
+                WHEN user_account.company_id IS NULL THEN 'WorkOps'
+                ELSE company.name
+            END AS company_name,
+            user_account.cognito_sub AS cognito_sub
+        FROM users user_account
+        LEFT JOIN companies company
+            ON company.id = user_account.company_id
+        WHERE user_account.id = #{userId}
+            AND user_account.is_deleted = FALSE
+    </select>
+
+    <select id="findTenantUserEditTargetByIdAndCompanyId" resultMap="UserEditTargetMap">
+        SELECT
+            user_account.id AS id,
+            user_account.company_id AS company_id,
+            user_account.department_id AS department_id,
+            user_account.username AS username,
+            user_account.name AS name,
+            user_account.email AS email,
+            user_account.actor_type AS actor_type,
+            company.name AS company_name,
+            user_account.cognito_sub AS cognito_sub
+        FROM users user_account
+        INNER JOIN companies company
+            ON company.id = user_account.company_id
+        WHERE user_account.id = #{userId}
+            AND user_account.is_deleted = FALSE
+            AND user_account.actor_type = 'TENANT'
+            AND user_account.company_id = #{companyId}
+    </select>
+
+    <select id="findPermissionSetCodesByUserId" resultType="java.lang.String">
+        SELECT permission_set.code
+        FROM user_permission_sets user_permission_set
+        INNER JOIN permission_sets permission_set
+            ON permission_set.id = user_permission_set.permission_set_id
+            AND permission_set.is_deleted = FALSE
+        WHERE user_permission_set.user_id = #{userId}
+        ORDER BY permission_set.id ASC
     </select>
 
     <select id="findActiveCompanies" resultMap="CompanySelectOptionMap">
@@ -244,6 +309,56 @@
             WHERE user_account.company_id = #{companyId}
                 AND user_account.email = #{email}
         )
+    </select>
+
+    <select id="existsPlatformEmailExcludingUser" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM users user_account
+            WHERE user_account.company_id IS NULL
+                AND user_account.email = #{email}
+                AND user_account.id != #{userId}
+        )
+    </select>
+
+    <select id="existsTenantEmailExcludingUser" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM users user_account
+            WHERE user_account.company_id = #{companyId}
+                AND user_account.email = #{email}
+                AND user_account.id != #{userId}
+        )
+    </select>
+
+    <update id="updateUserEditableFields">
+        UPDATE users
+        SET
+            name = #{name},
+            email = #{email},
+            department_id = #{departmentId},
+            updated_by = #{updatedBy}
+        WHERE id = #{userId}
+            AND is_deleted = FALSE
+    </update>
+
+    <delete id="deleteUserPermissionSets">
+        DELETE FROM user_permission_sets
+        WHERE user_id = #{userId}
+    </delete>
+
+    <select id="countActiveTenantManagersByCompanyId" resultType="int">
+        SELECT COUNT(DISTINCT user_account.id)
+        FROM users user_account
+        INNER JOIN user_permission_sets user_permission_set
+            ON user_permission_set.user_id = user_account.id
+        INNER JOIN permission_sets permission_set
+            ON permission_set.id = user_permission_set.permission_set_id
+            AND permission_set.is_deleted = FALSE
+        WHERE user_account.company_id = #{companyId}
+            AND user_account.actor_type = 'TENANT'
+            AND user_account.is_deleted = FALSE
+            AND permission_set.code = 'TENANT_MANAGER'
     </select>
 
     <insert id="insertUser">

@@ -8,7 +8,9 @@
 ## M10 共通方針
 
 - M10 の範囲は、初期 TENANT_MANAGER 作成、ユーザー作成、権限割当・変更、local Cognito Fake Bean、疑似 `cognito_sub` 発行・登録に限定する
-- Cognito 本物 API 呼び出し、Cognito Hosted UI 本格確認、PLATFORM / TENANT App Client 分離は Phase 2 で扱う
+- M10 では、AWS SDK for Java 2.x による Cognito `AdminCreateUser` 呼び出し境界まで扱う
+- M10 で扱う実 Cognito API は `AdminCreateUser` だけに限定する
+- Cognito Hosted UI 本格確認、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、初回ログイン時の WorkOps ユーザー自動作成は Phase 2 で扱う
 - M9 では会社作成まで作成済みであり、M10 で会社作成フローへ初期 TENANT_MANAGER 作成を後付け連携する
 - 最終仕様として、会社作成時に初期 TENANT_MANAGER を必ず 1 人作る
 - ユーザー作成後に編集できる範囲は、表示名、email、所属部署、権限セットだけとする
@@ -58,7 +60,7 @@
 - Cognito 側ユーザー属性変更
 - ユーザー無効化
 - 権限セット定義そのものの CRUD
-- Cognito 本物 API 呼び出し
+- Cognito `AdminCreateUser` 以外の本物 API 呼び出し
 
 ## 完了条件
 
@@ -80,4 +82,35 @@ TENANT_MANAGER は他社ユーザー、PLATFORM ユーザー、`PLATFORM_ADMIN` 
 
 ## 実装時の記録
 
-M10-05 実装時に、実装方針、変更ファイル、実装結果、確認結果、残課題を記録する。
+### 実装方針
+
+- 編集用 POST は `name`、`email`、`departmentId`、`permissionSetCodes` だけを受け付ける
+- `username`、`actor_type`、`company_id`、`cognito_sub` は編集画面で表示専用にし、更新処理では DB 上の対象ユーザーから判定する
+- PLATFORM_ADMIN は `/admin/users/{userId}/edit`、TENANT_MANAGER は `/users/{userId}/edit` を使う
+- TENANT_MANAGER の他社ユーザーおよび PLATFORM ユーザー編集は存在秘匿のため `404 NOT_FOUND` にする
+- TENANT_MANAGER 数 0 件化は権限チェックではなく、権限置き換え後の count による業務バリデーションで `400 BAD_REQUEST` にする
+- Cognito 側の email / username / 属性変更は行わない
+
+### 実装結果
+
+- `UserEditForm` と `UserEditTarget` を追加した
+- `UserAdminController` に PLATFORM_ADMIN / TENANT_MANAGER 向け編集 GET / POST を追加した
+- `UserAdminService` に編集フォーム取得、編集対象取得、更新処理、email 重複確認、TENANT_MANAGER 数確認を追加した
+- `UserAdminMapper` と `UserAdminMapper.xml` に編集対象取得、権限コード取得、email 重複確認、ユーザー更新、権限置き換え、TENANT_MANAGER count を追加した
+- `admin/user/user-edit.html` を追加し、詳細画面に編集ボタンを追加した
+- Service テストと Mapper 統合テストへ M10-05 の確認観点を追加した
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test`
+  - Tests run: 174
+  - Failures: 0
+  - Errors: 0
+  - Skipped: 0
+- local profile 起動後、`http://localhost:8081/users/3/edit` が `200` を返し、ユーザー編集画面、`TENANT_MANAGER / 管理者`、`cognito_sub` が描画されることを確認した
+- Chrome DevTools MCP はページ取得時に timeout したため、local 画面確認は `Invoke-WebRequest` で HTML 応答を確認した
+
+### 残課題
+
+- 実 Cognito 環境での E2E はユーザーが手動で実施する
+- PLATFORM_ADMIN での画面操作確認は、local 起動時のログインユーザーを PLATFORM_ADMIN に切り替えて実施する
