@@ -84,4 +84,53 @@ README、DB 定義書、MVP phases、M9 agent task が現行実装と矛盾し�
 
 ## 実装時の記録
 
-M9-08 実装時に、実装方針、変更ファイル、実装結果、確認結果、残課題を記録する。
+### 実装方針
+
+- M9-08 では新規業務機能を追加しない
+- M9-06 / M9-07 の実装結果を横断確認し、M9 追加スコープの完了状態を記録する
+- README、MVP phases、DB schema、M9 agent task が現行実装と矛盾しないことを確認する
+- README は利用者が確認する主要導線だけを現行実装に合わせて更新する
+- 実 Cognito E2E は行わない
+- Git commit は実行しない
+
+### 変更ファイル
+
+- `README.md`
+- `docs/implementation/mvp/agent-tasks/M9/M9-06-company-list-detail-deleted-view.md`
+- `docs/implementation/mvp/agent-tasks/M9/M9-08-m9-additional-scope-verification.md`
+
+### 実装結果
+
+- README の会社管理説明を、会社一覧、詳細、登録、編集、論理削除、削除済み表示、会社別初期マスタ投入に更新した
+- README の主要 URL に `/admin/companies`、会社詳細、会社編集を追加した
+- M9-06 の残課題を、M9-07 対応済みとして更新した
+- `docs/implementation/mvp/phases.md` は M9 追加スコープ、会社論理削除方針、部署管理方針、M9-06 / M9-07 / M9-08 の追加 task と整合していることを確認した
+- `docs/implementation/db/schema.md` は `companies`、`departments`、主要制約方針が現行 DB 実装と整合していることを確認した
+
+### 確認結果
+
+- M9-06 / M9-07 / M9-08 の Service テスト、Mapper 統合テスト、画面確認により以下を確認済み
+  - PLATFORM_ADMIN が会社一覧・詳細を取得できる
+  - PLATFORM_ADMIN が未削除会社を編集できる
+  - PLATFORM_ADMIN が配下データありの会社を論理削除できる
+  - 会社論理削除時に部署、ユーザー、申請、資産、会社別マスタ値の件数が減らない
+  - 削除済み会社コードを再利用できない
+  - TENANT_MANAGER は会社管理 Service を利用できない
+- M9-06 / M9-07 の画面確認により以下を確認済み
+  - `/admin/companies`
+  - `/admin/companies?showDeleted=true`
+  - `/admin/companies/{companyId}`
+  - `/admin/companies/{companyId}/edit`
+  - 会社詳細の削除確認モーダルに配下データ件数警告が表示される
+- M9-08 の画面確認で、確認用会社 `M908_20260519213410` を作成し、会社名編集、論理削除、削除済み一覧表示、通常一覧からの除外、削除済みコード再利用拒否を確認した
+- M9-08 の DB 確認で、確認用会社 `M908_20260519213410` が `is_deleted=true` になり、配下件数が `departments=0`、`users=1`、`requests=0`、`assets=0`、`generic_master_values=9` として残っていることを確認した
+- `cd apps/web && .\mvnw.cmd test`
+  - `192 tests`
+  - `BUILD SUCCESS`
+- `git diff --check`
+  - whitespace error なし
+
+### 残課題
+
+- 会社復活、会社物理削除、削除済み会社配下データの自動無効化は MVP 範囲外
+- M10 以降のユーザー作成・編集では、削除済み会社と削除済み部署を通常選択肢に出さない方針を維持する

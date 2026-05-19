@@ -153,7 +153,7 @@ $env:WORKOPS_LOCAL_COGNITO_SUB = "00000000-0000-0000-0000-000000000002"
 - 申請管理: 一覧、詳細、下書き作成、編集、提出、取下げ、承認、却下、差戻し
 - 資産管理: 一覧、検索、詳細、登録、編集、ステータス変更、論理削除
 - マスタ管理: 申請種別と資産分類の一覧、登録、編集、論理削除、復活、削除済み表示
-- 会社管理: 現行実装では PLATFORM_ADMIN による会社登録と会社別初期マスタ投入を確認できます。M9 追加スコープとして会社一覧、詳細、編集、論理削除、削除済み表示を扱います。
+- 会社管理: PLATFORM_ADMIN による会社一覧、詳細、登録、編集、論理削除、削除済み表示、会社別初期マスタ投入
 - 部署管理: PLATFORM_ADMIN による会社指定管理、TENANT_MANAGER による自社管理
 - 権限: 閲覧者、編集者、管理者の操作可否
 - 会社境界: `company_id` による他社データの参照・更新防止
@@ -172,7 +172,10 @@ $env:WORKOPS_LOCAL_COGNITO_SUB = "00000000-0000-0000-0000-000000000002"
 | `/assets` | 資産一覧 |
 | `/masters/request-types` | 申請種別マスタ |
 | `/masters/asset-categories` | 資産分類マスタ |
+| `/admin/companies` | PLATFORM_ADMIN 向け会社管理 |
 | `/admin/companies/new` | 会社登録 |
+| `/admin/companies/{companyId}` | 会社詳細 |
+| `/admin/companies/{companyId}/edit` | 会社編集 |
 | `/admin/companies/1/departments` | PLATFORM_ADMIN 向け部署管理 |
 | `/departments` | TENANT_MANAGER 向け部署管理 |
 | `/auth/claims` | 認証情報確認 |
