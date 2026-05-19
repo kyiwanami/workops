@@ -10,7 +10,7 @@ M10 のユーザー作成処理で利用する Cognito ユーザー作成境界�
 - M10 の範囲は、初期 TENANT_MANAGER 作成、ユーザー作成、権限割当・変更、local Cognito Fake Bean、疑似 `cognito_sub` 発行・登録に限定する
 - M10 で使う Cognito 本物 API は `AdminCreateUser` に限定する
 - Cognito Hosted UI 本格確認、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation は Phase 2 で扱う
-- M9 では会社作成まで作成済みであり、M10 で会社作成フローへ初期 TENANT_MANAGER 作成を後付け連携する
+- M9 では会社・部署管理を扱い、M10 で会社作成フローへ初期 TENANT_MANAGER 作成を後付け連携する
 - 最終仕様として、会社作成時に初期 TENANT_MANAGER を必ず 1 人作る
 - ユーザー作成後に編集できる範囲は、表示名、email、所属部署、権限セットだけとする
 - `actor_type` と `company_id` は作成後変更不可とする

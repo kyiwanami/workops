@@ -11,7 +11,7 @@ PLATFORM_ADMIN が PLATFORM ユーザーと任意会社の TENANT ユーザー�
 - M10 は local Fake Bean に加えて AWS SDK for Java 2.x による Cognito `AdminCreateUser` 呼び出し境界を扱う
 - M10 で扱う実 Cognito API は `AdminCreateUser` のみに限定する
 - Cognito Hosted UI 本格確認、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、初回ログイン時の WorkOps ユーザー自動作成は Phase 2 で扱う
-- M9 では会社作成まで作成済みであり、M10 で会社作成フローへ初期 TENANT_MANAGER 作成を後付け連携する
+- M9 では会社・部署管理を扱い、M10 で会社作成フローへ初期 TENANT_MANAGER 作成を後付け連携する
 - 最終仕様として、会社作成時に初期 TENANT_MANAGER を必ず 1 人作る
 - ユーザー作成後に編集できる範囲は、表示名、email、所属部署、権限セットだけとする
 - `actor_type` と `company_id` は作成後変更不可とする
