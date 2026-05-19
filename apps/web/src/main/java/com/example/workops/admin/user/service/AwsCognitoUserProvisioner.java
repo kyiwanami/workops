@@ -17,7 +17,11 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.DeliveryMed
 import software.amazon.awssdk.services.cognitoidentityprovider.model.UsernameExistsException;
 
 /**
- * non-local profileでCognito AdminCreateUserを呼び出すユーザー作成境界。
+ * non-local profileでCognito {@code AdminCreateUser} を呼び出すユーザー作成境界。
+ *
+ * <p>招待メール送信はCognito標準の一時パスワードフローに任せるため、
+ * {@code MessageAction} は指定しない。Cognito例外と {@code sub} 欠落は、
+ * 画面操作へ返せる {@link ResponseStatusException} に変換する。</p>
  */
 @Service
 @Profile("!local")
@@ -38,6 +42,13 @@ public class AwsCognitoUserProvisioner implements CognitoUserProvisioner {
         this.userPoolId = userPoolId;
     }
 
+    /**
+     * Cognito {@code AdminCreateUser} を呼び出し、レスポンス属性の {@code sub} を返す。
+     *
+     * @param request Cognitoユーザー作成に必要な最小入力
+     * @return Cognitoが発行した {@code sub}
+     * @throws ResponseStatusException username重複、Cognito API失敗、または {@code sub} 欠落の場合
+     */
     @Override
     public ProvisionedCognitoUser provision(CognitoUserProvisionRequest request) {
         try {

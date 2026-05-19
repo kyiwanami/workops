@@ -12,6 +12,9 @@ import com.example.workops.common.security.PermissionSetContext;
 
 /**
  * 主要な更新系業務操作をkey=value形式で出力するロガー。
+ *
+ * <p>業務操作ログはRDBへ保存せず、Spring Boot標準のロギング基盤へ出力する。
+ * 本文やコメントの内容は出さず、対象ID、操作名、拒否理由、コメント有無など調査に必要なID中心の値を出力する。</p>
  */
 @Component
 public class OperationLogger {
@@ -22,10 +25,20 @@ public class OperationLogger {
     private static final String SUCCESS_RESULT = "SUCCESS";
     private static final String REJECTED_RESULT = "REJECTED";
 
+    /**
+     * 業務操作の成功結果をINFOログへ出力する。
+     *
+     * @param record 出力対象の業務操作ログ情報
+     */
     public void logSuccess(OperationLogRecord record) {
         OPERATION_LOGGER.info(format(record, SUCCESS_RESULT));
     }
 
+    /**
+     * 業務ルールや入力条件による想定内拒否をWARNログへ出力する。
+     *
+     * @param record 出力対象の業務操作ログ情報
+     */
     public void logRejected(OperationLogRecord record) {
         OPERATION_LOGGER.warn(format(record, REJECTED_RESULT));
     }

@@ -19,7 +19,11 @@ import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
 
 /**
- * PLATFORM_ADMINとTENANT_MANAGER向け部署管理ユースケースを扱うService。
+ * {@code PLATFORM_ADMIN} と {@code TENANT_MANAGER} 向け部署管理ユースケースを扱うService。
+ *
+ * <p>部署コードは削除済み部署も含めて会社内一意とし、部署削除は物理削除ではなく
+ * {@code departments.is_deleted = TRUE} の論理削除として扱う。TENANT_MANAGER導線では、
+ * 現在ユーザーの会社だけを対象にする。</p>
  */
 @Service
 public class DepartmentAdminService {
@@ -45,6 +49,14 @@ public class DepartmentAdminService {
         this.operationLogger = operationLogger;
     }
 
+    /**
+     * PLATFORM_ADMINが指定会社の部署一覧を取得する。
+     *
+     * @param companyId 会社ID
+     * @param departmentSearchForm 削除済み表示条件を含む検索フォーム
+     * @return 指定会社の部署一覧ページ
+     * @throws ResponseStatusException 対象会社が存在しない、または削除済みの場合
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public DepartmentListPage findPlatformDepartmentList(
@@ -53,6 +65,12 @@ public class DepartmentAdminService {
         return findDepartmentListPage(companyId, departmentSearchForm, true);
     }
 
+    /**
+     * TENANT_MANAGERが自社の部署一覧を取得する。
+     *
+     * @param departmentSearchForm 削除済み表示条件を含む検索フォーム
+     * @return 現在ユーザーの会社の部署一覧ページ
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public DepartmentListPage findTenantDepartmentList(DepartmentSearchForm departmentSearchForm) {
@@ -60,12 +78,23 @@ public class DepartmentAdminService {
         return findDepartmentListPage(currentUser.companyId(), departmentSearchForm, true);
     }
 
+    /**
+     * PLATFORM_ADMIN向けの部署登録フォーム表示に必要な会社情報を取得する。
+     *
+     * @param companyId 会社ID
+     * @return 部署一覧を含まない部署ページ情報
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public DepartmentListPage findPlatformDepartmentFormPage(Long companyId) {
         return findDepartmentListPage(companyId, new DepartmentSearchForm(false), false);
     }
 
+    /**
+     * TENANT_MANAGER向けの部署登録フォーム表示に必要な自社情報を取得する。
+     *
+     * @return 部署一覧を含まない自社部署ページ情報
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public DepartmentListPage findTenantDepartmentFormPage() {
@@ -73,6 +102,13 @@ public class DepartmentAdminService {
         return findDepartmentListPage(currentUser.companyId(), new DepartmentSearchForm(false), false);
     }
 
+    /**
+     * PLATFORM_ADMINが指定会社の未削除部署を編集対象として取得する。
+     *
+     * @param companyId 会社ID
+     * @param departmentId 部署ID
+     * @return 編集対象の部署
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public DepartmentListItem findPlatformDepartmentForEdit(Long companyId, Long departmentId) {
@@ -80,6 +116,12 @@ public class DepartmentAdminService {
         return findActiveDepartment(activeCompanyId, departmentId, null, null);
     }
 
+    /**
+     * TENANT_MANAGERが自社の未削除部署を編集対象として取得する。
+     *
+     * @param departmentId 部署ID
+     * @return 編集対象の部署
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public DepartmentListItem findTenantDepartmentForEdit(Long departmentId) {
@@ -88,6 +130,14 @@ public class DepartmentAdminService {
         return findActiveDepartment(activeCompanyId, departmentId, null, null);
     }
 
+    /**
+     * PLATFORM_ADMINが指定会社に部署を作成する。
+     *
+     * @param companyId 会社ID
+     * @param departmentForm 入力済みの部署フォーム
+     * @return 作成した部署ID
+     * @throws ResponseStatusException 会社が存在しない、または部署コードが会社内で使用済みの場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public Long createPlatformDepartment(Long companyId, DepartmentForm departmentForm) {
@@ -96,6 +146,13 @@ public class DepartmentAdminService {
         return createDepartment(activeCompanyId, departmentForm, currentUser);
     }
 
+    /**
+     * TENANT_MANAGERが自社に部署を作成する。
+     *
+     * @param departmentForm 入力済みの部署フォーム
+     * @return 作成した部署ID
+     * @throws ResponseStatusException 部署コードが自社内で使用済みの場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public Long createTenantDepartment(DepartmentForm departmentForm) {
@@ -104,6 +161,13 @@ public class DepartmentAdminService {
         return createDepartment(activeCompanyId, departmentForm, currentUser);
     }
 
+    /**
+     * PLATFORM_ADMINが指定会社の未削除部署名を更新する。
+     *
+     * @param companyId 会社ID
+     * @param departmentId 部署ID
+     * @param departmentForm 更新後の部署フォーム
+     */
     @Transactional
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public void updatePlatformDepartment(Long companyId, Long departmentId, DepartmentForm departmentForm) {
@@ -112,6 +176,12 @@ public class DepartmentAdminService {
         updateDepartment(activeCompanyId, departmentId, departmentForm, currentUser);
     }
 
+    /**
+     * TENANT_MANAGERが自社の未削除部署名を更新する。
+     *
+     * @param departmentId 部署ID
+     * @param departmentForm 更新後の部署フォーム
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void updateTenantDepartment(Long departmentId, DepartmentForm departmentForm) {
@@ -120,6 +190,12 @@ public class DepartmentAdminService {
         updateDepartment(activeCompanyId, departmentId, departmentForm, currentUser);
     }
 
+    /**
+     * PLATFORM_ADMINが指定会社の未削除部署を論理削除する。
+     *
+     * @param companyId 会社ID
+     * @param departmentId 部署ID
+     */
     @Transactional
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public void deletePlatformDepartment(Long companyId, Long departmentId) {
@@ -128,6 +204,11 @@ public class DepartmentAdminService {
         deleteDepartment(activeCompanyId, departmentId, currentUser);
     }
 
+    /**
+     * TENANT_MANAGERが自社の未削除部署を論理削除する。
+     *
+     * @param departmentId 部署ID
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void deleteTenantDepartment(Long departmentId) {

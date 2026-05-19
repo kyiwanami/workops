@@ -19,7 +19,10 @@ import com.example.workops.master.model.AssetCategoryMasterDetail;
 import com.example.workops.master.model.AssetCategoryMasterListItem;
 
 /**
- * 資産分類マスタの管理ユースケースを扱うService。
+ * 会社別の資産分類マスタ管理ユースケースを扱うService。
+ *
+ * <p>資産分類は {@code generic_master_values} の会社別値として管理する。削除は物理削除ではなく
+ * {@code is_deleted = TRUE} の論理削除であり、削除済みコードの再利用は許可しない。</p>
  */
 @Service
 public class AssetCategoryMasterService {
@@ -47,6 +50,12 @@ public class AssetCategoryMasterService {
         this.operationLogger = operationLogger;
     }
 
+    /**
+     * 現在ユーザーの会社に属する資産分類一覧を取得する。
+     *
+     * @param assetCategoryMasterSearchForm 削除済み表示条件を含む検索フォーム
+     * @return 会社境界で絞り込まれた資産分類一覧
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public List<AssetCategoryMasterListItem> findList(AssetCategoryMasterSearchForm assetCategoryMasterSearchForm) {
@@ -56,6 +65,13 @@ public class AssetCategoryMasterService {
                 assetCategoryMasterSearchForm);
     }
 
+    /**
+     * 編集対象として未削除の資産分類を取得する。
+     *
+     * @param id 資産分類マスタ値ID
+     * @return 編集対象の資産分類
+     * @throws ResponseStatusException 対象が存在しない、他社値、または削除済みの場合
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public AssetCategoryMasterDetail findForEdit(Long id) {
@@ -64,6 +80,12 @@ public class AssetCategoryMasterService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "資産分類が見つかりません。"));
     }
 
+    /**
+     * 現在ユーザーの会社に資産分類を追加する。
+     *
+     * @param assetCategoryMasterForm 入力済みの資産分類フォーム
+     * @throws ResponseStatusException コードが同じ会社内で使用済みの場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void create(AssetCategoryMasterForm assetCategoryMasterForm) {
@@ -82,6 +104,13 @@ public class AssetCategoryMasterService {
         logSuccess(currentUser, OPERATION_ASSET_CATEGORY_CREATE, createdId);
     }
 
+    /**
+     * 未削除の資産分類の名称と表示順を更新する。
+     *
+     * @param id 資産分類マスタ値ID
+     * @param assetCategoryMasterForm 更新後の資産分類フォーム
+     * @throws ResponseStatusException 対象が存在しない、他社値、または削除済みの場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void update(Long id, AssetCategoryMasterForm assetCategoryMasterForm) {
@@ -97,6 +126,12 @@ public class AssetCategoryMasterService {
         logSuccess(currentUser, OPERATION_ASSET_CATEGORY_UPDATE, id);
     }
 
+    /**
+     * 未削除の資産分類を論理削除する。
+     *
+     * @param id 資産分類マスタ値ID
+     * @throws ResponseStatusException 対象が存在しない、他社値、または削除済みの場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void delete(Long id) {
@@ -110,6 +145,12 @@ public class AssetCategoryMasterService {
         logSuccess(currentUser, OPERATION_ASSET_CATEGORY_DELETE, id);
     }
 
+    /**
+     * 削除済みの資産分類を復活させる。
+     *
+     * @param id 資産分類マスタ値ID
+     * @throws ResponseStatusException 対象が存在しない、他社値、または未削除の場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void restore(Long id) {
@@ -123,6 +164,12 @@ public class AssetCategoryMasterService {
         logSuccess(currentUser, OPERATION_ASSET_CATEGORY_RESTORE, id);
     }
 
+    /**
+     * 資産分類作成時にコードが現在ユーザーの会社内で重複するか判定する。
+     *
+     * @param code 資産分類コード
+     * @return 未削除・削除済みを問わず同じ会社内で使用済みの場合はtrue
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public boolean isDuplicateCodeForCreate(String code) {

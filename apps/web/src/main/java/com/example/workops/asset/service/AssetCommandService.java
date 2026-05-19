@@ -16,7 +16,11 @@ import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
 
 /**
- * 資産カタログの登録・編集を実行するService。
+ * 資産カタログの登録、編集、ステータス変更、論理削除を実行するService。
+ *
+ * <p>このServiceの更新系メソッドは、Spring Securityの権限判定に加えて、会社境界、
+ * 資産分類・部署・ステータスの選択可否、資産コードの会社内一意性を検証する。
+ * 資産削除は物理削除ではなく {@code is_deleted = TRUE} の論理削除として扱う。</p>
  */
 @Service
 public class AssetCommandService {
@@ -46,6 +50,13 @@ public class AssetCommandService {
         this.operationLogger = operationLogger;
     }
 
+    /**
+     * 編集画面用に現在ユーザーの会社内の資産を取得する。
+     *
+     * @param id 資産ID
+     * @return 編集対象の資産詳細
+     * @throws ResponseStatusException 対象資産が存在しない、または他社資産の場合
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public AssetDetail findAssetForEdit(Long id) {
@@ -54,6 +65,13 @@ public class AssetCommandService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "資産が見つかりません。"));
     }
 
+    /**
+     * ステータス変更画面用に現在ユーザーの会社内の資産を取得する。
+     *
+     * @param id 資産ID
+     * @return ステータス変更対象の資産詳細
+     * @throws ResponseStatusException 対象資産が存在しない、または他社資産の場合
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public AssetDetail findAssetForStatusChange(Long id) {
@@ -62,6 +80,13 @@ public class AssetCommandService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "資産が見つかりません。"));
     }
 
+    /**
+     * 現在ユーザーの会社に資産を登録する。
+     *
+     * @param assetForm 入力済みの資産フォーム
+     * @return 作成した資産ID
+     * @throws ResponseStatusException 資産分類、部署、ステータス、資産コードが業務条件を満たさない場合
+     */
     @Transactional
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public Long createAsset(AssetForm assetForm) {
@@ -86,6 +111,13 @@ public class AssetCommandService {
         return createdId;
     }
 
+    /**
+     * 現在ユーザーの会社内に存在する資産の編集可能項目を更新する。
+     *
+     * @param id 資産ID
+     * @param assetForm 更新後の資産フォーム
+     * @throws ResponseStatusException 対象資産が存在しない、または入力値が業務条件を満たさない場合
+     */
     @Transactional
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public void updateAsset(Long id, AssetForm assetForm) {
@@ -109,6 +141,13 @@ public class AssetCommandService {
         logSuccess(currentUser, OPERATION_ASSET_UPDATE, id);
     }
 
+    /**
+     * 現在ユーザーの会社内に存在する資産のステータスを変更する。
+     *
+     * @param id 資産ID
+     * @param assetStatusForm 変更後のステータスを含むフォーム
+     * @throws ResponseStatusException 対象資産が存在しない、またはステータスコードが不正な場合
+     */
     @Transactional
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public void updateStatus(Long id, AssetStatusForm assetStatusForm) {
@@ -124,6 +163,12 @@ public class AssetCommandService {
         logSuccess(currentUser, OPERATION_ASSET_STATUS_CHANGE, id);
     }
 
+    /**
+     * 現在ユーザーの会社内に存在する資産を論理削除する。
+     *
+     * @param id 資産ID
+     * @throws ResponseStatusException 対象資産が存在しない、または他社資産の場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void deleteAsset(Long id) {
@@ -137,6 +182,12 @@ public class AssetCommandService {
         logSuccess(currentUser, OPERATION_ASSET_DELETE, id);
     }
 
+    /**
+     * 資産登録時に資産コードが現在ユーザーの会社内で重複するか判定する。
+     *
+     * @param code 資産コード
+     * @return 未削除・削除済みを問わず同じ会社内で使用済みの場合はtrue
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public boolean isDuplicateCodeForCreate(String code) {
@@ -144,6 +195,13 @@ public class AssetCommandService {
         return assetMapper.existsAssetCodeByCompanyId(code, currentUser.companyId());
     }
 
+    /**
+     * 資産編集時に資産コードが現在ユーザーの会社内の別資産と重複するか判定する。
+     *
+     * @param id 編集中の資産ID
+     * @param code 資産コード
+     * @return 同じ会社内の別資産で使用済みの場合はtrue
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public boolean isDuplicateCodeForUpdate(Long id, String code) {

@@ -19,7 +19,10 @@ import com.example.workops.master.model.RequestTypeMasterDetail;
 import com.example.workops.master.model.RequestTypeMasterListItem;
 
 /**
- * 申請種別マスタの管理ユースケースを扱うService。
+ * 会社別の申請種別マスタ管理ユースケースを扱うService。
+ *
+ * <p>申請種別は {@code generic_master_values} の会社別値として管理する。削除は物理削除ではなく
+ * {@code is_deleted = TRUE} の論理削除であり、削除済みコードの再利用は許可しない。</p>
  */
 @Service
 public class RequestTypeMasterService {
@@ -47,6 +50,12 @@ public class RequestTypeMasterService {
         this.operationLogger = operationLogger;
     }
 
+    /**
+     * 現在ユーザーの会社に属する申請種別一覧を取得する。
+     *
+     * @param requestTypeMasterSearchForm 削除済み表示条件を含む検索フォーム
+     * @return 会社境界で絞り込まれた申請種別一覧
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public List<RequestTypeMasterListItem> findList(RequestTypeMasterSearchForm requestTypeMasterSearchForm) {
@@ -56,6 +65,13 @@ public class RequestTypeMasterService {
                 requestTypeMasterSearchForm);
     }
 
+    /**
+     * 編集対象として未削除の申請種別を取得する。
+     *
+     * @param id 申請種別マスタ値ID
+     * @return 編集対象の申請種別
+     * @throws ResponseStatusException 対象が存在しない、他社値、または削除済みの場合
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public RequestTypeMasterDetail findForEdit(Long id) {
@@ -64,6 +80,12 @@ public class RequestTypeMasterService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申請種別が見つかりません。"));
     }
 
+    /**
+     * 現在ユーザーの会社に申請種別を追加する。
+     *
+     * @param requestTypeMasterForm 入力済みの申請種別フォーム
+     * @throws ResponseStatusException コードが同じ会社内で使用済みの場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void create(RequestTypeMasterForm requestTypeMasterForm) {
@@ -82,6 +104,13 @@ public class RequestTypeMasterService {
         logSuccess(currentUser, OPERATION_REQUEST_TYPE_CREATE, createdId);
     }
 
+    /**
+     * 未削除の申請種別の名称と表示順を更新する。
+     *
+     * @param id 申請種別マスタ値ID
+     * @param requestTypeMasterForm 更新後の申請種別フォーム
+     * @throws ResponseStatusException 対象が存在しない、他社値、または削除済みの場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void update(Long id, RequestTypeMasterForm requestTypeMasterForm) {
@@ -97,6 +126,12 @@ public class RequestTypeMasterService {
         logSuccess(currentUser, OPERATION_REQUEST_TYPE_UPDATE, id);
     }
 
+    /**
+     * 未削除の申請種別を論理削除する。
+     *
+     * @param id 申請種別マスタ値ID
+     * @throws ResponseStatusException 対象が存在しない、他社値、または削除済みの場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void delete(Long id) {
@@ -110,6 +145,12 @@ public class RequestTypeMasterService {
         logSuccess(currentUser, OPERATION_REQUEST_TYPE_DELETE, id);
     }
 
+    /**
+     * 削除済みの申請種別を復活させる。
+     *
+     * @param id 申請種別マスタ値ID
+     * @throws ResponseStatusException 対象が存在しない、他社値、または未削除の場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void restore(Long id) {
@@ -123,6 +164,12 @@ public class RequestTypeMasterService {
         logSuccess(currentUser, OPERATION_REQUEST_TYPE_RESTORE, id);
     }
 
+    /**
+     * 申請種別作成時にコードが現在ユーザーの会社内で重複するか判定する。
+     *
+     * @param code 申請種別コード
+     * @return 未削除・削除済みを問わず同じ会社内で使用済みの場合はtrue
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public boolean isDuplicateCodeForCreate(String code) {

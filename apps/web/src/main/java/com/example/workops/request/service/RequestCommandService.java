@@ -20,7 +20,11 @@ import com.example.workops.request.mapper.RequestMapper;
 import com.example.workops.request.model.RequestDetail;
 
 /**
- * 申請の下書き作成・編集を実行するService。
+ * 申請の下書き作成、提出、レビュー操作を実行するService。
+ *
+ * <p>このServiceの更新系メソッドは、Spring Securityの権限判定に加えて、申請者本人条件、
+ * 申請ステータス条件、会社境界、申請種別と資産の選択可否を検証する。会社境界はMapperの
+ * {@code company_id} 条件で守り、主要な成功・拒否結果は業務操作ログへ出力する。</p>
  */
 @Service
 public class RequestCommandService {
@@ -56,6 +60,13 @@ public class RequestCommandService {
         this.operationLogger = operationLogger;
     }
 
+    /**
+     * DRAFTの申請を編集画面用に取得する。
+     *
+     * @param id 申請ID
+     * @return 現在ユーザーが編集できるDRAFT申請
+     * @throws AccessDeniedException 申請者本人でない、またはDRAFTでない場合
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public RequestDetail findDraftForEdit(Long id) {
@@ -66,6 +77,13 @@ public class RequestCommandService {
         return requestDetail;
     }
 
+    /**
+     * 現在ユーザーの会社にDRAFT申請を作成する。
+     *
+     * @param requestForm 入力済みの申請フォーム
+     * @return 作成した申請ID
+     * @throws ResponseStatusException 申請種別または関連資産が現在ユーザーの会社で選択できない場合
+     */
     @Transactional
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public Long createDraft(RequestForm requestForm) {
@@ -87,6 +105,14 @@ public class RequestCommandService {
         return createdId;
     }
 
+    /**
+     * 現在ユーザー本人が作成したDRAFT申請を更新する。
+     *
+     * @param id 申請ID
+     * @param requestForm 更新後の申請フォーム
+     * @throws AccessDeniedException 申請者本人でない、またはDRAFTでない場合
+     * @throws ResponseStatusException 申請種別または関連資産が現在ユーザーの会社で選択できない場合
+     */
     @Transactional
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public void updateDraft(Long id, RequestForm requestForm) {
@@ -108,6 +134,12 @@ public class RequestCommandService {
         logSuccess(currentUser, OPERATION_REQUEST_UPDATE, id, false);
     }
 
+    /**
+     * 現在ユーザー本人が作成したDRAFT申請を{@code SUBMITTED}へ提出する。
+     *
+     * @param id 申請ID
+     * @throws AccessDeniedException 申請者本人でない、またはDRAFTでない場合
+     */
     @Transactional
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public void submitDraft(Long id) {
@@ -124,6 +156,12 @@ public class RequestCommandService {
         logSuccess(currentUser, OPERATION_REQUEST_SUBMIT, id, false);
     }
 
+    /**
+     * 現在ユーザー本人が作成した{@code SUBMITTED}申請を{@code WITHDRAWN}へ取下げる。
+     *
+     * @param id 申請ID
+     * @throws AccessDeniedException 申請者本人でない、またはSUBMITTEDでない場合
+     */
     @Transactional
     @PreAuthorize("hasAnyAuthority('TENANT_EDITOR','TENANT_MANAGER')")
     public void withdrawSubmitted(Long id) {
@@ -139,6 +177,13 @@ public class RequestCommandService {
         logSuccess(currentUser, OPERATION_REQUEST_WITHDRAW, id, false);
     }
 
+    /**
+     * TENANT_MANAGERが却下できる{@code SUBMITTED}申請を取得する。
+     *
+     * @param id 申請ID
+     * @return 却下理由入力に使う申請詳細
+     * @throws AccessDeniedException SUBMITTEDでない場合
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public RequestDetail findSubmittedForReject(Long id) {
@@ -149,6 +194,13 @@ public class RequestCommandService {
         return requestDetail;
     }
 
+    /**
+     * TENANT_MANAGERが差戻しできる{@code SUBMITTED}申請を取得する。
+     *
+     * @param id 申請ID
+     * @return 差戻し理由入力に使う申請詳細
+     * @throws AccessDeniedException SUBMITTEDでない場合
+     */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public RequestDetail findSubmittedForRemand(Long id) {
@@ -159,6 +211,12 @@ public class RequestCommandService {
         return requestDetail;
     }
 
+    /**
+     * TENANT_MANAGERが{@code SUBMITTED}申請を{@code APPROVED}へ承認する。
+     *
+     * @param id 申請ID
+     * @throws AccessDeniedException SUBMITTEDでない場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void approveSubmitted(Long id) {
@@ -173,6 +231,13 @@ public class RequestCommandService {
         logSuccess(currentUser, OPERATION_REQUEST_APPROVE, id, false);
     }
 
+    /**
+     * TENANT_MANAGERが{@code SUBMITTED}申請を{@code REJECTED}へ却下する。
+     *
+     * @param id 申請ID
+     * @param requestReviewForm 却下理由を含むフォーム
+     * @throws AccessDeniedException SUBMITTEDでない場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void rejectSubmitted(Long id, RequestReviewForm requestReviewForm) {
@@ -188,6 +253,13 @@ public class RequestCommandService {
         logSuccess(currentUser, OPERATION_REQUEST_REJECT, id, hasReviewComment(requestReviewForm));
     }
 
+    /**
+     * TENANT_MANAGERが{@code SUBMITTED}申請を{@code DRAFT}へ差戻す。
+     *
+     * @param id 申請ID
+     * @param requestReviewForm 差戻し理由を含むフォーム
+     * @throws AccessDeniedException SUBMITTEDでない場合
+     */
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_MANAGER')")
     public void remandSubmitted(Long id, RequestReviewForm requestReviewForm) {

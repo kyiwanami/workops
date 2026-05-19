@@ -13,6 +13,10 @@ import com.example.workops.admin.company.model.TenantInitialMasterValue;
 
 /**
  * 会社作成に伴うテナント初期データ投入を扱うService。
+ *
+ * <p>このServiceは会社作成トランザクション内で呼び出され、申請種別と資産分類の初期値を
+ * 会社別の {@code generic_master_values} として投入する。{@code generic_master} の種別自体は
+ * 複製しない。</p>
  */
 @Service
 public class TenantInitializationService {
@@ -37,6 +41,13 @@ public class TenantInitializationService {
         this.companyAdminMapper = companyAdminMapper;
     }
 
+    /**
+     * 新規会社にMVP既定の会社別マスタ値を投入する。
+     *
+     * @param companyId 初期化対象の会社ID
+     * @param currentUserId 作成者・更新者として記録するユーザーID
+     * @throws ResponseStatusException 初期化に必要な汎用マスタ種別が存在しない場合
+     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void initializeTenant(Long companyId, Long currentUserId) {
         Long assetCategoryMasterId = findRequiredGenericMasterId(GENERIC_MASTER_ASSET_CATEGORY);
