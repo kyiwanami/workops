@@ -3,6 +3,89 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.workops.admin.company.mapper.CompanyAdminMapper">
+    <resultMap id="CompanyListItemMap" type="com.example.workops.admin.company.model.CompanyListItem">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="is_deleted" javaType="java.lang.Boolean"/>
+            <arg column="department_count" javaType="java.lang.Long"/>
+            <arg column="user_count" javaType="java.lang.Long"/>
+            <arg column="request_count" javaType="java.lang.Long"/>
+            <arg column="asset_count" javaType="java.lang.Long"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="CompanyDetailMap" type="com.example.workops.admin.company.model.CompanyDetail">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long"/>
+            <arg column="code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="is_deleted" javaType="java.lang.Boolean"/>
+            <arg column="department_count" javaType="java.lang.Long"/>
+            <arg column="user_count" javaType="java.lang.Long"/>
+            <arg column="request_count" javaType="java.lang.Long"/>
+            <arg column="asset_count" javaType="java.lang.Long"/>
+            <arg column="generic_master_value_count" javaType="java.lang.Long"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="CompanySummaryColumns">
+        company.id AS id,
+        company.code AS code,
+        company.name AS name,
+        company.is_deleted AS is_deleted,
+        (
+            SELECT COUNT(*)
+            FROM departments department
+            WHERE department.company_id = company.id
+        ) AS department_count,
+        (
+            SELECT COUNT(*)
+            FROM users user_account
+            WHERE user_account.company_id = company.id
+        ) AS user_count,
+        (
+            SELECT COUNT(*)
+            FROM requests request_record
+            WHERE request_record.company_id = company.id
+        ) AS request_count,
+        (
+            SELECT COUNT(*)
+            FROM assets asset
+            WHERE asset.company_id = company.id
+        ) AS asset_count
+    </sql>
+
+    <select id="findCompaniesBySearchForm" resultMap="CompanyListItemMap">
+        SELECT
+            <include refid="CompanySummaryColumns"/>,
+            company.updated_at AS updated_at
+        FROM companies company
+        WHERE 1 = 1
+            <if test="companySearchForm.showDeleted != true">
+                AND company.is_deleted = FALSE
+            </if>
+        ORDER BY company.code ASC, company.id ASC
+    </select>
+
+    <select id="findCompanyDetailById" resultMap="CompanyDetailMap">
+        SELECT
+            <include refid="CompanySummaryColumns"/>,
+            (
+                SELECT COUNT(*)
+                FROM generic_master_values master_value
+                WHERE master_value.company_id = company.id
+            ) AS generic_master_value_count,
+            company.created_at AS created_at,
+            company.updated_at AS updated_at
+        FROM companies company
+        WHERE company.id = #{companyId}
+    </select>
+
     <select id="existsCompanyCode" resultType="boolean">
         SELECT EXISTS(
             SELECT 1

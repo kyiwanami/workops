@@ -2,6 +2,8 @@ package com.example.workops.admin.company.web;
 
 import jakarta.validation.Valid;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -9,15 +11,19 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.example.workops.admin.company.form.CompanyForm;
+import com.example.workops.admin.company.form.CompanySearchForm;
+import com.example.workops.admin.company.model.CompanyDetail;
+import com.example.workops.admin.company.model.CompanyListItem;
 import com.example.workops.admin.company.service.CompanyAdminService;
 
 /**
- * PLATFORM_ADMIN向け会社作成画面を表示するController。
+ * PLATFORM_ADMIN向け会社管理画面を表示するController。
  */
 @Controller
 public class CompanyAdminController {
@@ -26,6 +32,24 @@ public class CompanyAdminController {
 
     public CompanyAdminController(CompanyAdminService companyAdminService) {
         this.companyAdminService = companyAdminService;
+    }
+
+    @GetMapping("/admin/companies")
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public String list(
+            @ModelAttribute("companySearchForm") CompanySearchForm companySearchForm,
+            Model model) {
+        List<CompanyListItem> companies = companyAdminService.findCompanies(companySearchForm);
+        model.addAttribute("companies", companies);
+        return "admin/company/company-list";
+    }
+
+    @GetMapping("/admin/companies/{companyId}")
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public String detail(@PathVariable Long companyId, Model model) {
+        CompanyDetail company = companyAdminService.findCompanyDetail(companyId);
+        model.addAttribute("company", company);
+        return "admin/company/company-detail";
     }
 
     @GetMapping("/admin/companies/new")

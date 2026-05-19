@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import com.example.workops.admin.company.form.CompanySearchForm;
 import com.example.workops.admin.company.mapper.CompanyAdminMapper;
+import com.example.workops.admin.company.model.CompanyDetail;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -16,6 +18,51 @@ class CompanyAdminMapperIntegrationTests extends MapperIntegrationTestBase {
 
     @Autowired
     private CompanyAdminMapper companyAdminMapper;
+
+    @Test
+    void findCompaniesExcludesDeletedCompaniesByDefault() {
+        companyAdminMapper.insertCompany("M9_DELETED_COMPANY", "M9削除済み会社", 7L, 7L);
+        Long companyId = companyAdminMapper.findLastInsertId();
+        jdbcTemplate.update("UPDATE companies SET is_deleted = TRUE WHERE id = ?", companyId);
+
+        assertThat(companyAdminMapper.findCompaniesBySearchForm(new CompanySearchForm(false)))
+                .extracting("code")
+                .doesNotContain("M9_DELETED_COMPANY");
+    }
+
+    @Test
+    void findCompaniesIncludesDeletedCompaniesWhenRequested() {
+        companyAdminMapper.insertCompany("M9_SHOW_DELETED_COMPANY", "M9削除済み表示会社", 7L, 7L);
+        Long companyId = companyAdminMapper.findLastInsertId();
+        jdbcTemplate.update("UPDATE companies SET is_deleted = TRUE WHERE id = ?", companyId);
+
+        assertThat(companyAdminMapper.findCompaniesBySearchForm(new CompanySearchForm(true)))
+                .extracting("code")
+                .contains("M9_SHOW_DELETED_COMPANY");
+    }
+
+    @Test
+    void findCompanyDetailReturnsDeletedCompany() {
+        companyAdminMapper.insertCompany("M9_DELETED_DETAIL_COMPANY", "M9削除済み詳細会社", 7L, 7L);
+        Long companyId = companyAdminMapper.findLastInsertId();
+        jdbcTemplate.update("UPDATE companies SET is_deleted = TRUE WHERE id = ?", companyId);
+
+        CompanyDetail companyDetail = companyAdminMapper.findCompanyDetailById(companyId).orElseThrow();
+
+        assertThat(companyDetail.code()).isEqualTo("M9_DELETED_DETAIL_COMPANY");
+        assertThat(companyDetail.isDeleted()).isTrue();
+    }
+
+    @Test
+    void companyDetailIncludesRelatedRowCounts() {
+        CompanyDetail companyDetail = companyAdminMapper.findCompanyDetailById(1L).orElseThrow();
+
+        assertThat(companyDetail.departmentCount()).isGreaterThan(0L);
+        assertThat(companyDetail.userCount()).isGreaterThan(0L);
+        assertThat(companyDetail.requestCount()).isGreaterThan(0L);
+        assertThat(companyDetail.assetCount()).isGreaterThan(0L);
+        assertThat(companyDetail.genericMasterValueCount()).isGreaterThan(0L);
+    }
 
     @Test
     void insertCompanyReturnsCreatedCompanyId() {

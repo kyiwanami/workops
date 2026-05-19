@@ -1,6 +1,7 @@
 package com.example.workops.admin.company.service;
 
 import java.lang.reflect.RecordComponent;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,7 +22,10 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.workops.admin.company.form.CompanyForm;
+import com.example.workops.admin.company.form.CompanySearchForm;
 import com.example.workops.admin.company.mapper.CompanyAdminMapper;
+import com.example.workops.admin.company.model.CompanyDetail;
+import com.example.workops.admin.company.model.CompanyListItem;
 import com.example.workops.admin.user.service.UserAdminService;
 import com.example.workops.common.logging.OperationLogRecord;
 import com.example.workops.common.logging.OperationLogger;
@@ -70,6 +74,57 @@ class CompanyAdminServiceTests {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void platformAdminCanFindCompanies() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        CompanySearchForm companySearchForm = new CompanySearchForm(false);
+        CompanyListItem companyListItem = companyListItem();
+        when(companyAdminMapper.findCompaniesBySearchForm(companySearchForm)).thenReturn(List.of(companyListItem));
+
+        List<CompanyListItem> companies = companyAdminService.findCompanies(companySearchForm);
+
+        assertThat(companies).containsExactly(companyListItem);
+    }
+
+    @Test
+    void platformAdminCanFindCompanyDetail() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        CompanyDetail companyDetail = companyDetail();
+        when(companyAdminMapper.findCompanyDetailById(1L)).thenReturn(Optional.of(companyDetail));
+
+        CompanyDetail foundCompanyDetail = companyAdminService.findCompanyDetail(1L);
+
+        assertThat(foundCompanyDetail).isEqualTo(companyDetail);
+    }
+
+    @Test
+    void companyDetailNotFoundReturnsNotFound() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        when(companyAdminMapper.findCompanyDetailById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> companyAdminService.findCompanyDetail(999L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void tenantManagerCannotFindCompanies() {
+        signIn(3L, 1L, "TENANT", permission("TENANT_MANAGER", "管理者"));
+
+        assertThatThrownBy(() -> companyAdminService.findCompanies(new CompanySearchForm(false)))
+                .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(companyAdminMapper);
+    }
+
+    @Test
+    void tenantManagerCannotFindCompanyDetail() {
+        signIn(3L, 1L, "TENANT", permission("TENANT_MANAGER", "管理者"));
+
+        assertThatThrownBy(() -> companyAdminService.findCompanyDetail(1L))
+                .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(companyAdminMapper);
     }
 
     @Test
@@ -253,6 +308,34 @@ class CompanyAdminServiceTests {
                 "initial-manager",
                 "初期 管理者",
                 "initial-manager@example.local");
+    }
+
+    private CompanyListItem companyListItem() {
+        return new CompanyListItem(
+                1L,
+                "KTHM_PRECISION",
+                "北浜精密機器株式会社",
+                false,
+                4L,
+                3L,
+                2L,
+                3L,
+                LocalDateTime.of(2026, 1, 1, 9, 0));
+    }
+
+    private CompanyDetail companyDetail() {
+        return new CompanyDetail(
+                1L,
+                "KTHM_PRECISION",
+                "北浜精密機器株式会社",
+                false,
+                4L,
+                3L,
+                2L,
+                3L,
+                9L,
+                LocalDateTime.of(2026, 1, 1, 9, 0),
+                LocalDateTime.of(2026, 1, 1, 9, 0));
     }
 
     @Configuration

@@ -85,4 +85,55 @@ PLATFORM_ADMIN が会社詳細を表示できる。
 
 ## 実装時の記録
 
-M9-06 実装時に、実装方針、変更ファイル、実装結果、確認結果、残課題を記録する。
+### 実装方針
+
+- 会社作成処理、初期 TENANT_MANAGER 作成連携、作成後リダイレクトは変更しない
+- `GET /admin/companies` と `GET /admin/companies/{companyId}` を追加し、Controller / Service の public メソッド双方で `PLATFORM_ADMIN` を要求する
+- 通常一覧は未削除会社のみ、`showDeleted=true` の場合だけ削除済み会社も含める
+- 会社詳細は削除済み会社も取得できる
+- 配下データ件数は `company_id` 紐づきの全件数として数え、論理削除済み行も含める
+- ホームの会社導線は `/admin/companies` に変更し、会社登録は会社一覧画面の「新規作成」から遷移する
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/admin/company/form/CompanySearchForm.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/model/CompanyListItem.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/model/CompanyDetail.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/web/CompanyAdminController.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/service/CompanyAdminService.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/mapper/CompanyAdminMapper.java`
+- `apps/web/src/main/resources/mapper/admin/company/CompanyAdminMapper.xml`
+- `apps/web/src/main/resources/templates/admin/company/company-list.html`
+- `apps/web/src/main/resources/templates/admin/company/company-detail.html`
+- `apps/web/src/main/resources/templates/index.html`
+- `apps/web/src/test/java/com/example/workops/admin/company/service/CompanyAdminServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/integration/CompanyAdminMapperIntegrationTests.java`
+- `docs/implementation/mvp/agent-tasks/M9/M9-06-company-list-detail-deleted-view.md`
+
+### 実装結果
+
+- PLATFORM_ADMIN 用の会社一覧画面を追加した
+- PLATFORM_ADMIN 用の会社詳細画面を追加した
+- 一覧に会社ID、会社コード、会社名、削除状態、部署数、ユーザー数、申請数、資産数、更新日時を表示するようにした
+- 詳細に会社ID、会社コード、会社名、削除状態、部署数、ユーザー数、申請数、資産数、会社別マスタ値数、作成日時、更新日時を表示するようにした
+- 会社詳細から対象会社の部署一覧へ遷移できるようにした
+- Service テストで PLATFORM_ADMIN の取得、TENANT_MANAGER の拒否、未存在詳細の `404` を確認した
+- Mapper 統合テストで削除済み会社の一覧条件、削除済み会社詳細、配下データ件数を確認した
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test`
+  - `183 tests`
+  - `BUILD SUCCESS`
+- `git diff --check`
+  - whitespace error なし
+- local profile / `http://localhost:8081/admin/companies`
+  - 会社一覧が表示されることを確認
+- local profile / `http://localhost:8081/admin/companies?showDeleted=true`
+  - 削除済み表示チェックが有効な一覧として表示されることを確認
+- local profile / `http://localhost:8081/admin/companies/1`
+  - 会社詳細と部署一覧リンクが表示されることを確認
+
+### 残課題
+
+- 会社編集、会社論理削除、削除時の警告表示は M9-07 で扱う

@@ -1,5 +1,7 @@
 package com.example.workops.admin.company.service;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -7,7 +9,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.workops.admin.company.form.CompanyForm;
+import com.example.workops.admin.company.form.CompanySearchForm;
 import com.example.workops.admin.company.mapper.CompanyAdminMapper;
+import com.example.workops.admin.company.model.CompanyDetail;
+import com.example.workops.admin.company.model.CompanyListItem;
 import com.example.workops.admin.user.service.UserAdminService;
 import com.example.workops.common.logging.OperationLogRecord;
 import com.example.workops.common.logging.OperationLogger;
@@ -15,7 +20,7 @@ import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
 
 /**
- * PLATFORM_ADMIN向け会社作成ユースケースを扱うService。
+ * PLATFORM_ADMIN向け会社管理ユースケースを扱うService。
  */
 @Service
 public class CompanyAdminService {
@@ -42,6 +47,19 @@ public class CompanyAdminService {
         this.tenantInitializationService = tenantInitializationService;
         this.userAdminService = userAdminService;
         this.operationLogger = operationLogger;
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public List<CompanyListItem> findCompanies(CompanySearchForm companySearchForm) {
+        return companyAdminMapper.findCompaniesBySearchForm(companySearchForm);
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public CompanyDetail findCompanyDetail(Long companyId) {
+        return companyAdminMapper.findCompanyDetailById(companyId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "会社が見つかりません。"));
     }
 
     @Transactional
