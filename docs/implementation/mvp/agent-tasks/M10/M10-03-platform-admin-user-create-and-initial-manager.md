@@ -141,8 +141,8 @@ PLATFORM_ADMIN が任意会社の TENANT ユーザーを作成できる。
 
 ### 残課題
 
-- TENANT_MANAGER による自社ユーザー作成は M10-04 で扱う
-- ユーザー編集と権限変更は M10-05 で扱う
+- TENANT_MANAGER による自社ユーザー作成は M10-04 で対応済み
+- ユーザー編集と権限変更は M10-05 で対応済み
 - ユーザー無効化・削除は M10 範囲外
 - 実 Cognito の `AdminCreateUser` を伴う画面 E2E はユーザー確認対象
 - Hosted UI 本格確認、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、初回ログイン時の WorkOps ユーザー自動作成は Phase 2 で扱う

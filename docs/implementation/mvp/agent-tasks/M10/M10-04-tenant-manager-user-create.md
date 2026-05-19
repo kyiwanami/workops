@@ -120,8 +120,8 @@ TENANT_MANAGER が `PLATFORM_ADMIN` を割り当てできない。
 
 ### 残課題
 
-- ユーザー編集と権限変更は M10-05 で扱う
-- TENANT_MANAGER 数が 0 になる権限変更拒否は M10-05 で扱う
+- ユーザー編集と権限変更は M10-05 で対応済み
+- TENANT_MANAGER 数が 0 になる権限変更拒否は M10-05 で対応済み
 - ユーザー無効化・削除は M10 範囲外
 - 実 Cognito の `AdminCreateUser` を伴う画面 E2E はユーザー確認対象
 - Hosted UI 本格確認、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、初回ログイン時の WorkOps ユーザー自動作成は Phase 2 で扱う

@@ -32,6 +32,7 @@ $env:WORKOPS_LOCAL_COGNITO_SUB = "00000000-0000-0000-0000-000000000002"
 
 | 用途 | cognito_sub | 権限 |
 | --- | --- | --- |
+| PLATFORM 管理者確認 | `00000000-0000-0000-0000-000000000000` | PLATFORM_ADMIN |
 | 北浜の閲覧者確認 | `00000000-0000-0000-0000-000000000001` | TENANT_VIEWER |
 | 北浜の編集者確認 | `00000000-0000-0000-0000-000000000002` | TENANT_EDITOR |
 | 北浜の管理者確認 | `00000000-0000-0000-0000-000000000003` | TENANT_MANAGER |
@@ -122,6 +123,39 @@ $env:WORKOPS_LOCAL_COGNITO_SUB = "00000000-0000-0000-0000-000000000002"
 - 削除済みマスタ値は新規作成・編集用の選択肢から除外される。
 - 削除済みマスタ値を参照している親データは表示できる。
 - 削除済みコードは再利用できない。
+
+## ユーザー・権限管理
+
+対象 URL:
+
+- `/admin/users`
+- `/admin/users/new`
+- `/admin/users/{id}`
+- `/admin/users/{id}/edit`
+- `/users`
+- `/users/new`
+- `/users/{id}`
+- `/users/{id}/edit`
+
+確認シナリオ:
+
+1. PLATFORM 管理者で起動し、`/admin/users` で PLATFORM ユーザーと全会社の TENANT ユーザーが表示されることを確認する。
+2. PLATFORM 管理者で起動し、PLATFORM ユーザーを作成し、詳細に local Fake の `cognito_sub` と `PLATFORM_ADMIN` 権限が表示されることを確認する。
+3. PLATFORM 管理者で起動し、任意会社の TENANT ユーザーを作成し、詳細に TENANT 権限セットが表示されることを確認する。
+4. PLATFORM 管理者で起動し、会社作成時に初期 TENANT_MANAGER を入力し、作成後にユーザー一覧・詳細で確認する。
+5. PLATFORM 管理者で起動し、ユーザーの表示名、email、所属部署、権限セットを編集できることを確認する。
+6. 北浜の管理者で起動し、`/users` で自社 TENANT ユーザーだけが表示されることを確認する。
+7. 北浜の管理者で起動し、自社 TENANT ユーザーを作成・編集できることを確認する。
+8. 北浜の管理者で起動し、他社ユーザー、PLATFORM ユーザー、`PLATFORM_ADMIN` 権限を扱えないことを確認する。
+9. TENANT_MANAGER 数が 0 になる権限変更が拒否されることを確認する。
+10. 削除済み部署に所属するユーザーが `部署名（削除済み）` と表示されることを確認する。
+
+確認観点:
+
+- `username`、`actor_type`、`company_id`、`cognito_sub` は作成後に変更できない。
+- ユーザー作成時は local profile では Fake Bean が疑似 `cognito_sub` を発行し、非 local では Cognito `AdminCreateUser` 境界を使う。
+- 通常の自動テストと local 確認では AWS へ接続しない。
+- 実 Cognito の招待メール送信、実ユーザーログイン、Hosted UI 確認はユーザーが手動で実施する。
 
 ## 業務操作ログ
 

@@ -136,7 +136,7 @@ M10-03 以降のユーザー作成処理が `CognitoUserProvisioner` interface �
 
 ### 残課題
 
-- `users` への登録処理は M10-03 / M10-04 で扱う
-- 会社作成フローへの初期 TENANT_MANAGER 作成連携は M10-03 で扱う
-- ユーザー作成画面、ユーザー編集、権限割当・変更は M10-03 以降で扱う
+- `users` への登録処理は M10-03 / M10-04 で対応済み
+- 会社作成フローへの初期 TENANT_MANAGER 作成連携は M10-03 で対応済み
+- ユーザー作成画面、ユーザー編集、権限割当・変更は M10-03 / M10-04 / M10-05 で対応済み
 - Cognito Hosted UI 本格確認、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation は Phase 2 で扱う

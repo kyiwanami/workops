@@ -1,7 +1,7 @@
 # WorkOps
 
-WorkOps は、申請管理と資産管理を扱う Spring Boot + Thymeleaf の業務アプリケーション MVP です。
-MVP では、ローカル MySQL 上で申請、資産、会社別マスタ、権限、業務操作ログを確認できます。
+WorkOps は、申請管理、資産管理、会社・部署管理、ユーザー管理を扱う Spring Boot + Thymeleaf の業務アプリケーション MVP です。
+MVP では、ローカル MySQL 上で申請、資産、会社別マスタ、ユーザー、権限、業務操作ログを確認できます。
 
 ## MVP 技術スタック
 
@@ -155,6 +155,7 @@ $env:WORKOPS_LOCAL_COGNITO_SUB = "00000000-0000-0000-0000-000000000002"
 - マスタ管理: 申請種別と資産分類の一覧、登録、編集、論理削除、復活、削除済み表示
 - 会社管理: PLATFORM_ADMIN による会社一覧、詳細、登録、編集、論理削除、削除済み表示、会社別初期マスタ投入
 - 部署管理: PLATFORM_ADMIN による会社指定管理、TENANT_MANAGER による自社管理
+- ユーザー管理: PLATFORM_ADMIN による全ユーザー管理、TENANT_MANAGER による自社ユーザー管理、会社作成時の初期 TENANT_MANAGER 作成
 - 権限: 閲覧者、編集者、管理者の操作可否
 - 会社境界: `company_id` による他社データの参照・更新防止
 - 業務操作ログ: 申請、資産、マスタ操作の成功・拒否ログ
@@ -178,13 +179,21 @@ $env:WORKOPS_LOCAL_COGNITO_SUB = "00000000-0000-0000-0000-000000000002"
 | `/admin/companies/{companyId}/edit` | 会社編集 |
 | `/admin/companies/1/departments` | PLATFORM_ADMIN 向け部署管理 |
 | `/departments` | TENANT_MANAGER 向け部署管理 |
+| `/admin/users` | PLATFORM_ADMIN 向けユーザー管理 |
+| `/admin/users/new` | PLATFORM_ADMIN 向けユーザー作成 |
+| `/admin/users/{userId}` | PLATFORM_ADMIN 向けユーザー詳細 |
+| `/admin/users/{userId}/edit` | PLATFORM_ADMIN 向けユーザー編集 |
+| `/users` | TENANT_MANAGER 向け自社ユーザー管理 |
+| `/users/new` | TENANT_MANAGER 向け自社ユーザー作成 |
+| `/users/{userId}` | TENANT_MANAGER 向け自社ユーザー詳細 |
+| `/users/{userId}/edit` | TENANT_MANAGER 向け自社ユーザー編集 |
 | `/auth/claims` | 認証情報確認 |
 | `/auth/authorization/manager` | 管理者認可確認 |
 
 ## テスト
 
 Docker Desktop が起動している状態で実行します。
-M9 時点のテストには、通常の Service テストと Testcontainers MySQL を使う DB / Mapper 統合テストが含まれます。
+MVP のテストには、通常の Service テストと Testcontainers MySQL を使う DB / Mapper 統合テストが含まれます。
 
 ```powershell
 cd C:\git\workops\apps\web
@@ -194,6 +203,7 @@ cd C:\git\workops\apps\web
 ## Cognito 最小接続確認
 
 M3 では Cognito OAuth2 Login の最小接続を確認しています。
+M10 ではユーザー作成用に AWS SDK for Java 2.x の Cognito `AdminCreateUser` 呼び出し境界を追加しています。
 通常の MVP ローカル再現では `local` profile を使うため、Cognito 接続値は不要です。
 
 Cognito 接続を再確認する場合だけ、ルート `.env.local` に接続値を用意し、`local` profile を付けずに起動します。
@@ -219,7 +229,8 @@ WORKOPS_COGNITO_REDIRECT_URI
 
 Cognito issuer URI は `AWS_REGION` と `WORKOPS_COGNITO_USER_POOL_ID` からアプリ側で構成します。
 
-Cognito 本格連携、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、CDK による Cognito 構築、AWS dev 環境デプロイは後続 Phase で扱います。
+Cognito で実際に招待メールを送るユーザー作成 E2E は、実行者が AWS 認証情報と実メールアドレスを用意して手動確認します。
+`AdminCreateUser` 以外の Cognito API、Hosted UI 本格確認、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、CDK による Cognito 構築、AWS dev 環境デプロイは後続 Phase で扱います。
 
 ## 停止
 

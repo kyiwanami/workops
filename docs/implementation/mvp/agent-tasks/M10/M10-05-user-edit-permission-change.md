@@ -113,4 +113,4 @@ TENANT_MANAGER は他社ユーザー、PLATFORM ユーザー、`PLATFORM_ADMIN` 
 ### 残課題
 
 - 実 Cognito 環境での E2E はユーザーが手動で実施する
-- PLATFORM_ADMIN での画面操作確認は、local 起動時のログインユーザーを PLATFORM_ADMIN に切り替えて実施する
+- PLATFORM_ADMIN での画面操作確認は M10-06 で確認済み
