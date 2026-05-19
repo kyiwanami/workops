@@ -65,6 +65,46 @@ class CompanyAdminMapperIntegrationTests extends MapperIntegrationTestBase {
     }
 
     @Test
+    void updateCompanyNameKeepsCompanyCode() {
+        companyAdminMapper.updateActiveCompanyNameById(1L, "北浜精密機器 更新", 7L);
+
+        CompanyDetail companyDetail = companyAdminMapper.findCompanyDetailById(1L).orElseThrow();
+
+        assertThat(companyDetail.code()).isEqualTo("KTHM_PRECISION");
+        assertThat(companyDetail.name()).isEqualTo("北浜精密機器 更新");
+    }
+
+    @Test
+    void logicalDeleteCompanySetsDeletedWithoutDeletingRelatedRows() {
+        Long departmentCount = countRowsByCompanyId("departments", 1L);
+        Long userCount = countRowsByCompanyId("users", 1L);
+        Long requestCount = countRowsByCompanyId("requests", 1L);
+        Long assetCount = countRowsByCompanyId("assets", 1L);
+        Long genericMasterValueCount = countRowsByCompanyId("generic_master_values", 1L);
+
+        companyAdminMapper.logicalDeleteActiveCompanyById(1L, 7L);
+
+        CompanyDetail companyDetail = companyAdminMapper.findCompanyDetailById(1L).orElseThrow();
+        assertThat(companyDetail.isDeleted()).isTrue();
+        assertThat(companyAdminMapper.findActiveCompanyDetailById(1L)).isEmpty();
+        assertThat(countRowsByCompanyId("departments", 1L)).isEqualTo(departmentCount);
+        assertThat(countRowsByCompanyId("users", 1L)).isEqualTo(userCount);
+        assertThat(countRowsByCompanyId("requests", 1L)).isEqualTo(requestCount);
+        assertThat(countRowsByCompanyId("assets", 1L)).isEqualTo(assetCount);
+        assertThat(countRowsByCompanyId("generic_master_values", 1L)).isEqualTo(genericMasterValueCount);
+    }
+
+    @Test
+    void deletedCompanyCodeCannotBeReused() {
+        companyAdminMapper.insertCompany("M9_REUSE_DELETED", "M9削除コード再利用会社", 7L, 7L);
+        Long companyId = companyAdminMapper.findLastInsertId();
+        companyAdminMapper.logicalDeleteActiveCompanyById(companyId, 7L);
+
+        assertThatThrownBy(() -> companyAdminMapper.insertCompany("M9_REUSE_DELETED", "M9再利用会社", 7L, 7L))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     void insertCompanyReturnsCreatedCompanyId() {
         companyAdminMapper.insertCompany("M9_COMPANY", "M9会社", 7L, 7L);
 
@@ -96,6 +136,13 @@ class CompanyAdminMapperIntegrationTests extends MapperIntegrationTestBase {
     void existingCompanyCodeIsRejectedByDatabaseConstraint() {
         assertThatThrownBy(() -> companyAdminMapper.insertCompany("KTHM_PRECISION", "M9重複会社", 7L, 7L))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private Long countRowsByCompanyId(String tableName, Long companyId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + tableName + " WHERE company_id = ?",
+                Long.class,
+                companyId);
     }
 
     private void insertAssetCategories(Long companyId, Long assetCategoryMasterId) {

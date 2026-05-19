@@ -86,6 +86,21 @@
         WHERE company.id = #{companyId}
     </select>
 
+    <select id="findActiveCompanyDetailById" resultMap="CompanyDetailMap">
+        SELECT
+            <include refid="CompanySummaryColumns"/>,
+            (
+                SELECT COUNT(*)
+                FROM generic_master_values master_value
+                WHERE master_value.company_id = company.id
+            ) AS generic_master_value_count,
+            company.created_at AS created_at,
+            company.updated_at AS updated_at
+        FROM companies company
+        WHERE company.id = #{companyId}
+            AND company.is_deleted = FALSE
+    </select>
+
     <select id="existsCompanyCode" resultType="boolean">
         SELECT EXISTS(
             SELECT 1
@@ -93,6 +108,22 @@
             WHERE company.code = #{code}
         )
     </select>
+
+    <update id="updateActiveCompanyNameById">
+        UPDATE companies
+        SET name = #{name},
+            updated_by = #{updatedBy}
+        WHERE id = #{companyId}
+            AND is_deleted = FALSE
+    </update>
+
+    <update id="logicalDeleteActiveCompanyById">
+        UPDATE companies
+        SET is_deleted = TRUE,
+            updated_by = #{updatedBy}
+        WHERE id = #{companyId}
+            AND is_deleted = FALSE
+    </update>
 
     <insert id="insertCompany">
         INSERT INTO companies (

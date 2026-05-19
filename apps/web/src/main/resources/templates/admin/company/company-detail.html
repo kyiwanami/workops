@@ -17,8 +17,18 @@
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <a class="btn btn-outline-secondary btn-sm" th:href="@{/admin/companies}">一覧へ戻る</a>
-                <a class="btn btn-outline-primary btn-sm"
-                   th:href="@{/admin/companies/{companyId}/departments(companyId=${company.id()})}">部署一覧</a>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-primary btn-sm"
+                       th:href="@{/admin/companies/{companyId}/departments(companyId=${company.id()})}">部署一覧</a>
+                    <a th:unless="${company.isDeleted()}"
+                       class="btn btn-primary btn-sm"
+                       th:href="@{/admin/companies/{companyId}/edit(companyId=${company.id()})}">編集</a>
+                    <button th:unless="${company.isDeleted()}"
+                            type="button"
+                            class="btn btn-outline-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteCompanyModal">削除</button>
+                </div>
             </div>
 
             <dl class="row mb-0">
@@ -60,8 +70,56 @@
             </dl>
         </div>
     </section>
+
+    <div th:unless="${company.isDeleted()}" class="modal fade" id="deleteCompanyModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5">会社を削除します</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">この会社を削除してよろしいですか？</p>
+                    <p class="mb-2 fw-semibold" th:text="${company.code() + ' / ' + company.name()}">
+                        KTHM_PRECISION / 北浜精密機器株式会社
+                    </p>
+                    <p class="text-danger mb-0"
+                       th:text="${'配下データ: 部署 ' + company.departmentCount() + ' 件、ユーザー ' + company.userCount() + ' 件、申請 ' + company.requestCount() + ' 件、資産 ' + company.assetCount() + ' 件、会社別マスタ値 ' + company.genericMasterValueCount() + ' 件。配下データは削除されません。'}">
+                        配下データは削除されません。
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <form method="post"
+                          th:action="@{/admin/companies/{companyId}/delete(companyId=${company.id()})}">
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" class="btn btn-danger">削除する</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:if="${message}" class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="company-detail-toast" class="toast text-bg-success border-0" role="status" data-bs-delay="4000">
+            <div class="d-flex">
+                <div class="toast-body" th:text="${message}">
+                    会社を更新しました。
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
 </main>
 
 <footer th:replace="~{layout :: footer}"></footer>
+<script th:if="${message}">
+    document.addEventListener('DOMContentLoaded', () => {
+        const toastElement = document.getElementById('company-detail-toast');
+        if (toastElement) {
+            bootstrap.Toast.getOrCreateInstance(toastElement).show();
+        }
+    });
+</script>
 </body>
 </html>

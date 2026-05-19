@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.workops.admin.company.form.CompanyEditForm;
 import com.example.workops.admin.company.form.CompanyForm;
 import com.example.workops.admin.company.form.CompanySearchForm;
 import com.example.workops.admin.company.mapper.CompanyAdminMapper;
@@ -27,7 +28,10 @@ public class CompanyAdminService {
 
     private static final String COMPANY_TARGET_TYPE = "COMPANY";
     private static final String OPERATION_COMPANY_CREATE = "COMPANY_CREATE";
+    private static final String OPERATION_COMPANY_UPDATE = "COMPANY_UPDATE";
+    private static final String OPERATION_COMPANY_DELETE = "COMPANY_DELETE";
     private static final String REASON_DUPLICATE_COMPANY_CODE = "DUPLICATE_COMPANY_CODE";
+    private static final String REASON_COMPANY_NOT_FOUND_OR_FORBIDDEN = "COMPANY_NOT_FOUND_OR_FORBIDDEN";
     private static final String EXCEPTION_RESPONSE_STATUS = "ResponseStatusException";
 
     private final CurrentUserProvider currentUserProvider;
@@ -62,6 +66,13 @@ public class CompanyAdminService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "会社が見つかりません。"));
     }
 
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public CompanyEditForm findCompanyEditForm(Long companyId) {
+        CompanyDetail company = findActiveCompany(companyId, null, null);
+        return CompanyEditForm.from(company);
+    }
+
     @Transactional
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public Long create(CompanyForm companyForm) {
@@ -84,6 +95,24 @@ public class CompanyAdminService {
         return companyId;
     }
 
+    @Transactional
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public void updateCompany(Long companyId, CompanyEditForm companyEditForm) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        findActiveCompany(companyId, currentUser, OPERATION_COMPANY_UPDATE);
+        companyAdminMapper.updateActiveCompanyNameById(companyId, companyEditForm.name(), currentUser.userId());
+        logSuccess(currentUser, OPERATION_COMPANY_UPDATE, companyId);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public void deleteCompany(Long companyId) {
+        LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
+        findActiveCompany(companyId, currentUser, OPERATION_COMPANY_DELETE);
+        companyAdminMapper.logicalDeleteActiveCompanyById(companyId, currentUser.userId());
+        logSuccess(currentUser, OPERATION_COMPANY_DELETE, companyId);
+    }
+
     private void assertUniqueCompanyCode(LoginUserContext currentUser, String code) {
         if (companyAdminMapper.existsCompanyCode(code)) {
             logRejected(currentUser);
@@ -91,10 +120,28 @@ public class CompanyAdminService {
         }
     }
 
+    private CompanyDetail findActiveCompany(Long companyId, LoginUserContext currentUser, String operation) {
+        return companyAdminMapper.findActiveCompanyDetailById(companyId)
+                .orElseThrow(() -> {
+                    if (currentUser != null) {
+                        logRejected(
+                                currentUser,
+                                operation,
+                                companyId,
+                                REASON_COMPANY_NOT_FOUND_OR_FORBIDDEN);
+                    }
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "会社が見つかりません。");
+                });
+    }
+
     private void logSuccess(LoginUserContext currentUser, Long companyId) {
+        logSuccess(currentUser, OPERATION_COMPANY_CREATE, companyId);
+    }
+
+    private void logSuccess(LoginUserContext currentUser, String operation, Long companyId) {
         operationLogger.logSuccess(new OperationLogRecord(
                 currentUser,
-                OPERATION_COMPANY_CREATE,
+                operation,
                 COMPANY_TARGET_TYPE,
                 companyId,
                 null,
@@ -103,12 +150,20 @@ public class CompanyAdminService {
     }
 
     private void logRejected(LoginUserContext currentUser) {
+        logRejected(currentUser, OPERATION_COMPANY_CREATE, null, REASON_DUPLICATE_COMPANY_CODE);
+    }
+
+    private void logRejected(
+            LoginUserContext currentUser,
+            String operation,
+            Long companyId,
+            String reasonCode) {
         operationLogger.logRejected(new OperationLogRecord(
                 currentUser,
-                OPERATION_COMPANY_CREATE,
+                operation,
                 COMPANY_TARGET_TYPE,
-                null,
-                REASON_DUPLICATE_COMPANY_CODE,
+                companyId,
+                reasonCode,
                 false,
                 EXCEPTION_RESPONSE_STATUS));
     }

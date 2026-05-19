@@ -96,4 +96,52 @@ PLATFORM_ADMIN が未削除会社を論理削除できる。
 
 ## 実装時の記録
 
-M9-07 実装時に、実装方針、変更ファイル、実装結果、確認結果、残課題を記録する。
+### 実装方針
+
+- 会社編集は `companies.name` だけを更新する
+- 会社コード、会社ID、作成日時、作成者、配下データは編集対象にしない
+- 会社削除は `companies.is_deleted = TRUE` の論理削除だけを行う
+- 会社論理削除時に部署、ユーザー、申請、資産、会社別マスタ値は更新・削除しない
+- 編集・削除対象は未削除会社だけにし、未存在会社と削除済み会社は `404 NOT_FOUND` とする
+- 削除後は `/admin/companies?showDeleted=true` に遷移し、削除済み会社を badge 付きで確認できるようにする
+- M9-06 の一覧・詳細表示、会社作成後リダイレクト、初期 TENANT_MANAGER 作成連携、Cognito 境界は変更しない
+
+### 変更ファイル
+
+- `apps/web/src/main/java/com/example/workops/admin/company/form/CompanyEditForm.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/web/CompanyAdminController.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/service/CompanyAdminService.java`
+- `apps/web/src/main/java/com/example/workops/admin/company/mapper/CompanyAdminMapper.java`
+- `apps/web/src/main/resources/mapper/admin/company/CompanyAdminMapper.xml`
+- `apps/web/src/main/resources/templates/admin/company/company-edit.html`
+- `apps/web/src/main/resources/templates/admin/company/company-detail.html`
+- `apps/web/src/test/java/com/example/workops/admin/company/service/CompanyAdminServiceTests.java`
+- `apps/web/src/test/java/com/example/workops/integration/CompanyAdminMapperIntegrationTests.java`
+- `docs/implementation/mvp/agent-tasks/M9/M9-07-company-edit-delete.md`
+
+### 実装結果
+
+- PLATFORM_ADMIN 用の会社編集画面を追加した
+- PLATFORM_ADMIN 用の会社論理削除操作を追加した
+- 会社詳細画面に、未削除会社だけ編集リンクと削除ボタンを表示するようにした
+- 削除確認モーダルに部署数、ユーザー数、申請数、資産数、会社別マスタ値数を警告表示するようにした
+- 会社編集・会社削除の成功ログ、未存在・削除済み対象の rejected log を追加した
+- Service テストで編集、削除、削除済み対象の `404`、TENANT_MANAGER 拒否を確認した
+- Mapper 統合テストで会社名更新、論理削除、配下データ件数維持、削除済み会社コード再利用不可を確認した
+
+### 確認結果
+
+- `cd apps/web && .\mvnw.cmd test`
+  - `192 tests`
+  - `BUILD SUCCESS`
+- local profile / `http://localhost:8081/admin/companies/1/edit`
+  - 会社編集画面が表示されることを確認
+- local profile / `http://localhost:8081/admin/companies/1`
+  - 編集リンクと削除ボタンが表示されることを確認
+- 会社詳細の削除ボタン
+  - 削除確認モーダルに配下データ件数警告が表示されることを確認
+
+### 残課題
+
+- 会社復活、会社物理削除、削除済み会社配下データの自動無効化はMVP範囲外
+- M9-08で、M9追加スコープの取りこぼしがないかを横断確認する

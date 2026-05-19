@@ -21,12 +21,23 @@ public interface CompanyAdminMapper {
 
     Optional<CompanyDetail> findCompanyDetailById(@Param("companyId") Long companyId);
 
+    Optional<CompanyDetail> findActiveCompanyDetailById(@Param("companyId") Long companyId);
+
     boolean existsCompanyCode(@Param("code") String code);
 
     int insertCompany(
             @Param("code") String code,
             @Param("name") String name,
             @Param("createdBy") Long createdBy,
+            @Param("updatedBy") Long updatedBy);
+
+    int updateActiveCompanyNameById(
+            @Param("companyId") Long companyId,
+            @Param("name") String name,
+            @Param("updatedBy") Long updatedBy);
+
+    int logicalDeleteActiveCompanyById(
+            @Param("companyId") Long companyId,
             @Param("updatedBy") Long updatedBy);
 
     Long findLastInsertId();

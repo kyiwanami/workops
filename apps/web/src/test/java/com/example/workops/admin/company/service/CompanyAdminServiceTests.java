@@ -21,6 +21,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.workops.admin.company.form.CompanyEditForm;
 import com.example.workops.admin.company.form.CompanyForm;
 import com.example.workops.admin.company.form.CompanySearchForm;
 import com.example.workops.admin.company.mapper.CompanyAdminMapper;
@@ -125,6 +126,66 @@ class CompanyAdminServiceTests {
         assertThatThrownBy(() -> companyAdminService.findCompanyDetail(1L))
                 .isInstanceOf(AccessDeniedException.class);
         verifyNoInteractions(companyAdminMapper);
+    }
+
+    @Test
+    void platformAdminCanFindCompanyEditForm() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        when(companyAdminMapper.findActiveCompanyDetailById(1L)).thenReturn(Optional.of(companyDetail()));
+
+        CompanyEditForm companyEditForm = companyAdminService.findCompanyEditForm(1L);
+
+        assertThat(companyEditForm.name()).isEqualTo("北浜精密機器株式会社");
+    }
+
+    @Test
+    void platformAdminCanUpdateCompanyName() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        when(companyAdminMapper.findActiveCompanyDetailById(1L)).thenReturn(Optional.of(companyDetail()));
+
+        companyAdminService.updateCompany(1L, new CompanyEditForm("北浜精密機器 更新"));
+
+        verify(companyAdminMapper).updateActiveCompanyNameById(1L, "北浜精密機器 更新", PLATFORM_USER_ID);
+        assertSuccessLog("COMPANY_UPDATE", 1L);
+    }
+
+    @Test
+    void deletedCompanyEditFormReturnsNotFound() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        when(companyAdminMapper.findActiveCompanyDetailById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> companyAdminService.findCompanyEditForm(1L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void platformAdminCanDeleteCompanyWithoutDeletingRelatedRowsInService() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        when(companyAdminMapper.findActiveCompanyDetailById(1L)).thenReturn(Optional.of(companyDetail()));
+
+        companyAdminService.deleteCompany(1L);
+
+        verify(companyAdminMapper).logicalDeleteActiveCompanyById(1L, PLATFORM_USER_ID);
+        verify(companyAdminMapper, never()).insertGenericMasterValue(any(), any(), any(), any(), any(), any(), any());
+        assertSuccessLog("COMPANY_DELETE", 1L);
+    }
+
+    @Test
+    void deletedCompanyUpdateAndDeleteReturnNotFound() {
+        signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+        when(companyAdminMapper.findActiveCompanyDetailById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> companyAdminService.updateCompany(1L, new CompanyEditForm("削除済み会社")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertRejectedLog("COMPANY_UPDATE", 1L, "COMPANY_NOT_FOUND_OR_FORBIDDEN");
+
+        reset(operationLogger);
+        assertThatThrownBy(() -> companyAdminService.deleteCompany(1L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertRejectedLog("COMPANY_DELETE", 1L, "COMPANY_NOT_FOUND_OR_FORBIDDEN");
     }
 
     @Test
@@ -254,13 +315,31 @@ class CompanyAdminServiceTests {
         verifyNoInteractions(operationLogger);
     }
 
+    @Test
+    void tenantManagerCannotUpdateOrDeleteCompany() {
+        signIn(3L, 1L, "TENANT", permission("TENANT_MANAGER", "管理者"));
+
+        assertThatThrownBy(() -> companyAdminService.findCompanyEditForm(1L))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> companyAdminService.updateCompany(1L, new CompanyEditForm("テナント更新")))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> companyAdminService.deleteCompany(1L))
+                .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(companyAdminMapper);
+        verifyNoInteractions(operationLogger);
+    }
+
     private void assertSuccessLog(Long targetId) {
+        assertSuccessLog("COMPANY_CREATE", targetId);
+    }
+
+    private void assertSuccessLog(String operation, Long targetId) {
         ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
         verify(operationLogger).logSuccess(captor.capture());
         OperationLogRecord record = captor.getValue();
         assertThat(record.loginUserContext().userId()).isEqualTo(PLATFORM_USER_ID);
         assertThat(record.loginUserContext().companyId()).isNull();
-        assertThat(record.operation()).isEqualTo("COMPANY_CREATE");
+        assertThat(record.operation()).isEqualTo(operation);
         assertThat(record.targetType()).isEqualTo("COMPANY");
         assertThat(record.targetId()).isEqualTo(targetId);
         assertThat(record.reasonCode()).isNull();
@@ -272,13 +351,17 @@ class CompanyAdminServiceTests {
     }
 
     private void assertRejectedLog() {
+        assertRejectedLog("COMPANY_CREATE", null, "DUPLICATE_COMPANY_CODE");
+    }
+
+    private void assertRejectedLog(String operation, Long targetId, String reasonCode) {
         ArgumentCaptor<OperationLogRecord> captor = ArgumentCaptor.forClass(OperationLogRecord.class);
         verify(operationLogger).logRejected(captor.capture());
         OperationLogRecord record = captor.getValue();
-        assertThat(record.operation()).isEqualTo("COMPANY_CREATE");
+        assertThat(record.operation()).isEqualTo(operation);
         assertThat(record.targetType()).isEqualTo("COMPANY");
-        assertThat(record.targetId()).isNull();
-        assertThat(record.reasonCode()).isEqualTo("DUPLICATE_COMPANY_CODE");
+        assertThat(record.targetId()).isEqualTo(targetId);
+        assertThat(record.reasonCode()).isEqualTo(reasonCode);
         assertThat(record.reasonCommentPresent()).isFalse();
         assertThat(record.exceptionType()).isEqualTo("ResponseStatusException");
     }
