@@ -168,8 +168,17 @@ class UserAdminMapperIntegrationTests extends MapperIntegrationTestBase {
         Long userId = userAdminMapper.findLastInsertId();
         userAdminMapper.insertUserPermissionSetByCode(userId, "TENANT_MANAGER");
 
-        userAdminMapper.updateUserEditableFields(
+        assertThat(userAdminMapper.updateTenantUserEditableFields(
                 userId,
+                2L,
+                "編集後",
+                "edit-target-updated@example.local",
+                2L,
+                7L)).isZero();
+
+        userAdminMapper.updateTenantUserEditableFields(
+                userId,
+                1L,
                 "編集後",
                 "edit-target-updated@example.local",
                 2L,

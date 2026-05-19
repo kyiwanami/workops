@@ -74,8 +74,16 @@ public interface UserAdminMapper {
             @Param("userId") Long userId,
             @Param("email") String email);
 
-    int updateUserEditableFields(
+    int updatePlatformUserEditableFields(
             @Param("userId") Long userId,
+            @Param("name") String name,
+            @Param("email") String email,
+            @Param("departmentId") Long departmentId,
+            @Param("updatedBy") Long updatedBy);
+
+    int updateTenantUserEditableFields(
+            @Param("userId") Long userId,
+            @Param("companyId") Long companyId,
             @Param("name") String name,
             @Param("email") String email,
             @Param("departmentId") Long departmentId,

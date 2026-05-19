@@ -1,7 +1,6 @@
 package com.example.workops.admin.user.service;
 
 import java.util.List;
-import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,6 +19,7 @@ import com.example.workops.admin.user.model.UserEditTarget;
 import com.example.workops.admin.user.model.UserListItem;
 import com.example.workops.common.security.CurrentUserProvider;
 import com.example.workops.common.security.LoginUserContext;
+import com.example.workops.common.security.PermissionSetCode;
 
 /**
  * PLATFORM_ADMINとTENANT_MANAGER向けユーザー参照ユースケースを扱うService。
@@ -29,15 +29,6 @@ public class UserAdminService {
 
     private static final String ACTOR_TYPE_PLATFORM = "PLATFORM";
     private static final String ACTOR_TYPE_TENANT = "TENANT";
-    private static final String PERMISSION_PLATFORM_ADMIN = "PLATFORM_ADMIN";
-    private static final String PERMISSION_TENANT_VIEWER = "TENANT_VIEWER";
-    private static final String PERMISSION_TENANT_EDITOR = "TENANT_EDITOR";
-    private static final String PERMISSION_TENANT_MANAGER = "TENANT_MANAGER";
-    private static final Set<String> PLATFORM_PERMISSION_CODES = Set.of(PERMISSION_PLATFORM_ADMIN);
-    private static final Set<String> TENANT_PERMISSION_CODES = Set.of(
-            PERMISSION_TENANT_VIEWER,
-            PERMISSION_TENANT_EDITOR,
-            PERMISSION_TENANT_MANAGER);
 
     private final CurrentUserProvider currentUserProvider;
     private final UserAdminMapper userAdminMapper;
@@ -185,7 +176,7 @@ public class UserAdminService {
                 activeCompanyId,
                 null,
                 ACTOR_TYPE_TENANT,
-                List.of(PERMISSION_TENANT_MANAGER),
+                List.of(PermissionSetCode.TENANT_MANAGER.name()),
                 username,
                 name,
                 email,
@@ -210,7 +201,7 @@ public class UserAdminService {
     public void updatePlatformUser(Long userId, UserEditForm userEditForm) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         UserEditTarget target = requirePlatformUserEditTarget(userId);
-        updateUser(target, userEditForm, currentUser);
+        updateUser(target, userEditForm, currentUser, null);
     }
 
     @Transactional(readOnly = true)
@@ -231,7 +222,7 @@ public class UserAdminService {
     public void updateTenantUser(Long userId, UserEditForm userEditForm) {
         LoginUserContext currentUser = currentUserProvider.requireCurrentUser();
         UserEditTarget target = requireTenantUserEditTarget(userId);
-        updateUser(target, userEditForm, currentUser);
+        updateUser(target, userEditForm, currentUser, currentUser.companyId());
     }
 
     private Long createUser(
@@ -285,18 +276,17 @@ public class UserAdminService {
                 userAdminMapper.findPermissionSetCodesByUserId(target.id()));
     }
 
-    private void updateUser(UserEditTarget target, UserEditForm userEditForm, LoginUserContext currentUser) {
+    private void updateUser(
+            UserEditTarget target,
+            UserEditForm userEditForm,
+            LoginUserContext currentUser,
+            Long tenantCompanyId) {
         List<String> permissionSetCodes = normalizePermissionSetCodes(userEditForm.permissionSetCodes());
         assertPermissionSets(target.actorType(), permissionSetCodes);
         Long departmentId = resolveEditDepartmentId(target, userEditForm.departmentId());
         assertUniqueEmailExcludingUser(target.companyId(), target.id(), userEditForm.email());
 
-        userAdminMapper.updateUserEditableFields(
-                target.id(),
-                userEditForm.name(),
-                userEditForm.email(),
-                departmentId,
-                currentUser.userId());
+        updateUserEditableFields(target, userEditForm, currentUser, departmentId, tenantCompanyId);
         userAdminMapper.deleteUserPermissionSets(target.id());
         for (String permissionSetCode : permissionSetCodes) {
             userAdminMapper.insertUserPermissionSetByCode(target.id(), permissionSetCode);
@@ -305,6 +295,32 @@ public class UserAdminService {
                 && userAdminMapper.countActiveTenantManagersByCompanyId(target.companyId()) == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "TENANT_MANAGERは最低1人必要です。");
         }
+    }
+
+    private void updateUserEditableFields(
+            UserEditTarget target,
+            UserEditForm userEditForm,
+            LoginUserContext currentUser,
+            Long departmentId,
+            Long tenantCompanyId) {
+        // TENANT導線では最終UPDATEでも現在ユーザーの会社境界をSQL条件に含める。
+        if (tenantCompanyId == null) {
+            userAdminMapper.updatePlatformUserEditableFields(
+                    target.id(),
+                    userEditForm.name(),
+                    userEditForm.email(),
+                    departmentId,
+                    currentUser.userId());
+            return;
+        }
+
+        userAdminMapper.updateTenantUserEditableFields(
+                target.id(),
+                tenantCompanyId,
+                userEditForm.name(),
+                userEditForm.email(),
+                departmentId,
+                currentUser.userId());
     }
 
     private Long resolveEditDepartmentId(UserEditTarget target, Long departmentId) {
@@ -337,10 +353,10 @@ public class UserAdminService {
         if (permissionSetCodes.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "権限セットを選択してください。");
         }
-        if (ACTOR_TYPE_PLATFORM.equals(actorType) && !PLATFORM_PERMISSION_CODES.containsAll(permissionSetCodes)) {
+        if (ACTOR_TYPE_PLATFORM.equals(actorType) && !PermissionSetCode.isValidPlatformCodes(permissionSetCodes)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "PLATFORMユーザーの権限セットが不正です。");
         }
-        if (ACTOR_TYPE_TENANT.equals(actorType) && !TENANT_PERMISSION_CODES.containsAll(permissionSetCodes)) {
+        if (ACTOR_TYPE_TENANT.equals(actorType) && !PermissionSetCode.isValidTenantCodes(permissionSetCodes)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "TENANTユーザーの権限セットが不正です。");
         }
     }

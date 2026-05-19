@@ -15,6 +15,9 @@ import com.example.workops.master.mapper.PermissionSetRow;
 @Component
 public class DbLoginUserContextFactory {
 
+    private static final String ACTOR_TYPE_PLATFORM = "PLATFORM";
+    private static final String ACTOR_TYPE_TENANT = "TENANT";
+
     private final UserAccountMapper userAccountMapper;
 
     public DbLoginUserContextFactory(UserAccountMapper userAccountMapper) {
@@ -35,6 +38,7 @@ public class DbLoginUserContextFactory {
                 .stream()
                 .map(this::toPermissionSetContext)
                 .toList();
+        assertValidLoginUser(row, permissionSets);
 
         return new LoginUserContext(
                 row.userId(),
@@ -47,5 +51,31 @@ public class DbLoginUserContextFactory {
 
     private PermissionSetContext toPermissionSetContext(PermissionSetRow row) {
         return new PermissionSetContext(row.code(), row.name());
+    }
+
+    private void assertValidLoginUser(UserAccountRow row, List<PermissionSetContext> permissionSets) {
+        if (permissionSets.isEmpty()) {
+            throw new IllegalStateException("ログインユーザーに権限セットが割り当てられていません。");
+        }
+
+        List<String> permissionSetCodes = permissionSets.stream()
+                .map(PermissionSetContext::code)
+                .toList();
+
+        if (ACTOR_TYPE_PLATFORM.equals(row.actorType())) {
+            if (row.companyId() != null || !PermissionSetCode.isValidPlatformCodes(permissionSetCodes)) {
+                throw new IllegalStateException("PLATFORMユーザーの権限セットまたは会社設定が不正です。");
+            }
+            return;
+        }
+
+        if (ACTOR_TYPE_TENANT.equals(row.actorType())) {
+            if (row.companyId() == null || !PermissionSetCode.isValidTenantCodes(permissionSetCodes)) {
+                throw new IllegalStateException("TENANTユーザーの権限セットまたは会社設定が不正です。");
+            }
+            return;
+        }
+
+        throw new IllegalStateException("actor_typeが不正です。");
     }
 }

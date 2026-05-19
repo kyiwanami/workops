@@ -331,7 +331,7 @@
         )
     </select>
 
-    <update id="updateUserEditableFields">
+    <update id="updatePlatformUserEditableFields">
         UPDATE users
         SET
             name = #{name},
@@ -339,6 +339,19 @@
             department_id = #{departmentId},
             updated_by = #{updatedBy}
         WHERE id = #{userId}
+            AND is_deleted = FALSE
+    </update>
+
+    <update id="updateTenantUserEditableFields">
+        UPDATE users
+        SET
+            name = #{name},
+            email = #{email},
+            department_id = #{departmentId},
+            updated_by = #{updatedBy}
+        WHERE id = #{userId}
+            AND company_id = #{companyId}
+            AND actor_type = 'TENANT'
             AND is_deleted = FALSE
     </update>
 

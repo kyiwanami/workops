@@ -341,7 +341,7 @@ class UserAdminServiceTests {
                 USER_ID,
                 new UserEditForm("更新PLATFORM", "updated-platform@example.local", null, List.of("PLATFORM_ADMIN")));
 
-        verify(userAdminMapper).updateUserEditableFields(
+        verify(userAdminMapper).updatePlatformUserEditableFields(
                 USER_ID,
                 "更新PLATFORM",
                 "updated-platform@example.local",
@@ -364,7 +364,7 @@ class UserAdminServiceTests {
                 USER_ID,
                 new UserEditForm("更新TENANT", "updated-tenant@example.local", DEPARTMENT_ID, List.of("TENANT_EDITOR")));
 
-        verify(userAdminMapper).updateUserEditableFields(
+        verify(userAdminMapper).updatePlatformUserEditableFields(
                 USER_ID,
                 "更新TENANT",
                 "updated-tenant@example.local",
@@ -386,8 +386,9 @@ class UserAdminServiceTests {
                 USER_ID,
                 new UserEditForm("更新TENANT", "updated-tenant@example.local", DEPARTMENT_ID, List.of("TENANT_MANAGER")));
 
-        verify(userAdminMapper).updateUserEditableFields(
+        verify(userAdminMapper).updateTenantUserEditableFields(
                 USER_ID,
+                COMPANY_ID,
                 "更新TENANT",
                 "updated-tenant@example.local",
                 DEPARTMENT_ID,
@@ -417,8 +418,9 @@ class UserAdminServiceTests {
         assertThatThrownBy(() -> userAdminService.updateTenantUser(USER_ID, editForm(List.of("PLATFORM_ADMIN"))))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
-        verify(userAdminMapper, never()).updateUserEditableFields(
+        verify(userAdminMapper, never()).updateTenantUserEditableFields(
                 USER_ID,
+                COMPANY_ID,
                 "更新ユーザー",
                 "updated@example.local",
                 DEPARTMENT_ID,
