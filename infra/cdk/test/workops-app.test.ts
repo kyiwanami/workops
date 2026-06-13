@@ -30,9 +30,11 @@ describe('WorkOps CDK app', () => {
       stackName: `workops-${stage}-config`,
     });
     const registryStack = new RegistryStack(app, 'RegistryStack', {
+      stage,
       stackName: `workops-${stage}-registry`,
     });
     const logsStack = new LogsStack(app, 'LogsStack', {
+      stage,
       stackName: `workops-${stage}-logs`,
     });
 
@@ -123,6 +125,103 @@ describe('WorkOps CDK app', () => {
         },
       ]),
     });
+  });
+
+  test('creates the RegistryStack repository and lifecycle policy', () => {
+    const app = new App();
+    const stage = 'dev';
+    const registryStack = new RegistryStack(app, 'RegistryStack', {
+      stage,
+      stackName: `workops-${stage}-registry`,
+    });
+    const template = Template.fromStack(registryStack);
+
+    template.resourceCountIs('AWS::ECR::Repository', 1);
+    template.hasResourceProperties('AWS::ECR::Repository', {
+      RepositoryName: 'workops-dev-web',
+      EmptyOnDelete: true,
+      LifecyclePolicy: {
+        LifecyclePolicyText: Match.serializedJson(
+          Match.objectLike({
+            rules: Match.arrayWith([
+              Match.objectLike({
+                selection: Match.objectLike({
+                  tagStatus: 'tagged',
+                  tagPatternList: ['*'],
+                  countType: 'imageCountMoreThan',
+                  countNumber: 2,
+                }),
+              }),
+              Match.objectLike({
+                selection: Match.objectLike({
+                  tagStatus: 'untagged',
+                  countType: 'sinceImagePushed',
+                  countUnit: 'days',
+                  countNumber: 1,
+                }),
+              }),
+            ]),
+          }),
+        ),
+      },
+    });
+    template.hasResource('AWS::ECR::Repository', {
+      Properties: {
+        RepositoryName: 'workops-dev-web',
+        EmptyOnDelete: true,
+      },
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    template.hasOutput('repositoryName', {});
+    template.hasOutput('repositoryUri', {});
+  });
+
+  test('creates the LogsStack log groups', () => {
+    const app = new App();
+    const stage = 'dev';
+    const logsStack = new LogsStack(app, 'LogsStack', {
+      stage,
+      stackName: `workops-${stage}-logs`,
+    });
+    const template = Template.fromStack(logsStack);
+
+    template.resourceCountIs('AWS::Logs::LogGroup', 2);
+    template.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: '/workops/dev/web',
+      RetentionInDays: 7,
+    });
+    template.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: '/workops/dev/migration',
+      RetentionInDays: 7,
+    });
+    template.hasResource('AWS::Logs::LogGroup', {
+      Properties: {
+        LogGroupName: '/workops/dev/web',
+      },
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    template.hasResource('AWS::Logs::LogGroup', {
+      Properties: {
+        LogGroupName: '/workops/dev/migration',
+      },
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    template.hasOutput('webLogGroupName', {});
+    template.hasOutput('migrationLogGroupName', {});
+  });
+
+  test('keeps the ConfigStack empty in P2-1', () => {
+    const app = new App();
+    const stage = 'dev';
+    const configStack = new ConfigStack(app, 'ConfigStack', {
+      stackName: `workops-${stage}-config`,
+    });
+    const template = Template.fromStack(configStack);
+
+    template.resourceCountIs('AWS::SSM::Parameter', 0);
   });
 
   test('keeps npm scripts minimal and independent from dotenv', () => {

@@ -1,10 +1,35 @@
-import { Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
+export interface LogsStackProps extends StackProps {
+  stage: string;
+}
+
 export class LogsStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps) {
+  public readonly webLogGroup: LogGroup;
+  public readonly migrationLogGroup: LogGroup;
+
+  constructor(scope: Construct, id: string, props: LogsStackProps) {
     super(scope, id, props);
 
-    // P2-1-03 adds CloudWatch log groups that outlive runtime session stacks.
+    // Runtime stacks can be replaced while these short-retention logs remain available.
+    this.webLogGroup = new LogGroup(this, 'WebLogGroup', {
+      logGroupName: `/workops/${props.stage}/web`,
+      retention: RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    this.migrationLogGroup = new LogGroup(this, 'MigrationLogGroup', {
+      logGroupName: `/workops/${props.stage}/migration`,
+      retention: RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    new CfnOutput(this, 'webLogGroupName', {
+      value: this.webLogGroup.logGroupName,
+    });
+    new CfnOutput(this, 'migrationLogGroupName', {
+      value: this.migrationLogGroup.logGroupName,
+    });
   }
 }

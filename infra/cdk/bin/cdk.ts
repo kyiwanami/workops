@@ -36,9 +36,11 @@ new ConfigStack(app, 'ConfigStack', {
 });
 new RegistryStack(app, 'RegistryStack', {
   env,
+  stage,
   stackName: `workops-${stage}-registry`,
 });
 new LogsStack(app, 'LogsStack', {
   env,
+  stage,
   stackName: `workops-${stage}-logs`,
 });
