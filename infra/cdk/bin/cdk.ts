@@ -1,20 +1,43 @@
 #!/usr/bin/env node
-import * as cdk from 'aws-cdk-lib/core';
-import { CdkStack } from '../lib/cdk-stack';
+import { App, Environment, Tags } from 'aws-cdk-lib';
+import { ConfigStack } from '../lib/config-stack';
+import { FoundationStack } from '../lib/foundation-stack';
+import { LogsStack } from '../lib/logs-stack';
+import { RegistryStack } from '../lib/registry-stack';
 
-const app = new cdk.App();
-new CdkStack(app, 'CdkStack', {
-  /* If you don't specify 'env', this stack will be environment-agnostic.
-   * Account/Region-dependent features and context lookups will not work,
-   * but a single synthesized template can be deployed anywhere. */
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      WORKOPS_STAGE: string;
+    }
+  }
+}
 
-  /* Uncomment the next line to specialize this stack for the AWS Account
-   * and Region that are implied by the current CLI configuration. */
-  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+const app = new App();
+const stage = process.env.WORKOPS_STAGE;
+const env: Environment = {
+  account: process.env.CDK_DEFAULT_ACCOUNT,
+  region: process.env.CDK_DEFAULT_REGION,
+};
 
-  /* Uncomment the next line if you know exactly what Account and Region you
-   * want to deploy the stack to. */
-  // env: { account: '123456789012', region: 'us-east-1' },
+// WorkOps Phase 2 resources share non-secret tags across local and CI deploys.
+Tags.of(app).add('Project', 'WorkOps');
+Tags.of(app).add('Environment', stage);
+Tags.of(app).add('ManagedBy', 'CDK');
 
-  /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
+new FoundationStack(app, 'FoundationStack', {
+  env,
+  stackName: `workops-${stage}-foundation`,
+});
+new ConfigStack(app, 'ConfigStack', {
+  env,
+  stackName: `workops-${stage}-config`,
+});
+new RegistryStack(app, 'RegistryStack', {
+  env,
+  stackName: `workops-${stage}-registry`,
+});
+new LogsStack(app, 'LogsStack', {
+  env,
+  stackName: `workops-${stage}-logs`,
 });
