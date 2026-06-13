@@ -19,9 +19,9 @@ P2-1 の CDK 基盤、FoundationStack、RegistryStack、LogsStack、ConfigStack 
 - package manager は npm とする
 - CDK app は dotenv を使わない
 - AWS profile と region は CDK CLI 実行環境に任せる
-- `stage` は `-c stage=...` で必須指定する
-- `stage` 値の形式制限とバリデーションは行わない
-- Phase 2 の確認例は `stage=dev` とする
+- `stage` は `WORKOPS_STAGE` 環境変数で指定する
+- CDK code は `stage` の runtime 未指定チェック、空文字チェック、形式制限、バリデーションを行わない
+- Phase 2 の確認例は `WORKOPS_STAGE=dev` とする
 - AWS deploy 確認は P2-1 完了条件に含める
 - AWS deploy 確認は認証と課金対象リソース作成を伴うため、ユーザー確認に分類する
 - Git commit は実行しない
@@ -32,17 +32,17 @@ P2-1 の CDK 基盤、FoundationStack、RegistryStack、LogsStack、ConfigStack 
 - `npm ci` で依存関係を復元できることを確認する
 - `npm run build` を確認する
 - `npm test` を確認する
-- `npm run cdk -- synth -c stage=dev` を確認する
+- `WORKOPS_STAGE=dev` を指定して `npm run cdk -- synth` を確認する
 - CDK assertions が P2-1 の設計判断を検証していることを確認する
 - `git diff --check` を確認する
 - `infra/cdk/README.md` を更新する
-- README にローカル実行時の `AWS_PROFILE` と `AWS_REGION` 指定例を書く
+- README にローカル実行時の `WORKOPS_STAGE`、`AWS_PROFILE`、`AWS_REGION` 指定例を書く
 - README の region 例は `ap-northeast-1` とする
-- README に `npm ci`、`npm run build`、`npm test`、`npm run cdk -- synth -c stage=dev` を書く
+- README に `npm ci`、`npm run build`、`npm test`、`npm run cdk -- synth` を書く
 - README に `npm run cdk -- bootstrap` を書く
-- `cdk bootstrap` には `-c stage=dev` を付けないことを書く
-- README に `npm run cdk -- deploy --all -c stage=dev` を標準 deploy 手順として書く
-- README に `npm run cdk -- destroy --all -c stage=dev` を P2-1 単体確認後の削除手順として書く
+- `cdk bootstrap` は `WORKOPS_STAGE` を使わないことを書く
+- README に `npm run cdk -- deploy --all` を標準 deploy 手順として書く
+- README に `npm run cdk -- destroy --all` を P2-1 単体確認後の削除手順として書く
 - P2-2 へ進む場合は P2-1 の Stack を削除しないことを書く
 - README に AWS Console 確認項目を書く
 - README に P2-1 で作るものと作らないものを書く
@@ -51,10 +51,11 @@ P2-1 の CDK 基盤、FoundationStack、RegistryStack、LogsStack、ConfigStack 
 ## README に記録する設計判断
 
 - CDK app は dotenv を使わず、AWS profile と region は実行環境側で指定する
-- ローカル実行では PowerShell で `AWS_PROFILE` と `AWS_REGION` を指定する
+- ローカル実行では PowerShell で `WORKOPS_STAGE`、`AWS_PROFILE`、`AWS_REGION` を指定する
 - GitHub Actions の OIDC と `aws-region` 指定は P2-8 で扱う
-- `stage` は `-c stage=...` で必須指定する
-- `stage` 値の形式制限はしない
+- GitHub Actions では workflow の `env`、`vars`、`input` のいずれかから `WORKOPS_STAGE` を渡す
+- `stage` は `WORKOPS_STAGE` 環境変数で指定する
+- CDK code は `stage` の runtime 未指定チェック、空文字チェック、形式制限、バリデーションを行わない
 - VPC CIDR は `10.0.0.0/16` とする
 - 2AZ 構成とする
 - subnet group は `public`、`app`、`db` とする
@@ -134,12 +135,12 @@ P2-1 の CDK 基盤、FoundationStack、RegistryStack、LogsStack、ConfigStack 
 - `npm ci` が成功する
 - `npm run build` が成功する
 - `npm test` が成功する
-- `npm run cdk -- synth -c stage=dev` が成功する
+- `WORKOPS_STAGE=dev` を指定して `npm run cdk -- synth` が成功する
 - `git diff --check` が成功する
 - `infra/cdk/README.md` に P2-1 の構築、確認、削除手順が記載されている
 - `infra/cdk/README.md` に CDK デフォルトに任せるものと明示設定するものが分けて記載されている
 - ユーザーが `npm run cdk -- bootstrap` を実行できる
-- ユーザーが `npm run cdk -- deploy --all -c stage=dev` を実行できる
+- ユーザーが `WORKOPS_STAGE=dev` を指定して `npm run cdk -- deploy --all` を実行できる
 - ユーザーが AWS Console で P2-1 の作成結果を確認できる
 - P2-2 へ進む場合に P2-1 Stack を削除しない判断が README から分かる
 
@@ -150,15 +151,17 @@ P2-1 の CDK 基盤、FoundationStack、RegistryStack、LogsStack、ConfigStack 
 - `cd infra/cdk && npm ci`
 - `cd infra/cdk && npm run build`
 - `cd infra/cdk && npm test`
-- `cd infra/cdk && npm run cdk -- synth -c stage=dev`
+- `cd infra/cdk`
+- `$env:WORKOPS_STAGE = "dev"`
+- `npm run cdk -- synth`
 - `git diff --check`
 
 ユーザー確認:
 
+- `$env:WORKOPS_STAGE = "dev"`
 - `$env:AWS_PROFILE = "your-profile"`
 - `$env:AWS_REGION = "ap-northeast-1"`
 - `cd infra/cdk`
 - `npm run cdk -- bootstrap`
-- `npm run cdk -- deploy --all -c stage=dev`
+- `npm run cdk -- deploy --all`
 - AWS Console で CloudFormation / VPC / Subnet / Security Group / ECS Cluster / ECR / CloudWatch Logs / Outputs を確認する
-

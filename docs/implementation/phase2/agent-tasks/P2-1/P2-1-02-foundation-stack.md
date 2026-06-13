@@ -17,8 +17,8 @@ P2-2 以降の RDS、Cognito、ECS を載せるための AWS dev 基盤として
 - package manager は npm とする
 - CDK app は dotenv を使わない
 - AWS profile と region は CDK CLI 実行環境に任せる
-- `stage` は `-c stage=...` で必須指定する
-- `stage` 値の形式制限とバリデーションは行わない
+- `stage` は `WORKOPS_STAGE` 環境変数で指定する
+- CDK code は `stage` の runtime 未指定チェック、空文字チェック、形式制限、バリデーションを行わない
 - Stack class 名に環境名を入れない
 - 共通タグは `Project=WorkOps`、`Environment={stage}`、`ManagedBy=CDK` とする
 - 後続 Stack からの参照は CloudFormation Export や SSM ではなく、同一 CDK app 内の props 参照を使う
@@ -131,7 +131,9 @@ Output は非機密値だけに限定し、Stack 間参照の正本にはしな�
 
 - `cd infra/cdk && npm run build`
 - `cd infra/cdk && npm test`
-- `cd infra/cdk && npm run cdk -- synth -c stage=dev`
+- `cd infra/cdk`
+- `$env:WORKOPS_STAGE = "dev"`
+- `npm run cdk -- synth`
 - CDK assertions で VPC、6 subnet、NAT Gateway なし、ECS Cluster、3 Security Group、Output を確認する
 - `git diff --check`
 
@@ -139,4 +141,3 @@ Output は非機密値だけに限定し、Stack 間参照の正本にはしな�
 
 - この task 単体では AWS deploy 確認を行わない
 - AWS deploy と Console 確認は P2-1-04 で行う
-

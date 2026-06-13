@@ -23,6 +23,7 @@ describe('WorkOps CDK app', () => {
     const app = new App();
     const stage = 'dev';
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      stage,
       stackName: `workops-${stage}-foundation`,
     });
     const configStack = new ConfigStack(app, 'ConfigStack', {
@@ -39,6 +40,51 @@ describe('WorkOps CDK app', () => {
     expect(configStack.stackName).toBe('workops-dev-config');
     expect(registryStack.stackName).toBe('workops-dev-registry');
     expect(logsStack.stackName).toBe('workops-dev-logs');
+  });
+
+  test('creates the FoundationStack network and cluster resources', () => {
+    const app = new App();
+    const stage = 'dev';
+    const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      stage,
+      stackName: `workops-${stage}-foundation`,
+    });
+    const template = Template.fromStack(foundationStack);
+
+    template.resourceCountIs('AWS::EC2::VPC', 1);
+    template.hasResourceProperties('AWS::EC2::VPC', {
+      CidrBlock: '10.0.0.0/16',
+      Tags: Match.arrayWith([
+        {
+          Key: 'Name',
+          Value: 'workops-dev-vpc',
+        },
+      ]),
+    });
+    template.resourceCountIs('AWS::EC2::Subnet', 6);
+    template.resourceCountIs('AWS::EC2::NatGateway', 0);
+    template.resourceCountIs('AWS::EC2::SecurityGroup', 3);
+    template.hasResourceProperties('AWS::EC2::SecurityGroup', {
+      GroupName: 'workops-dev-alb-sg',
+    });
+    template.hasResourceProperties('AWS::EC2::SecurityGroup', {
+      GroupName: 'workops-dev-app-sg',
+    });
+    template.hasResourceProperties('AWS::EC2::SecurityGroup', {
+      GroupName: 'workops-dev-db-sg',
+    });
+    template.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
+    template.hasResourceProperties('AWS::ECS::Cluster', {
+      ClusterName: 'workops-dev-cluster',
+    });
+    template.hasOutput('vpcId', {});
+    template.hasOutput('publicSubnetIds', {});
+    template.hasOutput('appSubnetIds', {});
+    template.hasOutput('dbSubnetIds', {});
+    template.hasOutput('ecsClusterName', {});
+    template.hasOutput('albSecurityGroupId', {});
+    template.hasOutput('appSecurityGroupId', {});
+    template.hasOutput('dbSecurityGroupId', {});
   });
 
   test('applies common WorkOps tags', () => {

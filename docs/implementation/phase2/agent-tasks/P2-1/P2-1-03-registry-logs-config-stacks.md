@@ -17,8 +17,8 @@ P2-3 以降の Web アプリ deploy と調査ログ確認に必要な ECR、Clou
 - package manager は npm とする
 - CDK app は dotenv を使わない
 - AWS profile と region は CDK CLI 実行環境に任せる
-- `stage` は `-c stage=...` で必須指定する
-- `stage` 値の形式制限とバリデーションは行わない
+- `stage` は `WORKOPS_STAGE` 環境変数で指定する
+- CDK code は `stage` の runtime 未指定チェック、空文字チェック、形式制限、バリデーションを行わない
 - Stack class 名に環境名を入れない
 - 共通タグは `Project=WorkOps`、`Environment={stage}`、`ManagedBy=CDK` とする
 - CloudFormation Output は人間確認用に出す
@@ -142,7 +142,9 @@ P2-3 以降の Web アプリ deploy と調査ログ確認に必要な ECR、Clou
 
 - `cd infra/cdk && npm run build`
 - `cd infra/cdk && npm test`
-- `cd infra/cdk && npm run cdk -- synth -c stage=dev`
+- `cd infra/cdk`
+- `$env:WORKOPS_STAGE = "dev"`
+- `npm run cdk -- synth`
 - CDK assertions で ECR repository、lifecycle policy、log groups、retention、ConfigStack に SSM Parameter がないことを確認する
 - `git diff --check`
 
@@ -150,4 +152,3 @@ P2-3 以降の Web アプリ deploy と調査ログ確認に必要な ECR、Clou
 
 - この task 単体では AWS deploy 確認を行わない
 - AWS deploy と Console 確認は P2-1-04 で行う
-

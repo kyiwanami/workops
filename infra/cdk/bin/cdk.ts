@@ -27,6 +27,7 @@ Tags.of(app).add('ManagedBy', 'CDK');
 
 new FoundationStack(app, 'FoundationStack', {
   env,
+  stage,
   stackName: `workops-${stage}-foundation`,
 });
 new ConfigStack(app, 'ConfigStack', {
