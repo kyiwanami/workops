@@ -36,7 +36,7 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 - 既存環境変数 `WORKOPS_DB_URL`、`WORKOPS_DB_USERNAME`、`WORKOPS_DB_PASSWORD` を使う
 - AWS dev seed では実 Cognito `sub` を固定しない
 - local と AWS dev の user seed は、排他 locations 上の同じ `V6__insert_users.sql` として管理する
-- P2-4 以降で実 Cognito `sub` と `users.cognito_sub` を突合する
+- P2-5 以降で実 Cognito `sub` と `users.cognito_sub` を突合する
 
 ## ADR
 
@@ -46,7 +46,7 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 - Flyway の実行順は locations の列挙順ではなく version 順で制御する。locations は migration 探索場所であり、versioned migration は version 順に適用されるため
 - Flyway version番号は active locations 内で重複させない。`db/seed/local/V6__insert_users.sql` と `db/seed/aws-dev/V6__insert_users.sql` は同じ意味の環境別 seed であり、同一 profile で同時に読まないため許容する
 - Repeatable migration は採用しない。checksum変更時の再実行と冪等SQLが必要になり、今回の固定ID seed分割には過剰であるため
-- AWS dev seed で実 Cognito `sub` を固定しない。実Cognitoユーザー作成と突合はP2-4以降の責務であるため
+- AWS dev seed で実 Cognito `sub` を固定しない。実Cognitoユーザー作成と突合はP2-5以降の責務であるため
 - P2-2では CA bundle、trust store、VERIFY_IDENTITY 相当の厳密なサーバー証明書検証までは入れない。AWS dev の最小接続確認では `useSSL=true` までに留めるため
 
 ## 対応範囲
@@ -98,7 +98,7 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 - 実 Cognito `sub` の seed 固定
 - Cognito `sub` と `users.cognito_sub` の実環境突合
 - 初回ログイン時の `users` 自動作成
-- P2-4 以降の Hosted UI ログイン
+- P2-5 以降の Hosted UI ログイン
 - IAM DB authentication
 - Kerberos authentication
 - CA bundle

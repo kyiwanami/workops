@@ -26,9 +26,11 @@ Phase 2 のスコープ、設計方針、実装順序、完了条件は、Notion
 
 ## 案
 
-- Phase 2 は P2-0 から P2-9 で MVP の `apps/web` を AWS dev 上に再現可能にする
-- P2-8 の GitHub Actions OIDC deploy は暫定 deploy 手段として扱う
-- P2-9 完了後、既存 Phase 3 の前に Phase 2α を置き、CI/CD を CodePipeline + CodeBuild へ AWS ネイティブ化する
+- Phase 2 は P2-0 から P2-10 で MVP の `apps/web` を AWS dev 上に再現可能にする
+- P2-3 は HTTP ALB による Web アプリ起動、RDS 接続、`/actuator/health`、起動時 Flyway 適用の確認に限定する
+- P2-4 は HTTPS 入口 / dev ドメイン / ACM を扱い、Cognito callback URL と sign-out URL に使う HTTPS URL を確定する
+- P2-9 の GitHub Actions OIDC deploy は暫定 deploy 手段として扱う
+- P2-10 完了後、既存 Phase 3 の前に Phase 2α を置き、CI/CD を CodePipeline + CodeBuild へ AWS ネイティブ化する
 - Phase 2 の migration は `apps/web` の Spring Boot 起動時 Flyway 実行を維持する
 - Phase 2α で migration 用 ECS Task へ分離する
 - MySQL はローカル、Testcontainers、RDS for MySQL のすべてで 8.4 LTS に固定する
@@ -38,6 +40,10 @@ Phase 2 のスコープ、設計方針、実装順序、完了条件は、Notion
 - ADR-035 に従い、MySQL は 8.4 LTS 固定とし、MySQL 8.0 と 9.x は採用しない
 - Phase 2 の deploy は GitHub Actions OIDC を暫定採用し、Phase 2α で CodePipeline + CodeBuild へ移行する
 - Phase 2 の AWS dev migration は `apps/web` 起動時に実行し、Phase 2α で migration 用 ECS Task へ分離する
+- Cognito の redirect URI は localhost 例外を除き HTTPS が必要なため、Cognito Hosted UI ログイン前に P2-4 で HTTPS URL を確定する
+- P2-3 は HTTPS 終端、ACM certificate、Route 53、独自ドメイン、DNS validation を扱わず、HTTP ALB 経由の稼働確認に集中する
+- `DomainStack` は証明書と FQDN を維持するため Phase 2 期間中に維持し、ALB と listener は実行確認セッション用の `EdgeStack` で扱う
+- ACM public certificate は AWS 統合サービスで使う非 exportable public certificate を前提とし、Route 53 public hosted zone、DNS query、ドメイン登録は ACM とは別の課金対象として扱う
 - Phase 2α 完了後、GitHub Actions workflow は PR チェック用にも残さない
 - CodeDeploy、Blue/Green deploy、Canary deploy、PR レビューゲートは Phase 2 / Phase 2α では採用しない
 
@@ -50,6 +56,7 @@ MVP で完成した `apps/web` が、AWS dev 環境上で次の構成を使っ�
 - PLATFORM / TENANT App Client
 - ECS Fargate
 - ALB
+- HTTPS 入口 / dev ドメイン / ACM
 - ECR
 - Secrets Manager
 - SSM Parameter Store Standard
@@ -64,7 +71,7 @@ Phase 2 の中心は新規業務機能の追加ではなく、MVP の Web アプ
 次の判断は、コーディングエージェントがリポジトリ側だけで確定しません。
 
 - Phase 2 の完了定義を変更する
-- P2-0 から P2-9 の順序または境界を変更する
+- P2-0 から P2-10 の順序または境界を変更する
 - Phase 3 以降の機能を Phase 2 へ追加する
 - Cognito と WorkOps アプリの責務を変更する
 - Cognito Trigger または Pre Token Generation を採用する
@@ -74,6 +81,7 @@ Phase 2 の中心は新規業務機能の追加ではなく、MVP の Web アプ
 - ユーザー作成、権限割当、ユーザー無効化の対象範囲を広げる
 - PLATFORM / TENANT の利用者境界を変更する
 - RDS、ECS、ALB、NAT Gateway のライフサイクル方針を変更する
+- dev ドメイン、ACM certificate、HTTPS 入口の責務を変更する
 - Secrets Manager と SSM Parameter Store の責務を変更する
 - Flyway migration の実行方式を変更する
 - Phase 2 で作らない AWS リソースを追加する
@@ -105,9 +113,11 @@ agent task またはフェーズの完了条件にユーザー確認が含まれ
 - AWS リソースは `infra/cdk` の AWS CDK v2 で管理する
 - CDK の Stack クラス名に `dev` / `stg` / `prod` を固定しない
 - CloudFormation の物理スタック名は `stage` props から組み立てる
-- `FoundationStack`、`IdentityStack`、`ConfigStack`、`SecretStack`、`RegistryStack`、`LogsStack`、`DataStack` は Phase 2 期間中維持する
+- `FoundationStack`、`IdentityStack`、`ConfigStack`、`SecretStack`、`RegistryStack`、`LogsStack`、`DataStack`、`DomainStack` は Phase 2 期間中維持する
 - `EgressStack`、`EdgeStack`、`AppRuntimeStack` は実行確認セッション開始時に作成し、確認後に削除する
 - `AppRuntimeStack` を `desiredCount=0` で残さない
+- `DomainStack` は dev 用 FQDN、ACM public certificate、DNS validation、Cognito callback URL と sign-out URL に使う HTTPS URL の正本を扱う
+- `EdgeStack` は ALB、Target Group、HTTP listener、HTTPS listener、HTTP から HTTPS への redirect、Route 53 Alias record を扱う
 - VPC Endpoint と Container Insights は作成しない
 - ALB Cognito 認証を使わず、Spring Security OAuth2 Login と Cognito Hosted UI を使う
 - アプリ利用者情報の正本は `users` とする
@@ -122,7 +132,7 @@ agent task またはフェーズの完了条件にユーザー確認が含まれ
 - DB 非依存の runtime config は `ConfigStack` で管理する
 - GitHub Actions は `workflow_dispatch` による暫定の手動 deploy から開始する
 - GitHub Actions 固有の処理を増やしすぎず、deploy 実体は CDK、リポジトリ内スクリプト、npm、Maven、Docker、AWS CLI の標準コマンドへ寄せる
-- P2-9 完了後、Phase 2α で CodePipeline + CodeBuild へ移行し、GitHub Actions workflow を撤去する
+- P2-10 完了後、Phase 2α で CodePipeline + CodeBuild へ移行し、GitHub Actions workflow を撤去する
 - CodeDeploy、Blue/Green deploy、Canary deploy、PR レビューゲートは採用しない
 - 旧サービス単位の Stack 名は、ADR 内の却下案を除き、実装、README、agent task 名、基本設計寄りの説明に出さない
 - Git commit は実行しない
@@ -168,7 +178,7 @@ Notion で確定した Phase 2 の範囲、順序、完了条件、責務境界�
 
 ### 完了条件
 
-P2-0 から P2-9 の目的、前提、成果物、実装方針、除外範囲、完了条件、確認方針、agent task 分割方針が定義されている。
+P2-0 から P2-10 の目的、前提、成果物、実装方針、除外範囲、完了条件、確認方針、agent task 分割方針が定義されている。
 Notion とリポジトリの責務境界、および AWS 実環境確認の分担が明記されている。
 
 ### 確認方針
@@ -185,7 +195,7 @@ P2-0 のための詳細 agent task Markdownは作成しません。
 
 ### 目的
 
-後続の RDS、Cognito、ECS を載せられる AWS dev 環境の最小土台を作ります。
+後続の RDS、ECS、HTTPS 入口、Cognito を載せられる AWS dev 環境の最小土台を作ります。
 
 ### 前提フェーズ
 
@@ -342,7 +352,12 @@ DDL や seed SQL の具体的なファイル分割は agent task 作成時に既
 
 ### 目的
 
-MVP で完成した `apps/web` を AWS dev 上で起動し、ALB 経由の health check と RDS 接続を成立させます。
+MVP で完成した `apps/web` を AWS dev 上で起動します。
+
+P2-3 では、実行確認セッション用に `EgressStack`、`EdgeStack`、`AppRuntimeStack` を作成し、HTTP ALB 経由で `apps/web` の起動、Spring Boot Actuator `/actuator/health`、RDS 接続、起動時 Flyway 適用を確認します。
+
+P2-3 では HTTPS 終端、ACM certificate、Route 53、独自ドメイン、Cognito Hosted UI ログインは扱いません。
+HTTPS 入口は P2-4 で扱います。
 
 ### 前提フェーズ
 
@@ -361,15 +376,18 @@ MVP で完成した `apps/web` を AWS dev 上で起動し、ALB 経由の healt
 - `AppRuntimeStack`
 - NAT Gateway
 - ALB
-- Listener
+- HTTP listener
 - Target Group
 - ECS Task Definition
 - ECS Service
 - Fargate task
+- HTTP ALB ルーティング
 - Secrets Manager と SSM Parameter Store のタスク設定
 - dev profile 起動設定
 - Spring Boot 起動時 Flyway 実行設定
 - Spring Boot Actuator `/actuator/health`
+- `apps/web` 起動時 Flyway による migration / seed 適用
+- P2-2 から引き継いだ `flyway_schema_history` と主要 seed テーブル確認
 - CloudWatch Logs への標準ログ出力
 - 手動 deploy 手順
 - 実行確認セッション終了後の削除手順
@@ -381,7 +399,7 @@ MVP で完成した `apps/web` を AWS dev 上で起動し、ALB 経由の healt
 - 作成順序は `EgressStack`、`EdgeStack`、`AppRuntimeStack` とする
 - `apps/web` の起動時に Flyway migration と AWS dev seed を適用する
 - 起動時 migration が失敗した場合、ECS task は正常稼働扱いにしない
-- ALB / ECS の health check は `/actuator/health` を使う
+- HTTP ALB / ECS の health check は `/actuator/health` を使う
 - `/actuator/health` は Spring Security の認証対象外にする
 - ALB Cognito 認証は使わない
 - 確認後は `AppRuntimeStack`、`EdgeStack`、`EgressStack` の順で削除する
@@ -389,6 +407,11 @@ MVP で完成した `apps/web` を AWS dev 上で起動し、ALB 経由の healt
 
 ### 除外範囲
 
+- HTTPS 終端
+- ACM certificate
+- Route 53
+- 独自ドメイン
+- DNS validation
 - Cognito Hosted UI 本格ログイン
 - Cognito `sub` と `users` の実環境突合
 - PLATFORM / TENANT App Client 分離
@@ -402,10 +425,11 @@ MVP で完成した `apps/web` を AWS dev 上で起動し、ALB 経由の healt
 
 コンテナを build して ECR へ push できる。
 実行確認セッションで `EgressStack`、`EdgeStack`、`AppRuntimeStack` を作成できる。
-ALB 経由で `/actuator/health` が成功する。
-`apps/web` が RDS に接続した状態で起動する。
+HTTP ALB 経由で Spring Boot Actuator の `/actuator/health` による health check に成功し、RDS に接続した状態で MVP アプリが AWS dev 上で起動する。
 `apps/web` 起動時に Flyway migration と AWS dev seed を適用できる。
+`flyway_schema_history` と主要 seed テーブルを確認できる。
 確認後に `AppRuntimeStack`、`EdgeStack`、`EgressStack` を削除できる。
+HTTPS 終端、ACM certificate、Route 53、独自ドメイン、DNS validation は P2-4 で扱う。
 
 ### 確認方針
 
@@ -417,16 +441,97 @@ ALB 経由で `/actuator/health` が成功する。
 P2-3 着手前に、コンテナ化、実行セッション Stack、Actuator と dev 設定、手動 deploy、削除確認の境界で agent task 分割案を提示します。
 Cognito 本格連携を P2-3 の task に含めません。
 
-## P2-4. Cognito Hosted UI ログイン・`users` 突合
+## P2-4. HTTPS 入口・dev ドメイン・ACM
 
 ### 目的
 
-AWS dev 上で Cognito Hosted UI によるログインを成立させ、Cognito `sub` で `users.cognito_sub` を突合し、DB 由来の利用者情報と権限で業務画面を利用できるようにします。
+P2-5 の Cognito Hosted UI ログイン確認に入る前に、AWS dev 環境へ HTTPS でアクセスできる入口を作ります。
+
+P2-3 では HTTP ALB で `apps/web` の起動、health check、RDS 接続を確認します。
+P2-4 では、Cognito callback URL と sign-out URL として使える HTTPS URL を確定します。
 
 ### 前提フェーズ
 
 - P2-3 が完了している
-- ALB 経由で `apps/web` に到達できる
+- HTTP ALB 経由で `apps/web` に到達できる
+- HTTPS 確認に使う独自ドメインまたは管理可能なサブドメインをユーザーが決定している
+- Route 53 public hosted zone を作成する場合は、課金対象操作としてユーザー確認が完了している
+
+### 成果物
+
+- `DomainStack`
+- dev 用 FQDN
+- ACM public certificate
+- DNS validation
+- ALB HTTPS listener
+- HTTP listener から HTTPS への redirect
+- Route 53 Alias record または管理可能な DNS から ALB への名前解決
+- Cognito callback URL と sign-out URL に使う HTTPS URL の確定
+- HTTPS 経由の `/actuator/health` 確認
+- HTTPS 入口の README / task 記載
+
+### 実装方針
+
+- ALB デフォルト DNS 名には ACM public certificate を発行できないため、HTTPS 確認には独自ドメインまたは管理可能なサブドメインを使う
+- ACM public certificate は、ALB など AWS 統合サービスで使う非 exportable public certificate を前提とする
+- ACM certificate 自体は追加料金なしで使える前提とする
+- Route 53 public hosted zone、DNS query、ドメイン登録には別途費用が発生し得る
+- 証明書は DNS validation を使い、自動更新できる状態にする
+- ALB は HTTPS 終端を担当し、ALB から ECS task への通信は HTTP とする
+- ALB Cognito 認証は使わない
+- Cognito 認証は P2-5 で Spring Security OAuth2 Login + Cognito Hosted UI として扱う
+- `DomainStack` は Phase 2 期間中維持する
+- `EdgeStack` は実行確認セッション用の ALB、listener、Route 53 Alias record を扱い、確認後に削除する
+- P2-4 の確認時は、必要に応じて `EgressStack`、`EdgeStack`、`AppRuntimeStack` を再作成する
+
+### 費用方針
+
+ACM public certificate を ALB など AWS 統合サービスで使う場合、証明書自体は追加料金なしとします。
+ただし、Route 53 public hosted zone、DNS query、ドメイン登録は ACM とは別の課金対象として扱います。
+
+Route 53 public hosted zone を作る場合は、課金対象操作のため、ユーザー確認を前提にします。
+既存ドメインまたは既存 hosted zone を使える場合は、それを優先します。
+
+### 除外範囲
+
+- CloudFront
+- WAF
+- ALB Cognito 認証
+- 本番ドメイン設計
+- 複雑な DNS ルーティング
+- Blue/Green deploy
+- Route 53 health check
+- Cognito Hosted UI ログイン本体
+- users 突合
+
+### 完了条件
+
+AWS dev 環境で、独自ドメインまたは管理可能なサブドメインの HTTPS URL から ALB へ到達できる。
+ALB で HTTPS 終端し、ECS 上の `apps/web` へ HTTP で転送できる。
+HTTP アクセスは HTTPS へ redirect される。
+HTTPS 経由で `/actuator/health` を確認できる。
+P2-5 で Cognito Hosted UI の callback URL と sign-out URL として使う HTTPS URL が確定している。
+
+### 確認方針
+
+エージェントは、DomainStack、ACM certificate、DNS validation、HTTPS listener、HTTP から HTTPS への redirect、Route 53 Alias record、CDK synth、README の確認手順を確認します。
+ユーザーは、ドメインまたは hosted zone の利用、証明書検証、HTTPS 到達、HTTP redirect、HTTPS 経由の `/actuator/health`、確認後の実行確認セッション Stack 削除を確認します。
+
+### agent task 分割方針
+
+P2-4 着手前に、DomainStack、証明書と DNS validation、HTTPS listener と redirect、Alias record、HTTPS health check、README と確認記録の境界で agent task 分割案を提示します。
+Cognito Hosted UI ログイン本体を P2-4 の task に含めません。
+
+## P2-5. Cognito Hosted UI ログイン・`users` 突合
+
+### 目的
+
+P2-4 で確定した HTTPS URL を使い、AWS dev 上で Cognito Hosted UI によるログインを成立させ、Cognito `sub` で `users.cognito_sub` を突合し、DB 由来の利用者情報と権限で業務画面を利用できるようにします。
+
+### 前提フェーズ
+
+- P2-4 が完了している
+- P2-4 で Cognito callback URL と sign-out URL に使う HTTPS URL が確定している
 - MVP の Cognito OAuth2 Login 最小接続、`LoginUserContext`、`GrantedAuthority` の実装が存在する
 - AWS dev の `users` に実 Cognito テストユーザーと突合できるデータを準備できる
 
@@ -436,7 +541,7 @@ AWS dev 上で Cognito Hosted UI によるログインを成立させ、Cognito 
 - Cognito User Pool
 - Hosted UI / managed login domain
 - client secret なしの App Client
-- callback URL と logout URL
+- P2-4 で確定した HTTPS callback URL と sign-out URL の設定
 - AWS dev 用 Spring Security OAuth2 Login
 - Cognito `sub` 取得
 - `users.cognito_sub` 突合
@@ -482,10 +587,10 @@ DB 由来の利用者情報と権限セットで MVP の業務画面を利用で
 
 ### agent task 分割方針
 
-P2-4 着手前に、Identity Stack、AWS dev OAuth2 設定、`users` 突合、認証成功・失敗処理、実環境確認の境界で agent task 分割案を提示します。
-App Client 分離は P2-5 へ残します。
+P2-5 着手前に、Identity Stack、AWS dev OAuth2 設定、`users` 突合、認証成功・失敗処理、実環境確認の境界で agent task 分割案を提示します。
+App Client 分離は P2-6 へ残します。
 
-## P2-5. PLATFORM・TENANT App Client 分離
+## P2-6. PLATFORM・TENANT App Client 分離
 
 ### 目的
 
@@ -493,7 +598,7 @@ WorkOps 運営側と企業テナント側のログイン導線を分け、ログ
 
 ### 前提フェーズ
 
-- P2-4 が完了している
+- P2-5 が完了している
 - 単一 App Client で Cognito ログインと `users` 突合が成立している
 - `users.actor_type` に PLATFORM / TENANT が保存されている
 
@@ -543,10 +648,10 @@ PLATFORM / TENANT の導線不整合時は業務利用を拒否し、WARN ログ
 
 ### agent task 分割方針
 
-P2-5 着手前に、Identity Stack の App Client 分離、アプリ側ログイン入口、actor type 整合チェック、実環境確認の境界で agent task 分割案を提示します。
-管理導線の実 Cognito 接続は P2-6 へ残します。
+P2-6 着手前に、Identity Stack の App Client 分離、アプリ側ログイン入口、actor type 整合チェック、実環境確認の境界で agent task 分割案を提示します。
+管理導線の実 Cognito 接続は P2-7 へ残します。
 
-## P2-6. ユーザー管理導線の AWS dev 接続
+## P2-7. ユーザー管理導線の AWS dev 接続
 
 ### 目的
 
@@ -554,7 +659,7 @@ M9 / M10 で実装済みの会社、部署、ユーザー、権限管理導線�
 
 ### 前提フェーズ
 
-- P2-5 が完了している
+- P2-6 が完了している
 - PLATFORM / TENANT のログイン導線が分離されている
 - M9 / M10 の管理導線がローカルで動作する
 - local profile の Fake Bean と AWS dev profile の実 Cognito Bean の境界が存在する
@@ -616,10 +721,10 @@ PLATFORM_ADMIN と TENANT_MANAGER の管理範囲が M10 の仕様どおりに�
 
 ### agent task 分割方針
 
-P2-6 着手前に、IAM と AWS SDK 接続、PLATFORM 管理導線、TENANT 管理導線、実 Cognito 作成・ログイン確認、検証記録の境界で agent task 分割案を提示します。
+P2-7 着手前に、IAM と AWS SDK 接続、PLATFORM 管理導線、TENANT 管理導線、実 Cognito 作成・ログイン確認、検証記録の境界で agent task 分割案を提示します。
 M9 / M10 の既存業務機能を重複実装しません。
 
-## P2-7. CloudWatch Logs・認証認可イベントログ
+## P2-8. CloudWatch Logs・認証認可イベントログ
 
 ### 目的
 
@@ -627,7 +732,7 @@ AWS dev 上で、業務操作、認証、認可、利用者突合、例外を調
 
 ### 前提フェーズ
 
-- P2-6 が完了している
+- P2-7 が完了している
 - ECS アプリログと `apps/web` 起動時 Flyway ログが CloudWatch Logs へ出力される
 - MVP の業務操作ログが実装済みである
 
@@ -681,19 +786,19 @@ README に、事象ごとの確認先と確認手順が記載されている。
 
 ### agent task 分割方針
 
-P2-7 着手前に、Spring Security イベントログ、Cognito / DB 突合ログ、CloudWatch 確認手順、失敗シナリオ確認の境界で agent task 分割案を提示します。
+P2-8 着手前に、Spring Security イベントログ、Cognito / DB 突合ログ、CloudWatch 確認手順、失敗シナリオ確認の境界で agent task 分割案を提示します。
 監視、Alarm、Dashboard を task に含めません。
 
-## P2-8. GitHub Actions OIDC deploy
+## P2-9. GitHub Actions OIDC deploy
 
 ### 目的
 
 長期アクセスキーを使わず、GitHub Actions の手動実行から AWS dev へテスト、build、ECS 反映、`apps/web` 起動時 migration を再現可能にします。
-P2-8 の GitHub Actions OIDC deploy は Phase 2 の暫定 deploy 手段であり、Phase 2α 後の最終形ではありません。
+P2-9 の GitHub Actions OIDC deploy は Phase 2 の暫定 deploy 手段であり、Phase 2α 後の最終形ではありません。
 
 ### 前提フェーズ
 
-- P2-7 が完了している
+- P2-8 が完了している
 - 手動手順で CDK deploy、ECR push、ECS deploy、`apps/web` 起動時 migration が成功している
 - GitHub repository と AWS account の OIDC 信頼設定を作成できる
 
@@ -727,6 +832,7 @@ P2-8 の GitHub Actions OIDC deploy は Phase 2 の暫定 deploy 手段であり
 - app deploy はテスト、Docker build、ECR push、CDK deploy、ECS deploy、`apps/web` 起動時 migration 確認の順で実行する
 - `apps/web` 起動時 migration が失敗した場合は deploy 失敗として扱う
 - migration の差分なしの場合は Flyway の正常終了を許可する
+- infra deploy では、P2-4 で追加した `DomainStack` と、HTTPS 対応済みの `EdgeStack` 構成も再現対象に含める
 - GitHub Actions 固有の分岐や独自処理を増やしすぎない
 - deploy 実体は CDK、リポジトリ内スクリプト、npm、Maven、Docker、AWS CLI の標準コマンドへ寄せる
 - Phase 2α で CodePipeline + CodeBuild へ移行できる形に保つ
@@ -759,10 +865,10 @@ GitHub Actions の `workflow_dispatch` から AWS dev へ接続できる。
 
 ### agent task 分割方針
 
-P2-8 着手前に、OIDC / IAM、`infra-dev`、`app-deploy-dev`、`apps/web` 起動時 migration 確認、README と失敗確認の境界で agent task 分割案を提示します。
+P2-9 着手前に、OIDC / IAM、`infra-dev`、`app-deploy-dev`、`apps/web` 起動時 migration 確認、README と失敗確認の境界で agent task 分割案を提示します。
 自動 deploy や本番 deploy を task に含めません。
 
-## P2-9. 総合確認・README 整理
+## P2-10. 総合確認・README 整理
 
 ### 目的
 
@@ -770,7 +876,7 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 
 ### 前提フェーズ
 
-- P2-1 から P2-8 が完了している
+- P2-1 から P2-9 が完了している
 - 各フェーズのエージェント確認とユーザー確認が記録されている
 - 未解消事項が Phase 2 完了条件へ影響するか判断できる
 
@@ -795,10 +901,10 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 - README を実装済みのコマンド、設定名、Stack 名、workflow 名に合わせる
 - 初回構築、通常 deploy、実行確認、削除、トラブル対応を分けて記載する
 - secret、token、password、実アカウント ID をリポジトリへ記載しない
-- P2-1 から P2-8 の重複手順を整理し、README を再現の入口にする
+- P2-1 から P2-9 の重複手順を整理し、README を再現の入口にする
 - Phase 2 で扱わない機能を実装済みとして記載しない
 - 未確認事項は確認済みとして記載しない
-- P2-8 の GitHub Actions OIDC deploy が暫定手段であることを README に明記する
+- P2-9 の GitHub Actions OIDC deploy が暫定手段であることを README に明記する
 - Phase 2α で CodePipeline + CodeBuild へ移行し、GitHub Actions workflow を撤去する前提を README に明記する
 
 ### 除外範囲
@@ -821,7 +927,9 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 - AWS dev 環境を CDK で構築できる
 - `apps/web` 起動時に RDS へ Flyway migration と AWS dev seed を適用できる
 - `apps/web` が ECS Fargate で動作する
-- ALB 経由の `/actuator/health` が成功する
+- HTTP ALB 経由の `/actuator/health` が成功する
+- HTTPS 入口が作成され、HTTPS 経由で `/actuator/health` を確認できる
+- HTTP アクセスが HTTPS へ redirect される
 - Cognito Hosted UI でログインできる
 - Cognito `sub` と `users.cognito_sub` を突合できる
 - DB 由来の権限セットで認可できる
@@ -840,22 +948,22 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 
 ### agent task 分割方針
 
-P2-9 着手前に、機械的総合確認、AWS 実環境シナリオ、README 整理、Phase 2 完了記録の境界で agent task 分割案を提示します。
-P2-9 では新規業務機能を追加しません。
+P2-10 着手前に、機械的総合確認、AWS 実環境シナリオ、README 整理、Phase 2 完了記録の境界で agent task 分割案を提示します。
+P2-10 では新規業務機能を追加しません。
 
 ## Phase 2α. CI/CD AWS ネイティブ化
 
 ### 目的
 
-P2-8 の暫定 GitHub Actions OIDC deploy を、AWS 側で完結する CodePipeline + CodeBuild 構成へ移行します。
+P2-9 の暫定 GitHub Actions OIDC deploy を、AWS 側で完結する CodePipeline + CodeBuild 構成へ移行します。
 あわせて、Phase 2 で `apps/web` 起動時に実行していた Flyway migration を、migration 用 ECS Task として分離します。
 既存 Phase 3 から Phase 5 の番号は変更せず、Phase 3 の外部提供 API より前に CI/CD を AWS ネイティブ化します。
 
 ### 前提フェーズ
 
-- P2-9 が完了している
+- P2-10 が完了している
 - GitHub Actions OIDC deploy で AWS dev への build、deploy、確認が再現できる
-- Phase 2 の Stack、ECR、ECS、RDS、Logs の構成が README から再現できる
+- Phase 2 の Stack、ECR、ECS、RDS、Logs、Domain の構成が README から再現できる
 
 ### 成果物
 

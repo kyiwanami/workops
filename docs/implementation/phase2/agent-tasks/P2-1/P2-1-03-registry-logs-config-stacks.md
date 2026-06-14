@@ -57,7 +57,8 @@ P2-3 以降の Web アプリ deploy と調査ログ確認に必要な ECR、Clou
 - 空 Stack として CDK app の deploy 対象に含める
 - SSM Parameter Store Standard のパス規約は `/workops/{stage}/...` とする
 - P2-3 以降で ALB URL などの非機密値を追加する
-- P2-4 以降で Cognito User Pool ID、Client ID、Redirect URI などの非機密値を追加する
+- P2-4 で HTTPS URL などの非機密値を追加する
+- P2-5 以降で Cognito User Pool ID、Client ID、Redirect URI などの非機密値を追加する
 
 ## 設計判断
 
