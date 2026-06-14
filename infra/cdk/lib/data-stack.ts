@@ -1,6 +1,7 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { InstanceClass, InstanceSize, InstanceType, ISubnet, Port, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Credentials, DatabaseInstance, DatabaseInstanceEngine, MysqlEngineVersion, StorageType, SubnetGroup } from 'aws-cdk-lib/aws-rds';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
 export interface DataStackProps extends StackProps {
@@ -91,6 +92,20 @@ export class DataStack extends Stack {
     if (!masterSecret) {
       throw new Error('RDS master secret is required');
     }
+
+    // DB connection parameters are owned with the RDS lifecycle because the endpoint changes when RDS is recreated.
+    new StringParameter(this, 'DbNameParameter', {
+      parameterName: `/workops/${props.stage}/db/name`,
+      stringValue: this.databaseName,
+    });
+    new StringParameter(this, 'DbPortParameter', {
+      parameterName: `/workops/${props.stage}/db/port`,
+      stringValue: this.databasePort,
+    });
+    new StringParameter(this, 'DbUrlParameter', {
+      parameterName: `/workops/${props.stage}/db/url`,
+      stringValue: `jdbc:mysql://${this.endpointAddress}:${this.databasePort}/${this.databaseName}?useSSL=true&serverTimezone=Asia/Tokyo`,
+    });
 
     new CfnOutput(this, 'rdsInstanceIdentifier', {
       value: this.instance.instanceIdentifier,

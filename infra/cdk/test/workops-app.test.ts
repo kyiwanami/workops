@@ -40,9 +40,6 @@ describe('WorkOps CDK app', () => {
       vpc: foundationStack.vpc,
     });
     const configStack = new ConfigStack(app, 'ConfigStack', {
-      dbEndpointAddress: dataStack.endpointAddress,
-      dbName: dataStack.databaseName,
-      dbPort: dataStack.databasePort,
       stage,
       stackName: `workops-${stage}-config`,
     });
@@ -327,6 +324,36 @@ describe('WorkOps CDK app', () => {
       SourceSecurityGroupId: Match.anyValue(),
       ToPort: 3306,
     });
+    dataTemplate.resourceCountIs('AWS::SSM::Parameter', 3);
+    dataTemplate.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/db/name',
+      Type: 'String',
+      Value: 'workops',
+    });
+    dataTemplate.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/db/port',
+      Type: 'String',
+      Value: '3306',
+    });
+    dataTemplate.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/db/url',
+      Type: 'String',
+      Value: Match.objectLike({
+        'Fn::Join': Match.arrayWith([
+          '',
+          Match.arrayWith([
+            'jdbc:mysql://',
+            {
+              'Fn::GetAtt': [
+                Match.stringLikeRegexp('Database'),
+                'Endpoint.Address',
+              ],
+            },
+            ':3306/workops?useSSL=true&serverTimezone=Asia/Tokyo',
+          ]),
+        ]),
+      }),
+    });
     expect(dataTemplateText).toContain('workops-dev-rds-console-cloudshell-sg');
     expect(dataTemplateText).not.toContain('al2023-ami');
     expect(dataTemplateText).not.toContain('AmazonSSMManagedInstanceCore');
@@ -353,35 +380,22 @@ describe('WorkOps CDK app', () => {
     const app = new App();
     const stage = 'dev';
     const configStack = new ConfigStack(app, 'ConfigStack', {
-      dbEndpointAddress: 'workops-dev-db.example.ap-northeast-1.rds.amazonaws.com',
-      dbName: 'workops',
-      dbPort: '3306',
       stage,
       stackName: `workops-${stage}-config`,
     });
     const template = Template.fromStack(configStack);
 
-    template.resourceCountIs('AWS::SSM::Parameter', 4);
+    template.resourceCountIs('AWS::SSM::Parameter', 1);
     template.hasResourceProperties('AWS::SSM::Parameter', {
       Name: '/workops/dev/spring/profile',
       Type: 'String',
       Value: 'dev',
     });
-    template.hasResourceProperties('AWS::SSM::Parameter', {
-      Name: '/workops/dev/db/name',
-      Type: 'String',
-      Value: 'workops',
-    });
-    template.hasResourceProperties('AWS::SSM::Parameter', {
-      Name: '/workops/dev/db/port',
-      Type: 'String',
-      Value: '3306',
-    });
-    template.hasResourceProperties('AWS::SSM::Parameter', {
-      Name: '/workops/dev/db/url',
-      Type: 'String',
-      Value: 'jdbc:mysql://workops-dev-db.example.ap-northeast-1.rds.amazonaws.com:3306/workops?useSSL=true&serverTimezone=Asia/Tokyo',
-    });
+    const templateText = JSON.stringify(template.toJSON());
+    expect(templateText).not.toContain('/workops/dev/db/name');
+    expect(templateText).not.toContain('/workops/dev/db/port');
+    expect(templateText).not.toContain('/workops/dev/db/url');
+    expect(templateText).not.toContain('Fn::GetStackOutput');
   });
 
   test('keeps npm scripts minimal and independent from dotenv', () => {

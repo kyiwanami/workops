@@ -118,6 +118,8 @@ agent task またはフェーズの完了条件にユーザー確認が含まれ
 - Phase 2α で migration 用 ECS Task へ分離し、Web アプリ起動時の Flyway 自動実行を止める
 - ローカルでは Spring Boot 起動時の Flyway 実行を維持する
 - 秘匿値は Secrets Manager、非機密設定値は SSM Parameter Store Standard で管理する
+- DB endpoint に依存する SSM Parameter は RDS と同じ Stack で管理する
+- DB 非依存の runtime config は `ConfigStack` で管理する
 - GitHub Actions は `workflow_dispatch` による暫定の手動 deploy から開始する
 - GitHub Actions 固有の処理を増やしすぎず、deploy 実体は CDK、リポジトリ内スクリプト、npm、Maven、Docker、AWS CLI の標準コマンドへ寄せる
 - P2-9 完了後、Phase 2α で CodePipeline + CodeBuild へ移行し、GitHub Actions workflow を撤去する
@@ -218,7 +220,7 @@ P2-0 のための詳細 agent task Markdownは作成しません。
 - `FoundationStack` に NAT Gateway と ALB を含めない
 - `RegistryStack` の ECR は最新 2 イメージだけを保持する
 - `LogsStack` の retention は 7 日に固定する
-- `ConfigStack` には非機密設定だけを置く
+- `ConfigStack` には DB 非依存の非機密設定だけを置く
 - ECS Cluster は後続の Web アプリで利用し、Phase 2α 以降の migration task でも共用する
 
 ### 除外範囲
@@ -272,7 +274,8 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、P2-3 の `apps/web` 起
 - DB Subnet Group
 - DB Security Group
 - DB 接続情報用 Secrets Manager secret
-- 非機密設定用 SSM Parameter
+- DB endpoint 由来の SSM Parameter
+- DB 非依存の非機密設定用 SSM Parameter
 - RDS Console integrated CloudShell VPC による private RDS 接続確認手順
 - AWS dev 用 Spring profile 設定
 - AWS dev 用 Flyway migration 実行方式
@@ -287,6 +290,10 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、P2-3 の `apps/web` 起
 - RDS は Single-AZ、最小クラス、20GB、backup retention 1日、deletion protection なしにする
 - RDS は private subnet に配置し、Phase 2 期間中維持する
 - DB username と DB password は Secrets Manager で管理する
+- RDS master secret と DB endpoint 由来の SSM Parameter は `DataStack` で管理し、RDS と同じ lifecycle にする
+- `/workops/{stage}/db/name`、`/workops/{stage}/db/port`、`/workops/{stage}/db/url` は `DataStack` が所有する
+- `/workops/{stage}/spring/profile` は `ConfigStack` が所有する
+- `ConfigStack` は `DataStack` を参照しない
 - Spring profile、AWS region、Cognito 設定値、ALB URL などの非機密値は SSM Parameter Store Standard で管理する
 - Cognito issuer URI を設定値の正本として保存せず、region と User Pool ID から構成する
 - Cognito App Client は client secret なしを前提とする

@@ -132,6 +132,8 @@ npm run cdk -- destroy workops-dev-data
 - SSM Parameter Store Standard のパスは `/workops/{stage}/...` 形式にします。
 - 秘匿値は SSM Parameter Store に保存しません。
 - DB username と DB password は SSM Parameter Store に保存しません。
+- DB endpoint から派生する SSM Parameter は、RDS を所有する Stack に置きます。
+- DB に依存しない runtime config は `ConfigStack` に置きます。
 - CloudFormation Output に password、secret value、public IP、EC2 instance id を出しません。
 - Stack 間参照は同一 CDK app 内の props 参照で渡し、cross-stack reference は `weak` に固定します。
 - `weak` により、生成 template は `Fn::ImportValue` ではなく `Fn::GetStackOutput` を使います。

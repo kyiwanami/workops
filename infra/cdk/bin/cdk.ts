@@ -36,7 +36,7 @@ new SecretStack(app, 'SecretStack', {
   env,
   stackName: `workops-${stage}-secret`,
 });
-const dataStack = new DataStack(app, 'DataStack', {
+new DataStack(app, 'DataStack', {
   appSecurityGroup: foundationStack.appSecurityGroup,
   dbSecurityGroup: foundationStack.dbSecurityGroup,
   dbSubnets: foundationStack.dbSubnets,
@@ -46,9 +46,6 @@ const dataStack = new DataStack(app, 'DataStack', {
   vpc: foundationStack.vpc,
 });
 new ConfigStack(app, 'ConfigStack', {
-  dbEndpointAddress: dataStack.endpointAddress,
-  dbName: dataStack.databaseName,
-  dbPort: dataStack.databasePort,
   env,
   stage,
   stackName: `workops-${stage}-config`,

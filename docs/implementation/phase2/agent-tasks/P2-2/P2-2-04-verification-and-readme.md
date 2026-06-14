@@ -32,6 +32,8 @@ P2-2 の RDS、Secrets Manager、SSM Parameter、RDS Console CloudShell VPC DB �
 - AWS dev RDS に古い `flyway_schema_history` がある場合は、既存データ移行を行わず、P2-3 前に空DBとして再作成またはリセットする。
 - `infra/cdk/README.md` は CDK 操作に必要な恒久情報だけを置く。Phase 2 固有の判断、検証結果、CloudShell 手順、P2-3 引き継ぎ SQL は Phase 2 文書に置く。
 - `infra/cdk/README.md` に関連文書リンク集は置かない。README から Phase 文書への誘導で役割境界を曖昧にしないため。
+- DB endpoint に依存する SSM Parameter は `DataStack` が所有する。DB URL は RDS endpoint の派生値であり、RDS、RDS master secret、DB接続SSMの lifecycle を揃えるため。
+- `ConfigStack` は DB 非依存の runtime config だけを所有する。`ConfigStack` から `DataStack` への参照をなくし、`DataStack` 削除時に `ConfigStack` が巻き込まれない構成にする。
 
 ## 対応内容
 
@@ -48,6 +50,10 @@ P2-2 の RDS、Secrets Manager、SSM Parameter、RDS Console CloudShell VPC DB �
   - local と AWS dev の `V6__insert_users.sql` を同一 version とする前提を追記した
 - `docs/implementation/phase2/agent-tasks/P2-2/P2-2-04-verification-and-readme.md`
   - RDS Console CloudShell VPC の確認結果、P2-3 引き継ぎ SQL、主要 seed 件数期待値を保持した
+- P2-2 補正
+  - DB endpoint 由来の `/workops/dev/db/name`、`/workops/dev/db/port`、`/workops/dev/db/url` を `ConfigStack` から `DataStack` へ移した
+  - `ConfigStack` は `/workops/dev/spring/profile` だけを持つ構成に戻した
+  - `ConfigStack` から `DataStack` への参照を削除した
 
 ## README から Phase 2 文書へ移した詳細
 
@@ -78,11 +84,11 @@ P2-2 の RDS、Secrets Manager、SSM Parameter、RDS Console CloudShell VPC DB �
   - DB Subnet Group `workops-dev-db-subnet-group`
   - RDS master secret `/workops/dev/db/master`
   - `app-sg` から `db-sg` への TCP 3306 inbound rule
-- `ConfigStack`
-  - `/workops/dev/spring/profile`
   - `/workops/dev/db/name`
   - `/workops/dev/db/port`
   - `/workops/dev/db/url`
+- `ConfigStack`
+  - `/workops/dev/spring/profile`
 
 ### P2-2-01 で作らないもの
 
@@ -162,9 +168,9 @@ Secrets Manager:
 Systems Manager Parameter Store:
 
 - `/workops/dev/spring/profile`
-- `/workops/dev/db/name`
-- `/workops/dev/db/port`
-- `/workops/dev/db/url`
+- `/workops/dev/db/name` (`DataStack` owned)
+- `/workops/dev/db/port` (`DataStack` owned)
+- `/workops/dev/db/url` (`DataStack` owned)
 
 ECS:
 
@@ -250,9 +256,11 @@ P2-2-02 の ADR は、P2-3 以降のアプリ実行経路を変更しない。
 - `WORKOPS_STAGE` は CDK context ではなく環境変数で渡す
 - ローカルと GitHub Actions は同じ `WORKOPS_STAGE` 名で stage を渡す
 - GitHub Actions の OIDC と `aws-region` 指定は P2-8 で扱う
-- `ConfigStack` は P2-2-01 から非機密 SSM Parameter を管理する
+- `ConfigStack` は DB 非依存の非機密 SSM Parameter を管理する
+- DB endpoint 由来の `/workops/{stage}/db/name`、`/workops/{stage}/db/port`、`/workops/{stage}/db/url` は `DataStack` が管理する
 - `SecretStack` は P2-2-01 では空 Stack とし、app 用 secret や migration 用 secret を作らない
 - RDS master secret は RDS lifecycle に合わせるため `DataStack` に置く
+- RDS master secret と DB 接続 SSM は RDS と同じ削除単位にする
 - RDS Console integrated CloudShell VPC を DB 接続確認手段にし、EC2 access host は作らない
 - CloudShell VPC environment は CDK で作らず、RDS Console 上のユーザー確認として扱う
 - RDS Console CloudShell Security Group は self-reference TCP 3306 egress / ingress だけを持つ
@@ -260,6 +268,7 @@ P2-2-02 の ADR は、P2-3 以降のアプリ実行経路を変更しない。
 - NAT Gateway は追加しない。RDS Console CloudShell から private RDS endpoint への VPC 内 TCP 3306 接続には不要である
 - Stack 間参照は同一 CDK app 内の props 参照で渡し、cross-stack reference は `weak` に固定する
 - `weak` により、生成テンプレートは `Fn::ImportValue` ではなく `Fn::GetStackOutput` を使う
+- `ConfigStack` は `DataStack` の output を参照しない
 - LogsStack は `AppRuntimeStack` 削除後も Phase 2 期間中の調査ログを残すため独立 Stack にする
 - ECR image は再生成可能な成果物として扱い、非空 repository を理由に `destroy --all` を失敗させない
 - SSM Parameter Store Standard のパス規約は `/workops/{stage}/...` とし、秘匿値は入れない
@@ -293,6 +302,8 @@ P2-2-02 の ADR は、P2-3 以降のアプリ実行経路を変更しない。
 - ECR repository は `RemovalPolicy.DESTROY` と `emptyOnDelete: true`
 - `AWS_REGION`、`retentionDays`、ECR repository 名は SSM に入れない
 - DB username、DB password は SSM に入れない
+- DB endpoint 由来の `/workops/{stage}/db/name`、`/workops/{stage}/db/port`、`/workops/{stage}/db/url` は `DataStack` に置く
+- DB 非依存の `/workops/{stage}/spring/profile` は `ConfigStack` に置く
 
 ## エージェント確認
 
@@ -313,6 +324,10 @@ P2-2-02 の ADR は、P2-3 以降のアプリ実行経路を変更しない。
   - `AWS::IAM::InstanceProfile`: 0
   - `AmazonSSMManagedInstanceCore`: 0
   - `Fn::ImportValue`: 0
+  - `ConfigStack` の SSM Parameter は `/workops/dev/spring/profile` の1件だけであることを確認
+  - `ConfigStack` template に `/workops/dev/db/name`、`/workops/dev/db/port`、`/workops/dev/db/url`、`Fn::GetStackOutput` が出ないことを確認
+  - `DataStack` の SSM Parameter は `/workops/dev/db/name`、`/workops/dev/db/port`、`/workops/dev/db/url` の3件であることを確認
+  - `/workops/dev/db/url` が RDS endpoint token、port、DB名から構成されることを確認
   - RDS DBInstance に既存 DB SG と RDS Console CloudShell SG が付与されることを確認
   - RDS Console CloudShell SG の self-reference TCP 3306 ingress / egress を確認
   - DataStack Outputs に password、secret value、public IP、EC2 instance id が出ていないことを確認
