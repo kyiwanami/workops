@@ -255,6 +255,23 @@ SELECT 1;
 確認後、CloudShell VPC 環境を削除します。
 CloudShell 管理 ENI が Security Group を掴んでいる間は Security Group を削除できないため、確認用の一時環境は残しません。
 
+## P2-3 への DB 確認引き継ぎ
+
+P2-2 の CloudShell 確認で保証するのは、private RDS endpoint への TCP 3306 到達性と MySQL 接続、`SELECT 1;` までです。
+P2-2 では AppRuntimeStack、ECS Service、Fargate task を作らないため、RDS 上の Flyway migration / AWS dev seed 適用完了は P2-3 の `apps/web` AWS dev 起動後に確認します。
+
+P2-3 で `apps/web` を起動した後、RDS Console integrated CloudShell VPC から MySQL に接続し、最低限次を確認します。
+
+```sql
+SELECT installed_rank, version, description, success
+FROM flyway_schema_history
+ORDER BY installed_rank;
+```
+
+AWS dev seed の主要テーブルは、P2-2-03 で分離した `db/seed/aws-dev` の内容に合わせて確認します。
+P2-2-02 の ADR は、P2-3 以降のアプリ実行経路を変更しません。
+`apps/web`、migration、通常のDB接続は `app-sg` から `db-sg` への TCP 3306 許可を使います。
+
 ## Destroy
 
 P2-1単体確認後、または Phase 2 全撤去時にStackを削除します。

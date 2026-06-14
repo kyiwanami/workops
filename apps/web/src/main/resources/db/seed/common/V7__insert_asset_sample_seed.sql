@@ -1,4 +1,4 @@
--- M5-01 local seed: asset catalog sample data for list/detail verification.
+-- Asset samples are shared by local and AWS dev profile UI checks.
 INSERT INTO assets (
     id,
     company_id,

@@ -30,7 +30,7 @@ P2-2 の RDS、Secrets Manager、SSM Parameter、RDS Console CloudShell VPC DB�
 - P2-2-01 から P2-2-03 の実装結果を横断確認する
 - `infra/cdk/README.md` に P2-2 の構築、確認、DB接続、CloudShell環境削除、P2-3引き継ぎ手順を追記する
 - ルート `README.md` は、MySQL 8.4 LTS など既に必要な整合がある場合だけ更新する
-- `docs/implementation/phase2/phases.md` は P2-2 実装中に変更しない
+- `docs/implementation/phase2/phases.md` は、P2-2-02 の ADR が後続フェーズの前提へ影響する範囲だけ更新する
 - AWS deploy、RDS Console CloudShell 起動、MySQL 接続確認、CloudShell 環境削除はユーザー確認に分類する
 - エージェントは CDK synth、assertions、Spring Boot設定、Flyway locations、README整合を確認する
 
@@ -60,7 +60,7 @@ P2-2 の RDS、Secrets Manager、SSM Parameter、RDS Console CloudShell VPC DB�
 - README に RDS Console CloudShell Security Group の目的を書く
 - README に RDS Console CloudShell 起動手順を書く
 - README に TCP 到達確認、MySQL 接続、`SELECT 1;` の確認手順を書く
-- README に `flyway_schema_history` と主要seed確認SQLを書く
+- README に、P2-3 で `apps/web` 起動後に確認する `flyway_schema_history` と主要seed確認SQLを書く
 - README に CloudShell VPC 環境の削除手順を書く
 - README に RDS の停止手順を書く
 - README に P2-3 で `apps/web` 起動時 migration を確認する引き継ぎを書く
@@ -135,13 +135,14 @@ P2-2 の RDS、Secrets Manager、SSM Parameter、RDS Console CloudShell VPC DB�
 
 - `infra/cdk/README.md`
 - `README.md`
+- `docs/implementation/phase2/phases.md`
 - `docs/implementation/phase2/agent-tasks/P2-2/P2-2-04-verification-and-readme.md`
 
 ## 除外範囲
 
 - CDK 実装ファイルの新規実装
 - Spring Boot 実装ファイルの新規実装
-- `docs/implementation/phase2/phases.md` 更新
+- P2-2-02 の ADR と関係しない `docs/implementation/phase2/phases.md` 更新
 - EC2 access host
 - migration 用 ECS Task
 - migration 専用 Security Group
@@ -188,7 +189,6 @@ P2-2 の RDS、Secrets Manager、SSM Parameter、RDS Console CloudShell VPC DB�
 - CloudShell で TCP 到達確認を実行し `tcp-ok` を確認する
 - RDS Console が提示する `mysql` コマンドで RDS へ接続する
 - MySQL 上で `SELECT 1;` を確認する
-- `flyway_schema_history` を確認する
-- AWS dev seed の主要テーブルを確認する
 - CloudShell VPC 環境を削除する
+- P2-3 で `apps/web` を AWS dev 起動した後、CloudShell VPC から `flyway_schema_history` と AWS dev seed の主要テーブルを確認する
 - P2-3へ進む場合、`workops-dev-secret` と `workops-dev-data` は destroy しない

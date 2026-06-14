@@ -273,6 +273,7 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、P2-3 の `apps/web` 起
 - DB Security Group
 - DB 接続情報用 Secrets Manager secret
 - 非機密設定用 SSM Parameter
+- RDS Console integrated CloudShell VPC による private RDS 接続確認手順
 - AWS dev 用 Spring profile 設定
 - AWS dev 用 Flyway migration 実行方式
 - 共通マスタ seed
@@ -289,6 +290,8 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、P2-3 の `apps/web` 起
 - Spring profile、AWS region、Cognito 設定値、ALB URL などの非機密値は SSM Parameter Store Standard で管理する
 - Cognito issuer URI を設定値の正本として保存せず、region と User Pool ID から構成する
 - Cognito App Client は client secret なしを前提とする
+- private RDS への人手の接続確認は RDS Console integrated CloudShell VPC で行い、EC2 踏み台、SSM port forwarding、Session Manager Plugin は使わない
+- RDS Console CloudShell 接続確認用 Security Group は専用用途とし、他リソースへ流用しない
 - Phase 2 の AWS dev では `apps/web` 起動時に Flyway を自動実行する
 - Phase 2α までは migration 用 ECS Task 定義を作らない
 - Phase 2α で migration 用 ECS Task へ分離し、Web アプリ起動時の Flyway 自動実行を止める
@@ -312,13 +315,14 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、P2-3 の `apps/web` 起
 
 `SecretStack` と `DataStack` を CDK で synth できる。
 ユーザーの AWS dev 環境で RDS と DB 接続 secret を作成できる。
+RDS Console integrated CloudShell VPC から private RDS へ接続し、`SELECT 1;` を確認できる。
 AWS dev 用 Spring profile、DB 接続設定、Flyway locations、AWS dev seed の適用方針を実装できる。
 P2-3 で `apps/web` 起動時に既存 migration と AWS dev seed を適用できる状態になっている。
 
 ### 確認方針
 
 エージェントは、CDK synth、Spring Boot 設定の検証、Flyway migration のローカル適用、secret と parameter の参照構造を確認します。
-ユーザーは、RDS の構成値、Secrets Manager と SSM Parameter Store の格納先、P2-3 で実行する `apps/web` 起動時 migration の確認手順を確認します。
+ユーザーは、RDS の構成値、Secrets Manager と SSM Parameter Store の格納先、RDS Console integrated CloudShell VPC による private RDS 接続、P2-3 で実行する `apps/web` 起動時 migration の確認手順を確認します。
 
 ### agent task 分割方針
 
@@ -335,6 +339,7 @@ MVP で完成した `apps/web` を AWS dev 上で起動し、ALB 経由の healt
 
 - P2-2 が完了している
 - RDS、DB 接続 secret、AWS dev 用 Spring profile 設定を参照できる
+- P2-2 で RDS Console integrated CloudShell VPC による private RDS 接続確認が完了している
 - ECR、CloudWatch Logs、ECS Cluster を利用できる
 
 ### 成果物

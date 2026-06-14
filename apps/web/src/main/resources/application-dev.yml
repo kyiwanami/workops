@@ -2,3 +2,13 @@ spring:
   config:
     activate:
       on-profile: dev
+  datasource:
+    url: ${WORKOPS_DB_URL}
+    username: ${WORKOPS_DB_USERNAME}
+    password: ${WORKOPS_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    locations:
+      - classpath:db/migration
+      - classpath:db/seed/common
+      - classpath:db/seed/aws-dev

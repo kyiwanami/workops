@@ -1,5 +1,7 @@
 package com.example.workops.integration;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -33,6 +35,15 @@ class SeedMigrationIntegrationTests extends MapperIntegrationTestBase {
         assertThat(assetStatusCount).isEqualTo(1L);
         assertThat(assetCategoryCount).isEqualTo(1L);
         assertThat(requestTypeCount).isEqualTo(1L);
+    }
+
+    @Test
+    void flywayAppliesLocalLocationsInVersionOrder() {
+        List<String> versions = jdbcTemplate.queryForList(
+                "SELECT version FROM flyway_schema_history WHERE success = TRUE ORDER BY installed_rank",
+                String.class);
+
+        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
     }
 
     @Test

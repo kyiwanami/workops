@@ -1,3 +1,4 @@
+-- Request samples are shared after users and request type masters have been inserted.
 INSERT INTO requests (
     company_id,
     requester_user_id,

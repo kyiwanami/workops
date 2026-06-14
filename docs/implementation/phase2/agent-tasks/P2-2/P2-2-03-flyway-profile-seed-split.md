@@ -35,6 +35,7 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 - `application-local.yml` と `application-dev.yml` で `spring.flyway.locations` を明示する
 - 既存環境変数 `WORKOPS_DB_URL`、`WORKOPS_DB_USERNAME`、`WORKOPS_DB_PASSWORD` を使う
 - AWS dev seed では実 Cognito `sub` を固定しない
+- local と AWS dev の user seed は、排他 locations 上の同じ `V6__insert_users.sql` として管理する
 - P2-4 以降で実 Cognito `sub` と `users.cognito_sub` を突合する
 
 ## ADR
@@ -42,7 +43,9 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 - Phase 2 では Web アプリ起動時 Flyway を維持する。現行Webアプリ構成を優先し、migration用ECS Task分離はCI/CD AWSネイティブ化のPhase 2αに合わせるため
 - `WORKOPS_DB_URL`、`WORKOPS_DB_USERNAME`、`WORKOPS_DB_PASSWORD` を使う。既存アプリ構成に合わせ、DB接続設定の入口を増やさないため
 - seed は `common`、`local`、`aws-dev` に分ける。認証方式に依存しないデータは共通化し、local疑似ユーザーとAWS devのCognito前提データを混ぜないため
-- Flyway version番号は全locations合算で重複させない。実行対象locationが増えてもFlyway履歴を一意に保つため
+- Flyway の実行順は locations の列挙順ではなく version 順で制御する。locations は migration 探索場所であり、versioned migration は version 順に適用されるため
+- Flyway version番号は active locations 内で重複させない。`db/seed/local/V6__insert_users.sql` と `db/seed/aws-dev/V6__insert_users.sql` は同じ意味の環境別 seed であり、同一 profile で同時に読まないため許容する
+- Repeatable migration は採用しない。checksum変更時の再実行と冪等SQLが必要になり、今回の固定ID seed分割には過剰であるため
 - AWS dev seed で実 Cognito `sub` を固定しない。実Cognitoユーザー作成と突合はP2-4以降の責務であるため
 - P2-2では CA bundle、trust store、VERIFY_IDENTITY 相当の厳密なサーバー証明書検証までは入れない。AWS dev の最小接続確認では `useSSL=true` までに留めるため
 
@@ -66,7 +69,8 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 - AWS dev seed に TENANT_MANAGER 相当の確認ユーザーをサンプル会社ごとに必要最小限入れる
 - AWS dev seed に TENANT_MEMBER 相当の確認ユーザーを必要最小限入れる
 - 既存 V2 から V5 の seed 内容は、実装時に内容を見て `common` / `local` / `aws-dev` へ分解する
-- Flyway version番号は全locationsで重複させない
+- Flyway version番号は local profile と dev profile の active locations それぞれで `V1` から `V8` まで連続させる
+- `db/seed/local/V6__insert_users.sql` と `db/seed/aws-dev/V6__insert_users.sql` は同時に読み込まない
 - Testcontainers MySQL image が `mysql:8.4` であることを確認する
 - Docker Compose MySQL image が `mysql:8.4` であることを確認する
 - local と Testcontainers で既存テストが通る構成を維持する
@@ -114,7 +118,8 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 - `application-dev.yml` が `WORKOPS_DB_URL`、`WORKOPS_DB_USERNAME`、`WORKOPS_DB_PASSWORD` を使っている
 - `WORKOPS_DB_HOST`、`WORKOPS_DB_PORT`、`WORKOPS_DB_NAME` を新設していない
 - `db/seed/common`、`db/seed/local`、`db/seed/aws-dev` の責務が分かれている
-- Flyway version番号が全locationsで重複していない
+- local profile と dev profile の active locations がそれぞれ `V1` から `V8` まで連続している
+- `db/seed/local` と `db/seed/aws-dev` が同一 profile で同時に読み込まれていない
 - AWS dev seed の `users.cognito_sub` が実 Cognito `sub` 固定値を持っていない
 - local の既存テストが新しい locations 構成で成立する
 - P2-3 で `apps/web` 起動時に RDS へ migration / seed を適用できる構成になっている
@@ -125,7 +130,8 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 
 - `Select-String` で `mysql:9`、`mysql:8.0` が現行構成に残っていないことを確認する
 - `Select-String` で `WORKOPS_DB_HOST`、`WORKOPS_DB_PORT`、`WORKOPS_DB_NAME` を新設していないことを確認する
-- Flyway SQL の version番号重複がないことを確認する
+- local profile と dev profile の active locations がそれぞれ `V1` から `V8` まで連続していることを確認する
+- `db/seed/aws-dev` に固定 UUID の `cognito_sub` がないことを確認する
 - `./mvnw -pl apps/web test` またはリポジトリ既存のテストコマンドを実行する
 - `git diff --check`
 
