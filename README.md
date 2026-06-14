@@ -28,13 +28,14 @@ workops/
 ├─ docs/
 │  └─ implementation/
 ├─ infra/
-│  └─ cdk/        # 後続 Phase 用の予約領域
+│  └─ cdk/        # Phase 2 AWS dev 基盤の CDK v2 プロジェクト
 ├─ compose.yaml
 └─ README.md
 ```
 
 MVP の実装対象は `apps/web` です。
-`apps/api`、`apps/batch`、`infra/cdk` は後続 Phase 用の置き場で、MVP では実装しません。
+`apps/api`、`apps/batch` は後続 Phase 用の置き場で、MVP では実装しません。
+`infra/cdk` は Phase 2 で AWS dev 基盤を管理します。
 
 ## 前提ツール
 
@@ -75,15 +76,23 @@ jdbc:mysql://localhost:3306/workops?useSSL=false&allowPublicKeyRetrieval=true&se
 
 ## Flyway / seed
 
-Spring Boot 起動時に Flyway が `apps/web/src/main/resources/db/migration` の migration を適用します。
+Spring Boot 起動時に Flyway が profile 別 locations の migration と seed を適用します。
+通常のローカル再現では `local` profile を使い、`db/migration`、`db/seed/common`、`db/seed/local` を読み込みます。
 
 | migration | 内容 |
 | --- | --- |
 | `V1__create_mvp_schema.sql` | MVP DB スキーマ |
-| `V2__insert_local_seed.sql` | 2社、ユーザー、権限、共通/汎用マスタ |
-| `V3__insert_request_sample_seed.sql` | 申請サンプル |
-| `V4__insert_asset_sample_seed.sql` | 資産サンプル |
-| `V5__platform_admin_local_prerequisite.sql` | local PLATFORM_ADMIN 前提 |
+| `V2__allow_platform_users.sql` | PLATFORM user 用の schema 前提 |
+| `V3__insert_demo_companies_departments.sql` | デモ会社と部署 |
+| `V4__insert_permission_sets.sql` | 権限セット |
+| `V5__insert_business_masters.sql` | 共通マスタと会社別業務マスタ |
+| `V6__insert_users.sql` | profile 別ユーザー seed |
+| `V7__insert_asset_sample_seed.sql` | 資産サンプル |
+| `V8__insert_request_sample_seed.sql` | 申請サンプル |
+
+`local` profile の `V6__insert_users.sql` は固定 `cognito_sub` を持ちます。
+AWS dev 用の `dev` profile は `db/seed/aws-dev/V6__insert_users.sql` を読み込み、`users.cognito_sub` は全件 `NULL` にします。
+local と AWS dev の `V6` は同時に読み込まない locations なので、各 profile の適用順はどちらも `V1` から `V8` まで連続します。
 
 local DB を空から作り直す場合は、MySQL ボリュームを削除してから起動します。
 

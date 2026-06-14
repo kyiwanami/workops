@@ -296,6 +296,8 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、P2-3 の `apps/web` 起
 - Phase 2α までは migration 用 ECS Task 定義を作らない
 - Phase 2α で migration 用 ECS Task へ分離し、Web アプリ起動時の Flyway 自動実行を止める
 - AWS dev seed は再現可能な動作確認データとして Flyway で管理する
+- Flyway seed は `db/seed/common`、`db/seed/local`、`db/seed/aws-dev` に分け、profile 別 locations で local と AWS dev の seed を切り替える
+- local と AWS dev の `V6__insert_users.sql` は同一 version とし、同じ profile で同時に読み込まない
 - 実 Cognito の `sub` は seed に固定しない
 
 ### 除外範囲
