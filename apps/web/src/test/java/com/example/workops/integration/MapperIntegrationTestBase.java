@@ -22,7 +22,7 @@ abstract class MapperIntegrationTestBase {
 
     @SuppressWarnings("resource")
     // Testcontainers singleton container pattern keeps this container for the test JVM lifecycle.
-    private static final MySQLContainer MYSQL = new MySQLContainer(DockerImageName.parse("mysql:9.7.0"))
+    private static final MySQLContainer MYSQL = new MySQLContainer(DockerImageName.parse("mysql:8.4"))
             .withDatabaseName("workops")
             .withUsername("workops")
             .withPassword("workops")

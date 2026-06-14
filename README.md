@@ -13,7 +13,7 @@ MVP では、ローカル MySQL 上で申請、資産、会社別マスタ、ユ
 - Bootstrap 5.3.8 CDN
 - MyBatis Spring Boot Starter 4.0.1
 - Flyway
-- MySQL 9.7.0
+- MySQL 8.4 LTS
 - Docker Compose
 - JUnit / Mockito / Testcontainers MySQL
 

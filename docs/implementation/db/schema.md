@@ -15,7 +15,7 @@ Notion は DB 設計方針、ADR、テーブル群の役割を管理します。
 
 ## 共通方針
 
-- MySQL 9.7.0 を前提にする
+- MySQL 8.4 LTS を前提にする
 - テーブルは `ENGINE=InnoDB` を使う
 - 文字コードは `utf8mb4` を使う
 - 照合順序は `utf8mb4_0900_ai_ci` を使う

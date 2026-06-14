@@ -108,7 +108,7 @@ Spring Boot によって依存バージョンが管理されるライブラリ�
 MVP 開始時点の方針は次の通りです。
 
 - Java は Java 25 LTS を使う
-- MySQL はローカルでは MySQL 9.7 LTS を使う
+- MySQL はローカルでは MySQL 8.4 LTS を使う
 - Maven は Maven Wrapper が取得する最新安定版を使う
 - Spring Boot は最新安定版を使う
 - Thymeleaf / Flyway / JUnit / Mockito / Testcontainers は Spring Boot 管理バージョンを使う

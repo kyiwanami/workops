@@ -24,6 +24,23 @@ Phase 2 のスコープ、設計方針、実装順序、完了条件は、Notion
 ユーザーが分割案を確認し、合意した後にだけ詳細な agent task Markdown を作成します。
 このファイルでは、P2-1-01 / P2-1-02 のような具体タスク名、詳細タスク数、対応ファイル一覧を固定しません。
 
+## 案
+
+- Phase 2 は P2-0 から P2-9 で MVP の `apps/web` を AWS dev 上に再現可能にする
+- P2-8 の GitHub Actions OIDC deploy は暫定 deploy 手段として扱う
+- P2-9 完了後、既存 Phase 3 の前に Phase 2α を置き、CI/CD を CodePipeline + CodeBuild へ AWS ネイティブ化する
+- Phase 2 の migration は `apps/web` の Spring Boot 起動時 Flyway 実行を維持する
+- Phase 2α で migration 用 ECS Task へ分離する
+- MySQL はローカル、Testcontainers、RDS for MySQL のすべてで 8.4 LTS に固定する
+
+## ADR
+
+- ADR-035 に従い、MySQL は 8.4 LTS 固定とし、MySQL 8.0 と 9.x は採用しない
+- Phase 2 の deploy は GitHub Actions OIDC を暫定採用し、Phase 2α で CodePipeline + CodeBuild へ移行する
+- Phase 2 の AWS dev migration は `apps/web` 起動時に実行し、Phase 2α で migration 用 ECS Task へ分離する
+- Phase 2α 完了後、GitHub Actions workflow は PR チェック用にも残さない
+- CodeDeploy、Blue/Green deploy、Canary deploy、PR レビューゲートは Phase 2 / Phase 2α では採用しない
+
 ## Phase 2 完了定義
 
 MVP で完成した `apps/web` が、AWS dev 環境上で次の構成を使って再現可能に稼働していることを Phase 2 の完了とします。
@@ -91,10 +108,15 @@ AWS アカウントへの認証、課金対象リソースの作成、Cognito �
 - 業務権限の正本は `permission_sets` とする
 - Cognito から業務利用する突合キーは `sub` とする
 - 会社境界は Mapper SQL の `company_id` 条件で守る
-- AWS dev の Flyway migration は、Spring Boot アプリ起動時ではなく migration 用 ECS Task で実行する
+- Phase 2 の AWS dev Flyway migration は、`apps/web` の Spring Boot 起動時実行を維持する
+- Phase 2α で migration 用 ECS Task へ分離し、Web アプリ起動時の Flyway 自動実行を止める
 - ローカルでは Spring Boot 起動時の Flyway 実行を維持する
 - 秘匿値は Secrets Manager、非機密設定値は SSM Parameter Store Standard で管理する
-- GitHub Actions は `workflow_dispatch` による手動 deploy から開始する
+- GitHub Actions は `workflow_dispatch` による暫定の手動 deploy から開始する
+- GitHub Actions 固有の処理を増やしすぎず、deploy 実体は CDK、リポジトリ内スクリプト、npm、Maven、Docker、AWS CLI の標準コマンドへ寄せる
+- P2-9 完了後、Phase 2α で CodePipeline + CodeBuild へ移行し、GitHub Actions workflow を撤去する
+- CodeDeploy、Blue/Green deploy、Canary deploy、PR レビューゲートは採用しない
+- 旧サービス単位の Stack 名は、ADR 内の却下案を除き、実装、README、agent task 名、基本設計寄りの説明に出さない
 - Git commit は実行しない
 
 ## P2-0. Phase 2 設計・リポジトリ準備
@@ -191,7 +213,7 @@ P2-0 のための詳細 agent task Markdownは作成しません。
 - `RegistryStack` の ECR は最新 2 イメージだけを保持する
 - `LogsStack` の retention は 7 日に固定する
 - `ConfigStack` には非機密設定だけを置く
-- ECS Cluster は後続の Web アプリと migration task で共用する
+- ECS Cluster は後続の Web アプリで利用し、Phase 2α 以降の migration task でも共用する
 
 ### 除外範囲
 
@@ -228,7 +250,7 @@ P2-1 着手前に、CDK 初期化、基盤 Stack、ECR / Logs / Config、検証�
 
 ### 目的
 
-AWS dev 環境に WorkOps の業務 DB 正本を作り、migration 用 ECS Task から再現可能に構築できる状態にします。
+AWS dev 環境に WorkOps の業務 DB 正本を作り、P2-3 の `apps/web` 起動時 Flyway 実行で構築できる状態にします。
 
 ### 前提フェーズ
 
@@ -240,13 +262,12 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、migration 用 ECS Task 
 
 - `SecretStack`
 - `DataStack`
-- RDS MySQL
+- RDS for MySQL 8.4 LTS
 - DB Subnet Group
 - DB Security Group
 - DB 接続情報用 Secrets Manager secret
 - 非機密設定用 SSM Parameter
 - AWS dev 用 Spring profile 設定
-- migration 用 ECS Task 定義
 - AWS dev 用 Flyway migration 実行方式
 - 共通マスタ seed
 - AWS dev 動作確認用 seed
@@ -254,14 +275,17 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、migration 用 ECS Task 
 
 ### 実装方針
 
+- MySQL はローカル、Testcontainers、RDS for MySQL のすべてで 8.4 LTS に固定する
+- MySQL 8.0 と 9.x は採用しない
 - RDS は Single-AZ、最小クラス、20GB、backup retention 1日、deletion protection なしにする
 - RDS は private subnet に配置し、Phase 2 期間中維持する
 - DB username と DB password は Secrets Manager で管理する
 - Spring profile、AWS region、Cognito 設定値、ALB URL などの非機密値は SSM Parameter Store Standard で管理する
 - Cognito issuer URI を設定値の正本として保存せず、region と User Pool ID から構成する
 - Cognito App Client は client secret なしを前提とする
-- migration 用 ECS Task 定義は `AppRuntimeStack` に配置する前提で構成する
-- AWS dev では migration task を明示実行し、Web アプリ起動時の Flyway 自動実行を使わない
+- Phase 2 の AWS dev では `apps/web` 起動時に Flyway を自動実行する
+- Phase 2α までは migration 用 ECS Task 定義を作らない
+- Phase 2α で migration 用 ECS Task へ分離し、Web アプリ起動時の Flyway 自動実行を止める
 - AWS dev seed は再現可能な動作確認データとして Flyway で管理する
 - 実 Cognito の `sub` は seed に固定しない
 
@@ -270,6 +294,8 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、migration 用 ECS Task 
 - 本番 DB 構成
 - Multi-AZ
 - Blue/Green migration
+- MySQL 8.0
+- MySQL 9.x
 - 複雑なロールバック運用
 - Cognito ユーザー作成
 - Cognito `sub` と `users.cognito_sub` の実環境突合
@@ -280,17 +306,17 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、migration 用 ECS Task 
 
 `SecretStack` と `DataStack` を CDK で synth できる。
 ユーザーの AWS dev 環境で RDS と DB 接続 secret を作成できる。
-migration 用 ECS Task が RDS へ接続し、既存 migration と AWS dev seed を適用できる。
-同じ migration を再実行した場合、Flyway が適用対象なしとして正常終了する。
+AWS dev 用 Spring profile、DB 接続設定、Flyway locations、AWS dev seed の適用方針を実装できる。
+P2-3 で `apps/web` 起動時に既存 migration と AWS dev seed を適用できる状態になっている。
 
 ### 確認方針
 
-エージェントは、CDK synth、Spring Boot 設定の検証、Flyway migration のローカル適用、migration task 定義、secret と parameter の参照構造を確認します。
-ユーザーは、RDS の構成値、Secrets Manager と SSM Parameter Store の格納先、migration task の実行結果、RDS 上の Flyway 履歴と seed を確認します。
+エージェントは、CDK synth、Spring Boot 設定の検証、Flyway migration のローカル適用、secret と parameter の参照構造を確認します。
+ユーザーは、RDS の構成値、Secrets Manager と SSM Parameter Store の格納先、P2-3 で実行する `apps/web` 起動時 migration の確認手順を確認します。
 
 ### agent task 分割方針
 
-P2-2 着手前に、Secret / Data Stack、AWS dev 設定、migration task、AWS dev seed、検証記録の境界で agent task 分割案を提示します。
+P2-2 着手前に、Secret / Data Stack、AWS dev 設定、Spring Boot Flyway 設定、AWS dev seed、検証記録の境界で agent task 分割案を提示します。
 DDL や seed SQL の具体的なファイル分割は agent task 作成時に既存 migration を確認して決定します。
 
 ## P2-3. `apps/web` ECS Fargate 稼働
@@ -302,7 +328,7 @@ MVP で完成した `apps/web` を AWS dev 上で起動し、ALB 経由の healt
 ### 前提フェーズ
 
 - P2-2 が完了している
-- RDS に migration と AWS dev seed を適用できる
+- RDS、DB 接続 secret、AWS dev 用 Spring profile 設定を参照できる
 - ECR、CloudWatch Logs、ECS Cluster を利用できる
 
 ### 成果物
@@ -320,9 +346,9 @@ MVP で完成した `apps/web` を AWS dev 上で起動し、ALB 経由の healt
 - ECS Task Definition
 - ECS Service
 - Fargate task
-- migration 用 ECS Task 定義
 - Secrets Manager と SSM Parameter Store のタスク設定
 - dev profile 起動設定
+- Spring Boot 起動時 Flyway 実行設定
 - Spring Boot Actuator `/actuator/health`
 - CloudWatch Logs への標準ログ出力
 - 手動 deploy 手順
@@ -333,7 +359,8 @@ MVP で完成した `apps/web` を AWS dev 上で起動し、ALB 経由の healt
 - ALB は public subnet、ECS Fargate と RDS は private subnet に配置する
 - `EgressStack`、`EdgeStack`、`AppRuntimeStack` は実行確認セッション単位で作成する
 - 作成順序は `EgressStack`、`EdgeStack`、`AppRuntimeStack` とする
-- migration task の成功後に ECS Service の動作確認へ進む
+- `apps/web` の起動時に Flyway migration と AWS dev seed を適用する
+- 起動時 migration が失敗した場合、ECS task は正常稼働扱いにしない
 - ALB / ECS の health check は `/actuator/health` を使う
 - `/actuator/health` は Spring Security の認証対象外にする
 - ALB Cognito 認証は使わない
@@ -357,6 +384,7 @@ MVP で完成した `apps/web` を AWS dev 上で起動し、ALB 経由の healt
 実行確認セッションで `EgressStack`、`EdgeStack`、`AppRuntimeStack` を作成できる。
 ALB 経由で `/actuator/health` が成功する。
 `apps/web` が RDS に接続した状態で起動する。
+`apps/web` 起動時に Flyway migration と AWS dev seed を適用できる。
 確認後に `AppRuntimeStack`、`EdgeStack`、`EgressStack` を削除できる。
 
 ### 確認方針
@@ -580,13 +608,13 @@ AWS dev 上で、業務操作、認証、認可、利用者突合、例外を調
 ### 前提フェーズ
 
 - P2-6 が完了している
-- ECS アプリログと migration task ログが CloudWatch Logs へ出力される
+- ECS アプリログと `apps/web` 起動時 Flyway ログが CloudWatch Logs へ出力される
 - MVP の業務操作ログが実装済みである
 
 ### 成果物
 
 - ECS アプリログの確認手順
-- migration task ログの確認手順
+- `apps/web` 起動時 Flyway ログの確認手順
 - ECS task 停止理由の確認手順
 - 認証失敗ログ
 - 未ログインログ
@@ -623,7 +651,7 @@ AWS dev 上で、業務操作、認証、認可、利用者突合、例外を調
 
 ### 完了条件
 
-AWS dev 上で、MVP の主要業務操作、認証成功・失敗、認可拒否、`users` 突合失敗、actor type 不整合、アプリ例外、migration task 失敗を CloudWatch Logs から調査できる。
+AWS dev 上で、MVP の主要業務操作、認証成功・失敗、認可拒否、`users` 突合失敗、actor type 不整合、アプリ例外、`apps/web` 起動時 Flyway 失敗を CloudWatch Logs から調査できる。
 README に、事象ごとの確認先と確認手順が記載されている。
 
 ### 確認方針
@@ -640,12 +668,13 @@ P2-7 着手前に、Spring Security イベントログ、Cognito / DB 突合ロ�
 
 ### 目的
 
-長期アクセスキーを使わず、GitHub Actions の手動実行から AWS dev へテスト、build、migration、ECS 反映を再現可能にします。
+長期アクセスキーを使わず、GitHub Actions の手動実行から AWS dev へテスト、build、ECS 反映、`apps/web` 起動時 migration を再現可能にします。
+P2-8 の GitHub Actions OIDC deploy は Phase 2 の暫定 deploy 手段であり、Phase 2α 後の最終形ではありません。
 
 ### 前提フェーズ
 
 - P2-7 が完了している
-- 手動手順で CDK deploy、ECR push、migration task、ECS deploy が成功している
+- 手動手順で CDK deploy、ECR push、ECS deploy、`apps/web` 起動時 migration が成功している
 - GitHub repository と AWS account の OIDC 信頼設定を作成できる
 
 ### 成果物
@@ -661,8 +690,7 @@ P2-7 着手前に、Spring Security イベントログ、Cognito / DB 突合ロ�
 - Docker build
 - ECR push
 - CDK deploy
-- migration 用 ECS Task 実行
-- migration 完了待機と成否判定
+- `apps/web` 起動時 migration の成否確認
 - ECS deploy
 - 初回構築、初回 deploy、通常 deploy、失敗時確認の README
 
@@ -676,9 +704,12 @@ P2-7 着手前に、Spring Security イベントログ、Cognito / DB 突合ロ�
 - deploy トリガーは `workflow_dispatch` に限定する
 - docs だけの変更では deploy しない
 - `apps/web`、`infra/cdk`、Flyway migration の変更を deploy 対象とする
-- app deploy はテスト、Docker build、ECR push、CDK deploy、migration task、ECS deploy の順で実行する
-- migration task が失敗した場合は ECS deploy を実行しない
-- migration task は app deploy ごとに実行し、差分なしの場合は Flyway の正常終了を許可する
+- app deploy はテスト、Docker build、ECR push、CDK deploy、ECS deploy、`apps/web` 起動時 migration 確認の順で実行する
+- `apps/web` 起動時 migration が失敗した場合は deploy 失敗として扱う
+- migration の差分なしの場合は Flyway の正常終了を許可する
+- GitHub Actions 固有の分岐や独自処理を増やしすぎない
+- deploy 実体は CDK、リポジトリ内スクリプト、npm、Maven、Docker、AWS CLI の標準コマンドへ寄せる
+- Phase 2α で CodePipeline + CodeBuild へ移行できる形に保つ
 
 ### 除外範囲
 
@@ -686,6 +717,9 @@ P2-7 着手前に、Spring Security イベントログ、Cognito / DB 突合ロ�
 - 本番 deploy
 - 長期 AWS アクセスキー
 - 複雑な承認フロー
+- GitHub Actions の恒久利用
+- PR レビューゲート
+- CodeDeploy
 - Blue/Green deploy
 - Canary deploy
 - マルチアカウント構成
@@ -695,17 +729,17 @@ P2-7 着手前に、Spring Security イベントログ、Cognito / DB 突合ロ�
 
 GitHub Actions の `workflow_dispatch` から AWS dev へ接続できる。
 `infra-dev` で対象インフラを deploy できる。
-`app-deploy-dev` でテスト、Docker build、ECR push、migration task、ECS 反映を順番どおり実行できる。
-migration task が失敗した場合に ECS deploy が実行されない。
+`app-deploy-dev` でテスト、Docker build、ECR push、ECS 反映、`apps/web` 起動時 migration 確認を順番どおり実行できる。
+`apps/web` 起動時 migration が失敗した場合に deploy 失敗として扱える。
 
 ### 確認方針
 
-エージェントは、workflow 構文、action の入力、OIDC trust 条件、IAM 最小権限、path filter、migration 成否判定、秘密情報の非埋め込みを確認します。
-ユーザーは、GitHub の `workflow_dispatch`、OIDC 認証、各 job のログ、migration 成功時の deploy、migration 失敗時の停止を確認します。
+エージェントは、workflow 構文、action の入力、OIDC trust 条件、IAM 最小権限、path filter、`apps/web` 起動時 migration 成否判定、秘密情報の非埋め込みを確認します。
+ユーザーは、GitHub の `workflow_dispatch`、OIDC 認証、各 job のログ、`apps/web` 起動時 migration 成功時の deploy、migration 失敗時の扱いを確認します。
 
 ### agent task 分割方針
 
-P2-8 着手前に、OIDC / IAM、`infra-dev`、`app-deploy-dev`、migration 制御、README と失敗確認の境界で agent task 分割案を提示します。
+P2-8 着手前に、OIDC / IAM、`infra-dev`、`app-deploy-dev`、`apps/web` 起動時 migration 確認、README と失敗確認の境界で agent task 分割案を提示します。
 自動 deploy や本番 deploy を task に含めません。
 
 ## P2-9. 総合確認・README 整理
@@ -725,13 +759,14 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 - Phase 2 総合確認結果
 - AWS dev 初回構築手順
 - 実行確認セッション開始手順
-- migration 手順
+- `apps/web` 起動時 migration 手順
 - アプリ deploy 手順
 - PLATFORM / TENANT ログイン確認手順
 - ユーザー作成・権限確認手順
 - CloudWatch Logs 調査手順
 - 実行確認セッション終了時の削除手順
 - GitHub Actions 再 deploy 手順
+- Phase 2α への引き継ぎ事項
 - トラブル時確認手順
 - Phase 2 の構成と設計判断を説明する README
 
@@ -743,6 +778,8 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 - P2-1 から P2-8 の重複手順を整理し、README を再現の入口にする
 - Phase 2 で扱わない機能を実装済みとして記載しない
 - 未確認事項は確認済みとして記載しない
+- P2-8 の GitHub Actions OIDC deploy が暫定手段であることを README に明記する
+- Phase 2α で CodePipeline + CodeBuild へ移行し、GitHub Actions workflow を撤去する前提を README に明記する
 
 ### 除外範囲
 
@@ -755,13 +792,14 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 - SSO
 - 高度な監視・可観測性
 - 新規業務機能
+- Phase 2α の CodePipeline / CodeBuild 実装
 
 ### 完了条件
 
 次の項目を実装結果と確認結果で説明できる。
 
 - AWS dev 環境を CDK で構築できる
-- RDS に Flyway migration と AWS dev seed を適用できる
+- `apps/web` 起動時に RDS へ Flyway migration と AWS dev seed を適用できる
 - `apps/web` が ECS Fargate で動作する
 - ALB 経由の `/actuator/health` が成功する
 - Cognito Hosted UI でログインできる
@@ -771,8 +809,9 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 - PLATFORM_ADMIN が会社と初期 TENANT_MANAGER を作成できる
 - TENANT_MANAGER が自社ユーザーと権限を管理できる
 - CloudWatch Logs から業務操作、認証、認可、例外を調査できる
-- GitHub Actions の `workflow_dispatch` から migration と deploy を再現できる
+- GitHub Actions の `workflow_dispatch` から `apps/web` 起動時 migration と deploy を再現できる
 - README に従って構築、確認、削除、再 deploy ができる
+- Phase 2α で AWS ネイティブ CI/CD へ移行する対象と、GitHub Actions workflow の撤去方針を説明できる
 
 ### 確認方針
 
@@ -783,6 +822,78 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 
 P2-9 着手前に、機械的総合確認、AWS 実環境シナリオ、README 整理、Phase 2 完了記録の境界で agent task 分割案を提示します。
 P2-9 では新規業務機能を追加しません。
+
+## Phase 2α. CI/CD AWS ネイティブ化
+
+### 目的
+
+P2-8 の暫定 GitHub Actions OIDC deploy を、AWS 側で完結する CodePipeline + CodeBuild 構成へ移行します。
+あわせて、Phase 2 で `apps/web` 起動時に実行していた Flyway migration を、migration 用 ECS Task として分離します。
+既存 Phase 3 から Phase 5 の番号は変更せず、Phase 3 の外部提供 API より前に CI/CD を AWS ネイティブ化します。
+
+### 前提フェーズ
+
+- P2-9 が完了している
+- GitHub Actions OIDC deploy で AWS dev への build、deploy、確認が再現できる
+- Phase 2 の Stack、ECR、ECS、RDS、Logs の構成が README から再現できる
+
+### 成果物
+
+- CodePipeline
+- CodeConnections による GitHub source 接続
+- 品質チェック、Docker build、ECR push を行う CodeBuild project
+- migration 用 ECS Task 定義
+- migration 用 ECS Task の実行、完了待機、exitCode 確認を行う CodeBuild project
+- deploy を行う CodeBuild project
+- GitHub push を起点に AWS 側 pipeline が起動する構成
+- GitHub Actions workflow の撤去
+- CodePipeline / CodeBuild の README
+
+### 実装方針
+
+- GitHub を CodeConnections で CodePipeline へ直結する
+- GitHub Actions を CodePipeline 起動トリガーにしない
+- GitHub push を CodePipeline の source event として扱う
+- CodeBuild で lint、test、CDK synth、CDK assertions、Docker build を実行する
+- CodeBuild から ECR push を実行する
+- migration 用 ECS Task を単発実行し、完了待機と exitCode 確認を行う
+- migration 用 ECS Task が失敗した場合は AWS dev への deploy を進めない
+- migration 用 ECS Task へ分離した後、AWS dev の `apps/web` 起動時 Flyway 自動実行を止める
+- deploy 側の CodeBuild で AWS dev への反映と確認を行う
+- ECS Service は CodeDeploy deployment controller にしない
+- Blue/Green deploy と Canary deploy は作らない
+- rolling deploy を前提にし、CDK deploy で管理できる構成にする
+- Phase 2α 完了時に GitHub Actions workflow を完全撤去する
+
+### 除外範囲
+
+- Phase 3 の外部提供 API
+- `apps/api`
+- API 用 ECS Service
+- CodeDeploy
+- Blue/Green deploy
+- Canary deploy
+- 複雑な承認フロー
+- GitHub Actions の恒久利用
+- PR レビューゲート
+
+### 完了条件
+
+GitHub push から CodePipeline が起動する。
+CodeBuild で品質チェック、Docker build、ECR push、AWS dev への deploy を実行できる。
+migration 用 ECS Task の実行、完了待機、exitCode 確認を実行できる。
+AWS dev の `apps/web` 起動時 Flyway 自動実行が止まっている。
+GitHub Actions workflow が撤去され、CI/CD の説明が AWS 側に寄っている。
+CodeDeploy、Blue/Green deploy、Canary deploy、PR レビューゲートを使っていないことを説明できる。
+
+### 確認方針
+
+エージェントは、pipeline 定義、CodeBuild buildspec、IAM 権限、CDK synth、workflow 撤去差分、README を確認します。
+ユーザーは、CodeConnections 認可、GitHub push による pipeline 起動、CodeBuild ログ、AWS dev 反映結果を確認します。
+
+### agent task 分割方針
+
+Phase 2α 着手前に、CodeConnections / CodePipeline、CodeBuild 品質チェック、CodeBuild deploy、GitHub Actions 撤去、README と確認記録の境界で agent task 分割案を提示します。
 
 ## Phase 2 では扱わないもの
 
@@ -814,6 +925,11 @@ P2-9 では新規業務機能を追加しません。
 - RAG
 - VPC Endpoint
 - Container Insights
+- CodeDeploy
+- Blue/Green deploy
+- Canary deploy
+- GitHub Actions の恒久利用
+- PR レビューゲート
 - CloudWatch Alarm
 - Observability Dashboard
 - OpenTelemetry
