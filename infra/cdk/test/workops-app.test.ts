@@ -260,8 +260,13 @@ describe('WorkOps CDK app', () => {
     });
     const dataTemplate = Template.fromStack(dataStack);
     const foundationTemplate = Template.fromStack(foundationStack);
+    const dataTemplateText = JSON.stringify(dataTemplate.toJSON());
 
     dataTemplate.resourceCountIs('AWS::RDS::DBInstance', 1);
+    dataTemplate.resourceCountIs('AWS::EC2::Instance', 0);
+    dataTemplate.resourceCountIs('AWS::IAM::Role', 0);
+    dataTemplate.resourceCountIs('AWS::IAM::InstanceProfile', 0);
+    dataTemplate.resourceCountIs('AWS::IAM::Policy', 0);
     dataTemplate.hasResourceProperties('AWS::RDS::DBSubnetGroup', {
       DBSubnetGroupName: 'workops-dev-db-subnet-group',
     });
@@ -278,6 +283,14 @@ describe('WorkOps CDK app', () => {
       PubliclyAccessible: false,
       StorageEncrypted: true,
       StorageType: 'gp2',
+      VPCSecurityGroups: Match.arrayWith([
+        {
+          'Fn::GetAtt': [
+            Match.stringLikeRegexp('RdsConsoleCloudShellSecurityGroup'),
+            'GroupId',
+          ],
+        },
+      ]),
     });
     dataTemplate.hasResource('AWS::RDS::DBInstance', {
       DeletionPolicy: 'Delete',
@@ -290,17 +303,50 @@ describe('WorkOps CDK app', () => {
         SecretStringTemplate: '{"username":"workops_admin"}',
       }),
     });
+    dataTemplate.hasResourceProperties('AWS::EC2::SecurityGroup', {
+      GroupDescription: 'WorkOps RDS Console CloudShell VPC security group',
+      GroupName: 'workops-dev-rds-console-cloudshell-sg',
+      SecurityGroupIngress: Match.absent(),
+    });
+    dataTemplate.hasResourceProperties('AWS::EC2::SecurityGroupEgress', {
+      Description: 'Allow RDS Console CloudShell VPC environment to reach MySQL',
+      DestinationSecurityGroupId: Match.anyValue(),
+      FromPort: 3306,
+      IpProtocol: 'tcp',
+      ToPort: 3306,
+    });
     foundationTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
       FromPort: 3306,
       IpProtocol: 'tcp',
       ToPort: 3306,
     });
+    dataTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
+      Description: 'Allow RDS Console CloudShell VPC environment to reach MySQL',
+      FromPort: 3306,
+      IpProtocol: 'tcp',
+      SourceSecurityGroupId: Match.anyValue(),
+      ToPort: 3306,
+    });
+    expect(dataTemplateText).toContain('workops-dev-rds-console-cloudshell-sg');
+    expect(dataTemplateText).not.toContain('al2023-ami');
+    expect(dataTemplateText).not.toContain('AmazonSSMManagedInstanceCore');
+    expect(dataTemplateText).not.toContain('AssociatePublicIpAddress');
+    expect(dataTemplateText).not.toContain('HttpTokens');
+    expect(dataTemplateText).not.toContain('DbAccessHost');
+    expect(dataTemplateText).not.toContain('secretsmanager:GetSecretValue');
+    expect(dataTemplateText).not.toContain('rds-db:connect');
+    expect(dataTemplateText).not.toContain('ssm:GetParameter');
     dataTemplate.hasOutput('rdsInstanceIdentifier', {});
     dataTemplate.hasOutput('rdsEndpointAddress', {});
     dataTemplate.hasOutput('rdsPort', {});
     dataTemplate.hasOutput('databaseName', {});
     dataTemplate.hasOutput('dbSubnetGroupName', {});
     dataTemplate.hasOutput('rdsMasterSecretArn', {});
+    dataTemplate.hasOutput('rdsConsoleCloudShellSecurityGroupId', {});
+    expect(JSON.stringify(dataTemplate.toJSON().Outputs)).not.toContain('PublicIp');
+    expect(JSON.stringify(dataTemplate.toJSON().Outputs)).not.toContain('password');
+    expect(JSON.stringify(dataTemplate.toJSON().Outputs)).not.toContain('secretValue');
+    expect(JSON.stringify(dataTemplate.toJSON().Outputs)).not.toContain('dbAccessHostInstanceId');
   });
 
   test('creates the ConfigStack non-secret parameters in P2-2-01', () => {

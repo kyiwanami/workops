@@ -16,6 +16,7 @@ export class DataStack extends Stack {
   public readonly databasePort: string;
   public readonly endpointAddress: string;
   public readonly instance: DatabaseInstance;
+  public readonly rdsConsoleCloudShellSecurityGroup: SecurityGroup;
   public readonly subnetGroup: SubnetGroup;
 
   constructor(scope: Construct, id: string, props: DataStackProps) {
@@ -33,6 +34,24 @@ export class DataStack extends Stack {
         subnets: props.dbSubnets,
       },
     });
+
+    // RDS Console integrated CloudShell attaches the DB security groups to its VPC environment.
+    this.rdsConsoleCloudShellSecurityGroup = new SecurityGroup(this, 'RdsConsoleCloudShellSecurityGroup', {
+      allowAllOutbound: false,
+      description: 'WorkOps RDS Console CloudShell VPC security group',
+      securityGroupName: `workops-${props.stage}-rds-console-cloudshell-sg`,
+      vpc: props.vpc,
+    });
+    this.rdsConsoleCloudShellSecurityGroup.addEgressRule(
+      this.rdsConsoleCloudShellSecurityGroup,
+      Port.tcp(3306),
+      'Allow RDS Console CloudShell VPC environment to reach MySQL',
+    );
+    this.rdsConsoleCloudShellSecurityGroup.addIngressRule(
+      this.rdsConsoleCloudShellSecurityGroup,
+      Port.tcp(3306),
+      'Allow RDS Console CloudShell VPC environment to reach MySQL',
+    );
 
     props.dbSecurityGroup.addIngressRule(
       props.appSecurityGroup,
@@ -57,7 +76,7 @@ export class DataStack extends Stack {
       multiAz: false,
       publiclyAccessible: false,
       removalPolicy: RemovalPolicy.DESTROY,
-      securityGroups: [props.dbSecurityGroup],
+      securityGroups: [props.dbSecurityGroup, this.rdsConsoleCloudShellSecurityGroup],
       storageEncrypted: true,
       storageType: StorageType.GP2,
       subnetGroup: this.subnetGroup,
@@ -90,6 +109,9 @@ export class DataStack extends Stack {
     });
     new CfnOutput(this, 'rdsMasterSecretArn', {
       value: masterSecret.secretArn,
+    });
+    new CfnOutput(this, 'rdsConsoleCloudShellSecurityGroupId', {
+      value: this.rdsConsoleCloudShellSecurityGroup.securityGroupId,
     });
   }
 }
