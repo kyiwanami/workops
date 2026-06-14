@@ -5,9 +5,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { Construct } from 'constructs';
 import { ConfigStack } from '../lib/config-stack';
+import { DataStack } from '../lib/data-stack';
 import { FoundationStack } from '../lib/foundation-stack';
 import { LogsStack } from '../lib/logs-stack';
 import { RegistryStack } from '../lib/registry-stack';
+import { SecretStack } from '../lib/secret-stack';
 
 class TaggedResourceStack extends Stack {
   constructor(scope: Construct, id: string) {
@@ -26,7 +28,22 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-foundation`,
     });
+    const secretStack = new SecretStack(app, 'SecretStack', {
+      stackName: `workops-${stage}-secret`,
+    });
+    const dataStack = new DataStack(app, 'DataStack', {
+      appSecurityGroup: foundationStack.appSecurityGroup,
+      dbSecurityGroup: foundationStack.dbSecurityGroup,
+      dbSubnets: foundationStack.dbSubnets,
+      stage,
+      stackName: `workops-${stage}-data`,
+      vpc: foundationStack.vpc,
+    });
     const configStack = new ConfigStack(app, 'ConfigStack', {
+      dbEndpointAddress: dataStack.endpointAddress,
+      dbName: dataStack.databaseName,
+      dbPort: dataStack.databasePort,
+      stage,
       stackName: `workops-${stage}-config`,
     });
     const registryStack = new RegistryStack(app, 'RegistryStack', {
@@ -39,6 +56,8 @@ describe('WorkOps CDK app', () => {
     });
 
     expect(foundationStack.stackName).toBe('workops-dev-foundation');
+    expect(secretStack.stackName).toBe('workops-dev-secret');
+    expect(dataStack.stackName).toBe('workops-dev-data');
     expect(configStack.stackName).toBe('workops-dev-config');
     expect(registryStack.stackName).toBe('workops-dev-registry');
     expect(logsStack.stackName).toBe('workops-dev-logs');
@@ -213,15 +232,110 @@ describe('WorkOps CDK app', () => {
     template.hasOutput('migrationLogGroupName', {});
   });
 
-  test('keeps the ConfigStack empty in P2-1', () => {
+  test('creates the SecretStack without secret resources in P2-2-01', () => {
+    const app = new App();
+    const stage = 'dev';
+    const secretStack = new SecretStack(app, 'SecretStack', {
+      stackName: `workops-${stage}-secret`,
+    });
+    const template = Template.fromStack(secretStack);
+
+    template.resourceCountIs('AWS::SecretsManager::Secret', 0);
+  });
+
+  test('creates the DataStack database resources', () => {
+    const app = new App();
+    const stage = 'dev';
+    const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      stage,
+      stackName: `workops-${stage}-foundation`,
+    });
+    const dataStack = new DataStack(app, 'DataStack', {
+      appSecurityGroup: foundationStack.appSecurityGroup,
+      dbSecurityGroup: foundationStack.dbSecurityGroup,
+      dbSubnets: foundationStack.dbSubnets,
+      stage,
+      stackName: `workops-${stage}-data`,
+      vpc: foundationStack.vpc,
+    });
+    const dataTemplate = Template.fromStack(dataStack);
+    const foundationTemplate = Template.fromStack(foundationStack);
+
+    dataTemplate.resourceCountIs('AWS::RDS::DBInstance', 1);
+    dataTemplate.hasResourceProperties('AWS::RDS::DBSubnetGroup', {
+      DBSubnetGroupName: 'workops-dev-db-subnet-group',
+    });
+    dataTemplate.hasResourceProperties('AWS::RDS::DBInstance', {
+      AllocatedStorage: '20',
+      BackupRetentionPeriod: 1,
+      DBInstanceClass: 'db.t4g.micro',
+      DBInstanceIdentifier: 'workops-dev-db',
+      DBName: 'workops',
+      DeletionProtection: false,
+      Engine: 'mysql',
+      EngineVersion: '8.4.9',
+      MultiAZ: false,
+      PubliclyAccessible: false,
+      StorageEncrypted: true,
+      StorageType: 'gp2',
+    });
+    dataTemplate.hasResource('AWS::RDS::DBInstance', {
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    dataTemplate.hasResourceProperties('AWS::SecretsManager::Secret', {
+      Name: '/workops/dev/db/master',
+      GenerateSecretString: Match.objectLike({
+        GenerateStringKey: 'password',
+        SecretStringTemplate: '{"username":"workops_admin"}',
+      }),
+    });
+    foundationTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
+      FromPort: 3306,
+      IpProtocol: 'tcp',
+      ToPort: 3306,
+    });
+    dataTemplate.hasOutput('rdsInstanceIdentifier', {});
+    dataTemplate.hasOutput('rdsEndpointAddress', {});
+    dataTemplate.hasOutput('rdsPort', {});
+    dataTemplate.hasOutput('databaseName', {});
+    dataTemplate.hasOutput('dbSubnetGroupName', {});
+    dataTemplate.hasOutput('rdsMasterSecretArn', {});
+  });
+
+  test('creates the ConfigStack non-secret parameters in P2-2-01', () => {
     const app = new App();
     const stage = 'dev';
     const configStack = new ConfigStack(app, 'ConfigStack', {
+      dbEndpointAddress: 'workops-dev-db.example.ap-northeast-1.rds.amazonaws.com',
+      dbName: 'workops',
+      dbPort: '3306',
+      stage,
       stackName: `workops-${stage}-config`,
     });
     const template = Template.fromStack(configStack);
 
-    template.resourceCountIs('AWS::SSM::Parameter', 0);
+    template.resourceCountIs('AWS::SSM::Parameter', 4);
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/spring/profile',
+      Type: 'String',
+      Value: 'dev',
+    });
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/db/name',
+      Type: 'String',
+      Value: 'workops',
+    });
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/db/port',
+      Type: 'String',
+      Value: '3306',
+    });
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/db/url',
+      Type: 'String',
+      Value: 'jdbc:mysql://workops-dev-db.example.ap-northeast-1.rds.amazonaws.com:3306/workops?useSSL=true&serverTimezone=Asia/Tokyo',
+    });
   });
 
   test('keeps npm scripts minimal and independent from dotenv', () => {

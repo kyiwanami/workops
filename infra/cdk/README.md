@@ -18,10 +18,23 @@
 - `ConfigStack`
   - P2-1 時点では空 Stack
 
-## P2-1 で作らないもの
+## P2-2-01 で追加するもの
 
-- RDS
-- Secrets Manager
+- `SecretStack`
+  - P2-2-01 時点では将来の独立 secret 置き場として空 Stack
+- `DataStack`
+  - RDS for MySQL 8.4.9 `workops-dev-db`
+  - DB Subnet Group `workops-dev-db-subnet-group`
+  - RDS master secret `/workops/dev/db/master`
+  - `app-sg` から `db-sg` への TCP 3306 inbound rule
+- `ConfigStack`
+  - `/workops/dev/spring/profile`
+  - `/workops/dev/db/name`
+  - `/workops/dev/db/port`
+  - `/workops/dev/db/url`
+
+## P2-2-01 で作らないもの
+
 - Cognito
 - ALB
 - NAT Gateway
@@ -29,8 +42,9 @@
 - Fargate task
 - Dockerfile
 - Docker build / ECR push
-- SSM Parameter 実体
 - GitHub Actions workflow
+- DB access host
+- Flyway profile / seed 分割
 
 ## ローカル前提
 
@@ -101,9 +115,11 @@ $env:AWS_REGION = "ap-northeast-1"
 npm run cdk -- deploy --all
 ```
 
-deploy 対象 Stack は次の4つです。
+P2-2-01 後の deploy 対象 Stack は次の6つです。
 
 - `workops-dev-foundation`
+- `workops-dev-secret`
+- `workops-dev-data`
 - `workops-dev-config`
 - `workops-dev-registry`
 - `workops-dev-logs`
@@ -113,6 +129,8 @@ deploy 対象 Stack は次の4つです。
 CloudFormation:
 
 - `workops-dev-foundation`
+- `workops-dev-secret`
+- `workops-dev-data`
 - `workops-dev-config`
 - `workops-dev-registry`
 - `workops-dev-logs`
@@ -129,7 +147,31 @@ Security Group:
 - `workops-dev-alb-sg`
 - `workops-dev-app-sg`
 - `workops-dev-db-sg`
-- P2-1 時点で inbound rule が追加されていない
+- P2-2-01 後は `workops-dev-app-sg` から `workops-dev-db-sg` への TCP 3306 inbound rule がある
+
+RDS:
+
+- DB identifier が `workops-dev-db`
+- Engine が MySQL 8.4.9
+- Instance class が `db.t4g.micro`
+- Storage が 20 GiB / gp2
+- Single-AZ
+- Public accessibility が false
+- Backup retention が1日
+- Deletion protection が false
+
+Secrets Manager:
+
+- `/workops/dev/db/master`
+- secret JSON は `username` / `password` を持つ
+- username は `workops_admin`
+
+Systems Manager Parameter Store:
+
+- `/workops/dev/spring/profile`
+- `/workops/dev/db/name`
+- `/workops/dev/db/port`
+- `/workops/dev/db/url`
 
 ECS:
 
@@ -150,12 +192,13 @@ CloudWatch Logs:
 CloudFormation Outputs:
 
 - FoundationStack の VPC / subnet / Security Group / ECS Cluster 情報
+- DataStack の RDS identifier / endpoint / port / DB name / subnet group / master secret ARN
 - RegistryStack の repository 情報
 - LogsStack の log group 名
 
 ## Destroy
 
-P2-1単体確認後、または Phase 2 全撤去時に4 Stackを削除します。
+P2-1単体確認後、または Phase 2 全撤去時にStackを削除します。
 
 ```powershell
 cd C:\git\workops\infra\cdk
@@ -174,10 +217,14 @@ ECR repository は `RemovalPolicy.DESTROY` と `emptyOnDelete: true` を明示�
 - `WORKOPS_STAGE` はCDK contextではなく環境変数で渡します。
 - ローカルとGitHub Actionsは同じ `WORKOPS_STAGE` 名で stage を渡します。
 - GitHub Actions の OIDC と `aws-region` 指定は P2-8 で扱います。
-- `ConfigStack` はP2-1では空 Stack として deploy 対象に含めます。
+- `ConfigStack` はP2-2-01から非機密SSM Parameterを管理します。
+- `SecretStack` はP2-2-01では空 Stack とし、app用secretやmigration用secretを作りません。
+- RDS master secret はRDS lifecycleに合わせるため `DataStack` に置きます。
+- Stack間参照は同一CDK app内のprops参照で渡し、cross-stack reference は `weak` に固定します。
+- `weak` により、生成テンプレートは `Fn::ImportValue` ではなく `Fn::GetStackOutput` を使います。
 - LogsStack は `AppRuntimeStack` 削除後も Phase 2 期間中の調査ログを残すため独立 Stack にします。
 - ECR image は再生成可能な成果物として扱い、非空 repository を理由に `destroy --all` を失敗させません。
-- SSM Parameter Store Standard のパス規約は `/workops/{stage}/...` とし、P2-3以降で確定した非機密値を追加します。
+- SSM Parameter Store Standard のパス規約は `/workops/{stage}/...` とし、秘匿値は入れません。
 
 ## CDK デフォルトに任せるもの
 
@@ -198,9 +245,10 @@ ECR repository は `RemovalPolicy.DESTROY` と `emptyOnDelete: true` を明示�
 - `app` と `db` subnet は P2-1 時点で `PRIVATE_ISOLATED`
 - NAT Gateway は `0`
 - Security Group は `alb-sg`、`app-sg`、`db-sg`
-- P2-1では Security Group inbound rule を追加しない
+- P2-2-01では `app-sg` から `db-sg` への TCP 3306 inbound rule を追加する
 - migration task は `app-sg` を使い、`migration-sg` は作らない
 - CloudWatch Logs retention は7日
 - CloudWatch Logs は `RemovalPolicy.DESTROY`
 - ECR repository は `RemovalPolicy.DESTROY` と `emptyOnDelete: true`
 - `AWS_REGION`、`retentionDays`、ECR repository 名は SSM に入れない
+- DB username、DB password は SSM に入れない

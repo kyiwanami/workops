@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { App, Environment, Tags } from 'aws-cdk-lib';
 import { ConfigStack } from '../lib/config-stack';
+import { DataStack } from '../lib/data-stack';
 import { FoundationStack } from '../lib/foundation-stack';
 import { LogsStack } from '../lib/logs-stack';
 import { RegistryStack } from '../lib/registry-stack';
+import { SecretStack } from '../lib/secret-stack';
 
 declare global {
   namespace NodeJS {
@@ -25,13 +27,30 @@ Tags.of(app).add('Project', 'WorkOps');
 Tags.of(app).add('Environment', stage);
 Tags.of(app).add('ManagedBy', 'CDK');
 
-new FoundationStack(app, 'FoundationStack', {
+const foundationStack = new FoundationStack(app, 'FoundationStack', {
   env,
   stage,
   stackName: `workops-${stage}-foundation`,
 });
-new ConfigStack(app, 'ConfigStack', {
+new SecretStack(app, 'SecretStack', {
   env,
+  stackName: `workops-${stage}-secret`,
+});
+const dataStack = new DataStack(app, 'DataStack', {
+  appSecurityGroup: foundationStack.appSecurityGroup,
+  dbSecurityGroup: foundationStack.dbSecurityGroup,
+  dbSubnets: foundationStack.dbSubnets,
+  env,
+  stage,
+  stackName: `workops-${stage}-data`,
+  vpc: foundationStack.vpc,
+});
+new ConfigStack(app, 'ConfigStack', {
+  dbEndpointAddress: dataStack.endpointAddress,
+  dbName: dataStack.databaseName,
+  dbPort: dataStack.databasePort,
+  env,
+  stage,
   stackName: `workops-${stage}-config`,
 });
 new RegistryStack(app, 'RegistryStack', {
