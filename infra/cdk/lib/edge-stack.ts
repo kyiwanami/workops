@@ -1,4 +1,4 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import { CfnSecurityGroupIngress, ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import {
   ApplicationLoadBalancer,
@@ -64,7 +64,12 @@ export class EdgeStack extends Stack {
     this.listener = this.loadBalancer.addListener('HttpListener', {
       port: 80,
       protocol: ApplicationProtocol.HTTP,
+      open: false,
       defaultTargetGroups: [this.targetGroup],
+    });
+
+    new CfnOutput(this, 'albDnsName', {
+      value: this.loadBalancer.loadBalancerDnsName,
     });
   }
 }

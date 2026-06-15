@@ -11,6 +11,7 @@ P2-3 の AWS dev 実行確認結果を整理し、CloudWatch Logs、RDS 上の F
 - `flyway_schema_history` を確認する
 - seed 件数を確認する
 - destroy 順序は `AppRuntimeStack`、`EdgeStack`、`EgressStack` とする
+- P2-3 の一時実行確認で再deployした `DataStack` の扱いを明示する
 - README / task に記録する
 - `/workops/dev/migration` は P2-3 では使わない
 
@@ -20,7 +21,7 @@ P2-3 の AWS dev 実行確認結果を整理し、CloudWatch Logs、RDS 上の F
 - HTTP ALB 経由で `/actuator/health` が HTTP 200 を返している
 - ECS task が `RUNNING` で Target Group が healthy である
 - RDS Console integrated CloudShell VPC による DB 接続確認はユーザー確認として扱う
-- `DataStack` 再deployとRDS接続再確認は P2-3 task に含めない
+- P2-3-04 で `DataStack` を再deployしている
 
 ## 案
 
@@ -29,8 +30,9 @@ P2-3 の AWS dev 実行確認結果を整理し、CloudWatch Logs、RDS 上の F
 - `/workops/dev/migration` は P2-3 では使わないことを確認する
 - RDS Console integrated CloudShell VPC から MySQL に接続する
 - `flyway_schema_history` で `V1` から `V8` の success を確認する
-- AWS dev seed の主要件数を確認する
+- local seed の主要件数を確認する
 - 実行確認セッション終了後に `AppRuntimeStack`、`EdgeStack`、`EgressStack` の順で destroy する
+- RDS 課金を止める場合は、P2-3 の一時実行確認で再deployした `DataStack` も destroy する
 - P2-3 の確認結果と P2-4 への引き継ぎを記録する
 
 ## ADR
@@ -39,7 +41,10 @@ P2-3 の AWS dev 実行確認結果を整理し、CloudWatch Logs、RDS 上の F
 - Flyway ログは `/workops/dev/web` に出す。P2-3 では migration 用 ECS Task を作らず、`apps/web` 起動時 Flyway を維持するため。
 - `/workops/dev/migration` は P2-3 では使わない。migration 用 ECS Task 分離は Phase 2α の責務であるため。
 - destroy 順序は `AppRuntimeStack`、`EdgeStack`、`EgressStack` とする。ECS service、ALB、NAT の依存関係に合わせるため。
+- `EdgeStack` / `AppRuntimeStack` が所有する ALB 80 ingress と ALB から app 8080 ingress は、各 Stack destroy で削除する。実行確認セッション終了後に公開口とruntime接続ruleを残さないため。
 - `AppRuntimeStack` は `desiredCount=0` で残さない。P2-3 の実行確認セッション終了後に削除する方針であるため。
+- `DataStack` はRDSを含むため、残すとRDS課金が継続する。P2-3確認後に課金を止める目的では `DataStack` も destroy 対象にする。
+- `DataStack` destroy は P2-3-04 で再deployした検証用RDSを削除する操作として扱う。既存データ移行と後方互換性は考慮しない。
 - 既存データ移行と後方互換性は考慮しない。
 
 ## 対応範囲
@@ -47,6 +52,7 @@ P2-3 の AWS dev 実行確認結果を整理し、CloudWatch Logs、RDS 上の F
 - CloudWatch Logs 確認手順を記録する
 - RDS 上の Flyway / seed 確認 SQL を記録する
 - destroy 手順を記録する
+- `DataStack` を残す場合と削除する場合の課金差分を記録する
 - P2-3 のエージェント確認結果を記録する
 - P2-3 のユーザー確認結果を記録する
 - root README または `infra/cdk/README.md` に必要な恒久手順だけを反映する
@@ -77,10 +83,11 @@ P2-3 の AWS dev 実行確認結果を整理し、CloudWatch Logs、RDS 上の F
 - `/workops/dev/web` で Flyway 起動ログを確認できる
 - `/workops/dev/migration` を P2-3 で使っていない
 - `flyway_schema_history` で `V1` から `V8` が success になっている
-- AWS dev seed の主要件数が期待値どおりである
+- local seed の主要件数が期待値どおりである
 - `AppRuntimeStack` を destroy できる
 - `EdgeStack` を destroy できる
 - `EgressStack` を destroy できる
+- RDS課金を止める場合、`DataStack` を destroy できる
 - P2-3 の確認結果が task Markdown に記録されている
 - P2-4 への引き継ぎ事項が記録されている
 
@@ -121,7 +128,7 @@ FROM flyway_schema_history
 WHERE version IN ('1', '2', '3', '4', '5', '6', '7', '8')
 ORDER BY installed_rank;
 
-SELECT COUNT(*) AS aws_dev_cognito_sub_count
+SELECT COUNT(*) AS local_cognito_sub_count
 FROM users
 WHERE cognito_sub IS NOT NULL;
 
@@ -136,7 +143,7 @@ SELECT COUNT(*) AS requests_count FROM requests;
 期待値:
 
 - `flyway_schema_history`: `V1` から `V8` が success
-- `aws_dev_cognito_sub_count`: `0`
+- `local_cognito_sub_count`: `7`
 - `companies`: `2`
 - `users`: `7`
 - `permission_sets`: `4`
@@ -154,9 +161,37 @@ npm run cdk -- destroy EdgeStack
 npm run cdk -- destroy EgressStack
 ```
 
+RDS課金を止める場合は、実行確認セッション終了後に `DataStack` も削除する:
+
+```powershell
+cd C:\git\workops\infra\cdk
+$env:WORKOPS_STAGE='dev'
+npm run cdk -- destroy DataStack
+```
+
 削除後に確認する:
 
 - `workops-dev-app-runtime` が削除済み
 - `workops-dev-edge` が削除済み
 - `workops-dev-egress` が削除済み
-- P2-2 の維持対象 Stack は削除していない
+- `DataStack` を削除した場合、`workops-dev-data` が削除済み
+- `FoundationStack` に P2-3 実行確認用の ALB 80 ingress と ALB から app 8080 ingress が残っていない
+- `DataStack` を残した場合、RDS課金が継続する
+
+---
+
+## 実施時の記録
+
+### P2-3-04からの引き継ぎ
+
+- `AppRuntimeStack` は `SPRING_PROFILES_ACTIVE=local` でdeploy済み。
+- `workops-dev-app-runtime` は `CREATE_COMPLETE`。
+- ECS Service `workops-dev-web` は desired `1`、running `1`、pending `0`、rollout `COMPLETED`。
+- Target Group target は `healthy`。
+- HTTP ALB経由 `/actuator/health` は HTTP `200`。
+- health response body は `{"groups":["liveness","readiness"],"status":"UP"}`。
+- CloudWatch Logs `/workops/dev/web` で active profile `local`、RDS接続、Flyway `V1` から `V8` 適用、Tomcat 8080起動を確認済み。
+- ユーザーがブラウザからWeb画面へ到達できることを確認済み。
+- コンテナ / JVM の時刻表示は UTC に見える。P2-4以降で `TZ=Asia/Tokyo` または `JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Tokyo` の採否を決める。
+- P2-3ではCognito Hosted UI / users突合を扱わないため、local profileでのECS起動確認に切り替えた。
+- local seedが一時RDSに入っているため、P2-3確認後にRDS課金を止める場合は `DataStack` もdestroyする。

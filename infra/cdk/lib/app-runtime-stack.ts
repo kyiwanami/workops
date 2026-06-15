@@ -3,6 +3,7 @@ import { CfnSecurityGroupIngress, ISubnet, SecurityGroup } from 'aws-cdk-lib/aws
 import { IRepository } from 'aws-cdk-lib/aws-ecr';
 import {
   Cluster,
+  CfnService,
   ContainerImage,
   CpuArchitecture,
   FargateService,
@@ -74,7 +75,7 @@ export class AppRuntimeStack extends Stack {
       containerName: 'web',
       image: ContainerImage.fromEcrRepository(props.repository, 'p2-3-manual'),
       environment: {
-        SPRING_PROFILES_ACTIVE: 'dev',
+        SPRING_PROFILES_ACTIVE: 'local',
       },
       secrets: {
         WORKOPS_DB_URL: EcsSecret.fromSsmParameter(dbUrlParameter),
@@ -110,6 +111,19 @@ export class AppRuntimeStack extends Stack {
       },
     });
 
-    this.service.attachToApplicationTargetGroup(props.targetGroup);
+    const serviceResource = this.service.node.defaultChild;
+    if (!(serviceResource instanceof CfnService)) {
+      throw new Error('WebService must synthesize an ECS CfnService');
+    }
+
+    // The service target group is wired at the CfnService level to avoid mutating shared security groups.
+    serviceResource.loadBalancers = [
+      {
+        containerName: 'web',
+        containerPort: 8080,
+        targetGroupArn: props.targetGroup.targetGroupArn,
+      },
+    ];
+    this.service.node.addDependency(props.targetGroup);
   }
 }

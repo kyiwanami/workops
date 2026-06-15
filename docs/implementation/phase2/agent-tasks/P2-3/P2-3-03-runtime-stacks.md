@@ -70,7 +70,7 @@ AWS dev 上で `apps/web` を HTTP ALB 経由で起動確認するため、実�
 - deployment circuit breaker は rollback enabled とする
 - container image は `workops-${stage}-web:p2-3-manual` を参照する
 - container log driver は awslogs とし、log group は `/workops/${stage}/web`、stream prefix は `web` とする
-- container environment は `SPRING_PROFILES_ACTIVE=dev` を設定する
+- container environment は `SPRING_PROFILES_ACTIVE=local` を設定する
 - `WORKOPS_DB_URL` は `/workops/${stage}/db/url` から渡す
 - `WORKOPS_DB_USERNAME` と `WORKOPS_DB_PASSWORD` は `/workops/${stage}/db/master` の `username` / `password` から渡す
 - Task Role は必要な Secrets Manager / SSM Parameter 読み取り権限を持つ
@@ -176,7 +176,8 @@ ECS secret注入に必要な SSM / Secrets Manager 読み取り権限は、ECS a
 - `EgressStack` で NAT Gateway 1個、NAT Gateway用EIP 1個、app subnet default routeを作成するようにした。
 - `EdgeStack` で internet-facing ALB、HTTP 80 listener、IP target groupを作成し、health checkを `/actuator/health` / `200` にした。
 - `AppRuntimeStack` で Fargate task / service を作成し、`desiredCount=1`、`cpu=512`、`memory=1024MiB`、container port `8080`、image tag `p2-3-manual` にした。
-- `SPRING_PROFILES_ACTIVE=dev` はenvironment、`WORKOPS_DB_URL` / `WORKOPS_DB_USERNAME` / `WORKOPS_DB_PASSWORD` はECS secretsとして渡すようにした。
+- `SPRING_PROFILES_ACTIVE=local` はenvironment、`WORKOPS_DB_URL` / `WORKOPS_DB_USERNAME` / `WORKOPS_DB_PASSWORD` はECS secretsとして渡すようにした。
+- P2-3 では Cognito Hosted UI / users 突合を扱わないため、ECS runtime は local profile で起動する。RDS 接続は ECS secrets の `WORKOPS_DB_URL` / `WORKOPS_DB_USERNAME` / `WORKOPS_DB_PASSWORD` を使い、P2-3 確認後に `DataStack` を削除する前提で local seed の適用を許容する。
 - `awslogs` log driver は `/workops/${stage}/web`、stream prefix `web` を使う。
 - `healthCheckGracePeriod` は90秒、deployment circuit breaker rollbackは有効にした。
 - CDK warningを避けるため、ECS deployment configurationは `minHealthyPercent=100`、`maxHealthyPercent=200` を明示した。

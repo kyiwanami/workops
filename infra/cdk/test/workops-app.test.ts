@@ -346,6 +346,7 @@ describe('WorkOps CDK app', () => {
       TargetType: 'ip',
       UnhealthyThresholdCount: 3,
     });
+    template.hasOutput('albDnsName', {});
   });
 
   test('creates the P2-3 AppRuntimeStack web service', () => {
@@ -405,7 +406,7 @@ describe('WorkOps CDK app', () => {
           Environment: Match.arrayWith([
             {
               Name: 'SPRING_PROFILES_ACTIVE',
-              Value: 'dev',
+              Value: 'local',
             },
           ]),
           Essential: true,
