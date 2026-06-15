@@ -448,6 +448,13 @@ describe('WorkOps CDK app', () => {
       }),
       HealthCheckGracePeriodSeconds: 90,
       LaunchType: 'FARGATE',
+      LoadBalancers: Match.arrayWith([
+        {
+          ContainerName: 'web',
+          ContainerPort: 8080,
+          TargetGroupArn: Match.anyValue(),
+        },
+      ]),
       NetworkConfiguration: {
         AwsvpcConfiguration: Match.objectLike({
           AssignPublicIp: 'DISABLED',

@@ -195,3 +195,21 @@ npm run cdk -- destroy DataStack
 - コンテナ / JVM の時刻表示は UTC に見える。P2-4以降で `TZ=Asia/Tokyo` または `JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Tokyo` の採否を決める。
 - P2-3ではCognito Hosted UI / users突合を扱わないため、local profileでのECS起動確認に切り替えた。
 - local seedが一時RDSに入っているため、P2-3確認後にRDS課金を止める場合は `DataStack` もdestroyする。
+
+### cleanup 実施結果
+
+- AWS account は手元のAWS認証で確認済み、profile `amazon-connect`、region `ap-northeast-1` で実施した。
+- destroy前に `workops-dev-app-runtime`、`workops-dev-edge`、`workops-dev-egress`、`workops-dev-data` が `CREATE_COMPLETE` であることを確認した。
+- destroy前に ECS Service `workops-dev-web` が desired `1`、running `1`、pending `0`、rollout `COMPLETED` であることを確認した。
+- destroy前に HTTP ALB経由 `/actuator/health` が HTTP `200`、body `{"groups":["liveness","readiness"],"status":"UP"}` を返すことを確認した。
+- `npm run cdk -- destroy AppRuntimeStack --force` を実行し、`workops-dev-app-runtime` を削除した。
+- `npm run cdk -- destroy EdgeStack --force` を実行し、`workops-dev-edge` を削除した。
+- `npm run cdk -- destroy EgressStack --force` を実行し、`workops-dev-egress` を削除した。
+- `npm run cdk -- destroy DataStack --force` を実行し、`workops-dev-data` を削除した。
+- 削除後、`workops-dev-app-runtime`、`workops-dev-edge`、`workops-dev-egress`、`workops-dev-data` が存在しないことを確認した。
+- 削除後、維持対象の `workops-dev-foundation`、`workops-dev-registry`、`workops-dev-logs` が `UPDATE_COMPLETE` で残っていることを確認した。
+- `workops-dev-web-alb` は存在しないことを確認した。
+- `workops-dev-db` は存在しないことを確認した。
+- `workops-dev-egress` が作成した NAT Gateway は `deleted` であることを確認した。
+- `workops-dev-alb-sg` と `workops-dev-app-sg` の ingress が空であり、P2-3 実行確認用の ALB 80 ingress と ALB から app 8080 ingress が残っていないことを確認した。
+- RDS上のSQL確認は、`DataStack` を削除してRDSを消したため追加実行しない。P2-3-04でCloudWatch LogsからFlyway `V1` から `V8` の適用成功を確認済み。
