@@ -9,7 +9,7 @@ P2-3 では GitHub Actions や CodeBuild を使わず、手動 build / push の�
 
 - Phase2-3 の実装に入る前に、`docs/implementation/phase2/agent-tasks/P2-3/` 配下へ task Markdown を作成する
 - タスク数は後で調整可能だが、初期案は5本構成とする
-- `DataStack` 再deploy、RDS再確認、HTTPS、ACM、Route 53、Cognito Hosted UI、GitHub Actions deploy は P2-3 task 範囲に含めない
+- `DataStack` 再deploy、RDS再確認、CloudFront、HTTPS 入口、ACM、Route 53、Cognito Hosted UI、GitHub Actions deploy は P2-3 task 範囲に含めない
 - Dockerfile は multi-stage build とする
 - Docker build 内で `mvnw -DskipTests package` を実行する
 - runtime は Java 25 とする

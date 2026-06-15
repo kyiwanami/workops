@@ -28,7 +28,7 @@ Phase 2 のスコープ、設計方針、実装順序、完了条件は、Notion
 
 - Phase 2 は P2-0 から P2-10 で MVP の `apps/web` を AWS dev 上に再現可能にする
 - P2-3 は HTTP ALB による Web アプリ起動、RDS 接続、`/actuator/health`、起動時 Flyway 適用の確認に限定する
-- P2-4 は HTTPS 入口 / dev ドメイン / ACM を扱い、Cognito callback URL と sign-out URL に使う HTTPS URL を確定する
+- P2-4 は HTTPS 入口 / CloudFront default domain を扱い、Cognito callback URL と sign-out URL に使う HTTPS URL を確定する
 - P2-9 の GitHub Actions OIDC deploy は暫定 deploy 手段として扱う
 - P2-10 完了後、既存 Phase 3 の前に Phase 2α を置き、CI/CD を CodePipeline + CodeBuild へ AWS ネイティブ化する
 - Phase 2 の migration は `apps/web` の Spring Boot 起動時 Flyway 実行を維持する
@@ -41,9 +41,9 @@ Phase 2 のスコープ、設計方針、実装順序、完了条件は、Notion
 - Phase 2 の deploy は GitHub Actions OIDC を暫定採用し、Phase 2α で CodePipeline + CodeBuild へ移行する
 - Phase 2 の AWS dev migration は `apps/web` 起動時に実行し、Phase 2α で migration 用 ECS Task へ分離する
 - Cognito の redirect URI は localhost 例外を除き HTTPS が必要なため、Cognito Hosted UI ログイン前に P2-4 で HTTPS URL を確定する
-- P2-3 は HTTPS 終端、ACM certificate、Route 53、独自ドメイン、DNS validation を扱わず、HTTP ALB 経由の稼働確認に集中する
-- `DomainStack` は証明書と FQDN を維持するため Phase 2 期間中に維持し、ALB と listener は実行確認セッション用の `EdgeStack` で扱う
-- ACM public certificate は AWS 統合サービスで使う非 exportable public certificate を前提とし、Route 53 public hosted zone、DNS query、ドメイン登録は ACM とは別の課金対象として扱う
+- P2-3 は CloudFront、HTTPS 入口、ACM certificate、Route 53、独自ドメイン、DNS validation を扱わず、HTTP ALB 経由の稼働確認に集中する
+- P2-4 は CloudFront default domain を利用者向け HTTPS 入口として扱い、ALB は CloudFront からの HTTP origin request を受ける
+- ACM certificate、Route 53、独自ドメイン、DNS validation、ALB HTTPS listener は Phase 2 では採用しない
 - Phase 2α 完了後、GitHub Actions workflow は PR チェック用にも残さない
 - CodeDeploy、Blue/Green deploy、Canary deploy、PR レビューゲートは Phase 2 / Phase 2α では採用しない
 
@@ -56,7 +56,7 @@ MVP で完成した `apps/web` が、AWS dev 環境上で次の構成を使っ�
 - PLATFORM / TENANT App Client
 - ECS Fargate
 - ALB
-- HTTPS 入口 / dev ドメイン / ACM
+- CloudFront default domain による HTTPS 入口
 - ECR
 - Secrets Manager
 - SSM Parameter Store Standard
@@ -80,8 +80,8 @@ Phase 2 の中心は新規業務機能の追加ではなく、MVP の Web アプ
 - 初回ログイン時に `users` を自動作成する
 - ユーザー作成、権限割当、ユーザー無効化の対象範囲を広げる
 - PLATFORM / TENANT の利用者境界を変更する
-- RDS、ECS、ALB、NAT Gateway のライフサイクル方針を変更する
-- dev ドメイン、ACM certificate、HTTPS 入口の責務を変更する
+- RDS、ECS、CloudFront、ALB、NAT Gateway のライフサイクル方針を変更する
+- CloudFront default domain、HTTPS 入口、ACM certificate の責務を変更する
 - Secrets Manager と SSM Parameter Store の責務を変更する
 - Flyway migration の実行方式を変更する
 - Phase 2 で作らない AWS リソースを追加する
@@ -113,11 +113,15 @@ agent task またはフェーズの完了条件にユーザー確認が含まれ
 - AWS リソースは `infra/cdk` の AWS CDK v2 で管理する
 - CDK の Stack クラス名に `dev` / `stg` / `prod` を固定しない
 - CloudFormation の物理スタック名は `stage` props から組み立てる
-- `FoundationStack`、`IdentityStack`、`ConfigStack`、`SecretStack`、`RegistryStack`、`LogsStack`、`DataStack`、`DomainStack` は Phase 2 期間中維持する
+- `FoundationStack`、`IdentityStack`、`ConfigStack`、`SecretStack`、`RegistryStack`、`LogsStack`、`DataStack` は Phase 2 期間中維持する
 - `EgressStack`、`EdgeStack`、`AppRuntimeStack` は実行確認セッション開始時に作成し、確認後に削除する
 - `AppRuntimeStack` を `desiredCount=0` で残さない
-- `DomainStack` は dev 用 FQDN、ACM public certificate、DNS validation、Cognito callback URL と sign-out URL に使う HTTPS URL の正本を扱う
-- `EdgeStack` は ALB、Target Group、HTTP listener、HTTPS listener、HTTP から HTTPS への redirect、Route 53 Alias record を扱う
+- `EdgeStack` は CloudFront distribution、ALB、Target Group、HTTP listener を扱う
+- CloudFront default domain を Cognito callback URL と sign-out URL に使う HTTPS URL の正本として扱う
+- CloudFront viewer protocol policy は HTTP to HTTPS redirect とする
+- CloudFront origin は ALB とし、origin protocol policy は HTTP only とする
+- ALB HTTP 80 ingress は CloudFront origin-facing managed prefix list からの通信に制限する
+- ACM certificate、Route 53、独自ドメイン、DNS validation、ALB HTTPS listener は Phase 2 では作らない
 - VPC Endpoint と Container Insights は作成しない
 - ALB Cognito 認証を使わず、Spring Security OAuth2 Login と Cognito Hosted UI を使う
 - アプリ利用者情報の正本は `users` とする
@@ -356,8 +360,8 @@ MVP で完成した `apps/web` を AWS dev 上で起動します。
 
 P2-3 では、実行確認セッション用に `EgressStack`、`EdgeStack`、`AppRuntimeStack` を作成し、HTTP ALB 経由で `apps/web` の起動、Spring Boot Actuator `/actuator/health`、RDS 接続、起動時 Flyway 適用を確認します。
 
-P2-3 では HTTPS 終端、ACM certificate、Route 53、独自ドメイン、Cognito Hosted UI ログインは扱いません。
-HTTPS 入口は P2-4 で扱います。
+P2-3 では CloudFront、HTTPS 入口、ACM certificate、Route 53、独自ドメイン、Cognito Hosted UI ログインは扱いません。
+HTTPS 入口は P2-4 で CloudFront default domain により扱います。
 
 ### 前提フェーズ
 
@@ -407,7 +411,8 @@ HTTPS 入口は P2-4 で扱います。
 
 ### 除外範囲
 
-- HTTPS 終端
+- CloudFront
+- HTTPS 入口
 - ACM certificate
 - Route 53
 - 独自ドメイン
@@ -429,7 +434,7 @@ HTTP ALB 経由で Spring Boot Actuator の `/actuator/health` による health 
 `apps/web` 起動時に Flyway migration と AWS dev seed を適用できる。
 `flyway_schema_history` と主要 seed テーブルを確認できる。
 確認後に `AppRuntimeStack`、`EdgeStack`、`EgressStack` を削除できる。
-HTTPS 終端、ACM certificate、Route 53、独自ドメイン、DNS validation は P2-4 で扱う。
+HTTPS 入口は P2-4 で CloudFront default domain により扱う。
 
 ### 確認方針
 
@@ -441,60 +446,65 @@ HTTPS 終端、ACM certificate、Route 53、独自ドメイン、DNS validation 
 P2-3 着手前に、コンテナ化、実行セッション Stack、Actuator と dev 設定、手動 deploy、削除確認の境界で agent task 分割案を提示します。
 Cognito 本格連携を P2-3 の task に含めません。
 
-## P2-4. HTTPS 入口・dev ドメイン・ACM
+## P2-4. HTTPS 入口・CloudFront default domain
 
 ### 目的
 
 P2-5 の Cognito Hosted UI ログイン確認に入る前に、AWS dev 環境へ HTTPS でアクセスできる入口を作ります。
 
 P2-3 では HTTP ALB で `apps/web` の起動、health check、RDS 接続を確認します。
-P2-4 では、Cognito callback URL と sign-out URL として使える HTTPS URL を確定します。
+P2-4 では、CloudFront default domain を使い、Cognito callback URL と sign-out URL として使える HTTPS URL を確定します。
+独自ドメインは取得しません。
+ACM 独自ドメイン証明書、Route 53 独自ドメイン運用、ALB HTTPS listener は扱いません。
 
 ### 前提フェーズ
 
 - P2-3 が完了している
 - HTTP ALB 経由で `apps/web` に到達できる
-- HTTPS 確認に使う独自ドメインまたは管理可能なサブドメインをユーザーが決定している
-- Route 53 public hosted zone を作成する場合は、課金対象操作としてユーザー確認が完了している
 
 ### 成果物
 
-- `DomainStack`
-- dev 用 FQDN
-- ACM public certificate
-- DNS validation
-- ALB HTTPS listener
-- HTTP listener から HTTPS への redirect
-- Route 53 Alias record または管理可能な DNS から ALB への名前解決
+- CloudFront distribution
+- CloudFront default domain
+- CloudFront default certificate による viewer 向け HTTPS 入口
+- ALB を origin にした CloudFront 設定
+- CloudFront から ALB への HTTP origin 通信
 - Cognito callback URL と sign-out URL に使う HTTPS URL の確定
-- HTTPS 経由の `/actuator/health` 確認
+- CloudFront 経由の `/actuator/health` 確認
 - HTTPS 入口の README / task 記載
 
 ### 実装方針
 
-- ALB デフォルト DNS 名には ACM public certificate を発行できないため、HTTPS 確認には独自ドメインまたは管理可能なサブドメインを使う
-- ACM public certificate は、ALB など AWS 統合サービスで使う非 exportable public certificate を前提とする
-- ACM certificate 自体は追加料金なしで使える前提とする
-- Route 53 public hosted zone、DNS query、ドメイン登録には別途費用が発生し得る
-- 証明書は DNS validation を使い、自動更新できる状態にする
-- ALB は HTTPS 終端を担当し、ALB から ECS task への通信は HTTP とする
+- CloudFront は、独自ドメインなしで HTTPS 入口を成立させるために採用する
+- CloudFront default domain を利用者向け URL として使う
+- Viewer から CloudFront は HTTPS とする
+- CloudFront への HTTP request は HTTPS へ redirect する
+- CloudFront から ALB は HTTP とする
+- ALB から ECS task も HTTP とする
+- ALB HTTP 80 ingress は CloudFront origin-facing managed prefix list からの通信に制限する
+- CloudFront はキャッシュを無効化し、動的 Web アプリとして必要な request 情報を ALB origin へ渡す
 - ALB Cognito 認証は使わない
 - Cognito 認証は P2-5 で Spring Security OAuth2 Login + Cognito Hosted UI として扱う
-- `DomainStack` は Phase 2 期間中維持する
-- `EdgeStack` は実行確認セッション用の ALB、listener、Route 53 Alias record を扱い、確認後に削除する
+- `EdgeStack` は実行確認セッション用の CloudFront distribution、ALB、listener、target group を扱い、確認後に削除する
 - P2-4 の確認時は、必要に応じて `EgressStack`、`EdgeStack`、`AppRuntimeStack` を再作成する
 
 ### 費用方針
 
-ACM public certificate を ALB など AWS 統合サービスで使う場合、証明書自体は追加料金なしとします。
-ただし、Route 53 public hosted zone、DNS query、ドメイン登録は ACM とは別の課金対象として扱います。
-
-Route 53 public hosted zone を作る場合は、課金対象操作のため、ユーザー確認を前提にします。
-既存ドメインまたは既存 hosted zone を使える場合は、それを優先します。
+CloudFront distribution は Phase 2 の実行確認セッション用に作成します。
+確認後は `EdgeStack` とともに削除します。
+CloudFront は無料利用枠の範囲に収める努力目標としますが、Phase 2 の HTTPS 入口を成立させるための標準構成として扱います。
 
 ### 除外範囲
 
-- CloudFront
+- 独自ドメイン
+- Route 53 public hosted zone
+- Route 53 Alias record
+- DNS validation
+- ACM 独自ドメイン証明書
+- ALB HTTPS listener
+- HTTP listener から HTTPS への redirect
+- CloudFront custom domain
+- CloudFront から ALB 間 HTTPS
 - WAF
 - ALB Cognito 認証
 - 本番ドメイン設計
@@ -506,27 +516,27 @@ Route 53 public hosted zone を作る場合は、課金対象操作のため、�
 
 ### 完了条件
 
-AWS dev 環境で、独自ドメインまたは管理可能なサブドメインの HTTPS URL から ALB へ到達できる。
-ALB で HTTPS 終端し、ECS 上の `apps/web` へ HTTP で転送できる。
-HTTP アクセスは HTTPS へ redirect される。
-HTTPS 経由で `/actuator/health` を確認できる。
+AWS dev 環境で、CloudFront default domain の HTTPS URL から WorkOps へ到達できる。
+CloudFront で viewer 向け HTTPS を終端し、ALB へ HTTP で転送できる。
+CloudFront 経由で `/actuator/health` を確認できる。
 P2-5 で Cognito Hosted UI の callback URL と sign-out URL として使う HTTPS URL が確定している。
+独自ドメイン、ACM 独自ドメイン証明書、Route 53、ALB HTTPS listener なしで HTTPS 入口を成立させられる。
 
 ### 確認方針
 
-エージェントは、DomainStack、ACM certificate、DNS validation、HTTPS listener、HTTP から HTTPS への redirect、Route 53 Alias record、CDK synth、README の確認手順を確認します。
-ユーザーは、ドメインまたは hosted zone の利用、証明書検証、HTTPS 到達、HTTP redirect、HTTPS 経由の `/actuator/health`、確認後の実行確認セッション Stack 削除を確認します。
+エージェントは、CloudFront distribution、CloudFront default domain、ALB origin、CloudFront origin-facing managed prefix list、CDK synth、README の確認手順を確認します。
+ユーザーは、CloudFront default domain の HTTPS 到達、CloudFront 経由の `/actuator/health`、確認後の実行確認セッション Stack 削除を確認します。
 
 ### agent task 分割方針
 
-P2-4 着手前に、DomainStack、証明書と DNS validation、HTTPS listener と redirect、Alias record、HTTPS health check、README と確認記録の境界で agent task 分割案を提示します。
+P2-4 着手前に、CloudFront edge stack、origin security、manual deploy と HTTPS health check、README と確認記録の境界で agent task 分割案を提示します。
 Cognito Hosted UI ログイン本体を P2-4 の task に含めません。
 
 ## P2-5. Cognito Hosted UI ログイン・`users` 突合
 
 ### 目的
 
-P2-4 で確定した HTTPS URL を使い、AWS dev 上で Cognito Hosted UI によるログインを成立させ、Cognito `sub` で `users.cognito_sub` を突合し、DB 由来の利用者情報と権限で業務画面を利用できるようにします。
+P2-4 で確定した CloudFront default domain の HTTPS URL を使い、AWS dev 上で Cognito Hosted UI によるログインを成立させ、Cognito `sub` で `users.cognito_sub` を突合し、DB 由来の利用者情報と権限で業務画面を利用できるようにします。
 
 ### 前提フェーズ
 
@@ -832,7 +842,7 @@ P2-9 の GitHub Actions OIDC deploy は Phase 2 の暫定 deploy 手段であり
 - app deploy はテスト、Docker build、ECR push、CDK deploy、ECS deploy、`apps/web` 起動時 migration 確認の順で実行する
 - `apps/web` 起動時 migration が失敗した場合は deploy 失敗として扱う
 - migration の差分なしの場合は Flyway の正常終了を許可する
-- infra deploy では、P2-4 で追加した `DomainStack` と、HTTPS 対応済みの `EdgeStack` 構成も再現対象に含める
+- infra deploy では、P2-4 で追加した CloudFront distribution を含む `EdgeStack` 構成も再現対象に含める
 - GitHub Actions 固有の分岐や独自処理を増やしすぎない
 - deploy 実体は CDK、リポジトリ内スクリプト、npm、Maven、Docker、AWS CLI の標準コマンドへ寄せる
 - Phase 2α で CodePipeline + CodeBuild へ移行できる形に保つ

@@ -67,6 +67,7 @@ P2-3 の AWS dev 実行確認結果を整理し、CloudWatch Logs、RDS 上の F
 - CodeBuild
 - CodePipeline
 - HTTPS listener
+- CloudFront distribution
 - ACM certificate
 - Route 53
 - Cognito Hosted UI

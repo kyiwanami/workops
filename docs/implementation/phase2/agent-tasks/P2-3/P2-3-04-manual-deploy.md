@@ -79,6 +79,7 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 - main push 自動 deploy
 - 本番 deploy
 - HTTPS listener
+- CloudFront distribution
 - ACM certificate
 - Route 53
 - Cognito Hosted UI

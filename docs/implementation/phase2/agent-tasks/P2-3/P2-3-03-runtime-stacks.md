@@ -41,7 +41,7 @@ AWS dev 上で `apps/web` を HTTP ALB 経由で起動確認するため、実�
 - 実行確認用 Stack は常時 synth 対象にする。deploy しなければ AWS リソースは作られず、CDK assertion test と synth で常に検証できるため。
 - `DataStack` 再deployは P2-3 に含めない。RDS、DB secret、DB接続SSM Parameter は P2-2 の責務であるため。
 - `EgressStack` は実行確認セッション用の NAT Gateway を持つ。`FoundationStack` は P2-1 方針どおり NAT Gateway を持たないため。
-- `EdgeStack` は internet-facing ALB と HTTP listener だけを持つ。HTTPS、ACM、Route 53、redirect は P2-4 の責務であるため。
+- `EdgeStack` は P2-3 時点では internet-facing ALB と HTTP listener だけを持つ。CloudFront と HTTPS 入口は P2-4 の責務であるため。
 - `AppRuntimeStack` は ECS Service を `desiredCount=1` に固定する。P2-3 は可用性や autoscaling ではなく単一 task の起動確認が目的であるため。
 - `AppRuntimeStack` は確認後に削除する。`desiredCount=0` で残す運用は採用しない。
 - `/workops/${stage}/migration` log group は P2-3 では使わない。P2-3 の Flyway は `apps/web` 起動時に実行され、ログは web app log として `/workops/${stage}/web` に出るため。
@@ -90,6 +90,7 @@ AWS dev 上で `apps/web` を HTTP ALB 経由で起動確認するため、実�
 - ECR push
 - HTTPS listener
 - HTTP to HTTPS redirect
+- CloudFront distribution
 - ACM certificate
 - Route 53
 - 独自ドメイン
