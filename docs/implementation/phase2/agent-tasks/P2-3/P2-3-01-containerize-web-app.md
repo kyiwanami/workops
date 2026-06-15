@@ -119,3 +119,56 @@ Invoke-WebRequest -Uri http://localhost:8080/actuator/health -UseBasicParsing
 
 - ローカル Docker 起動確認の結果を見る
 - P2-3-04 で `p2-3-manual` tag の ECR push を確認する
+
+---
+
+## 実装時の記録
+
+### 実装方針
+
+`apps/web` の Docker build だけで Spring Boot jar を作成できるようにし、runtime image には Java 25 runtime と jar だけを配置する。
+Docker build 内では Maven Wrapper で `./mvnw -DskipTests package` を実行し、ローカル `target/` には依存しない。
+P2-3 手動 deploy 用 image tag は `workops-web:p2-3-manual`、ローカル確認用 image tag は `workops-web:p2-3-local` とする。
+
+### 変更ファイル
+
+- `apps/web/Dockerfile`
+- `apps/web/.dockerignore`
+- `docs/implementation/phase2/agent-tasks/P2-3/P2-3-01-containerize-web-app.md`
+
+### 実装結果
+
+- `apps/web/Dockerfile` を multi-stage build として追加した。
+- build stage は `eclipse-temurin:25-jdk` を使い、Maven Wrapper で jar を作成する。
+- runtime stage は `eclipse-temurin:25-jre` を使い、`/app/workops-web.jar` を `java -jar` で起動する。
+- container port は `8080` として明示した。
+- `.dockerignore` で `target/`、ログ、IDE設定、OSファイル、ローカル環境ファイル、一時成果物を除外した。
+
+### 確認結果
+
+- `cd C:\git\workops\apps\web; .\mvnw.cmd -DskipTests package`
+  - 結果: 成功
+  - `target/workops-web-0.0.1-SNAPSHOT.jar` が作成され、Spring Boot repackage まで完了した。
+- `cd C:\git\workops\apps\web; .\mvnw.cmd test`
+  - 結果: 失敗
+  - 原因: Testcontainers 初期化時に Windows path `?C:\Users\rockw\AppData\Local\sqlite3` が `InvalidPathException` になり、`MapperIntegrationTestBase` の初期化に失敗した。
+  - 単体テスト群は失敗前に通過しており、失敗は統合テストの Docker/Testcontainers 初期化で発生した。
+- `cd C:\git\workops\apps\web; docker build -t workops-web:p2-3-local .`
+  - 初回結果: 未完了
+  - 初回原因: Docker Desktop Linux engine の named pipe `dockerDesktopLinuxEngine` に接続できず、Docker daemon が利用できない状態だった。
+  - 再実行結果: 成功
+  - Docker build 内で `./mvnw -DskipTests package` が実行され、`workops-web:p2-3-local` image を作成できた。
+- `cd C:\git\workops; docker compose up -d workops-mysql`
+  - 結果: 成功
+  - `workops-mysql` が healthy になったことを確認した。
+- `cd C:\git\workops\apps\web; docker run ... workops-web:p2-3-local`
+  - 結果: 成功
+  - `SPRING_PROFILES_ACTIVE=local`、`WORKOPS_DB_URL=jdbc:mysql://host.docker.internal:3306/workops?...`、`WORKOPS_DB_USERNAME=workops`、`WORKOPS_DB_PASSWORD=workops` で起動した。
+  - `http://localhost:8080/` が HTTP 200 を返した。
+  - ログで Java 25、Tomcat 8080、local profile、Flyway `Current version of schema workops: 8` を確認した。
+  - 確認後、`workops-p2-3-local` container は削除した。
+
+### 残課題
+
+- P2-3-02 完了後に `/actuator/health` のコンテナ内応答確認を行う。
+- P2-3-04 で `workops-web:p2-3-manual` を ECR へ push する。
