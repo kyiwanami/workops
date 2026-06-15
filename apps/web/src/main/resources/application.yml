@@ -18,6 +18,16 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
 
+management:
+  # P2-3 uses Actuator only for ALB / ECS health checks.
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
 ---
 
 spring:

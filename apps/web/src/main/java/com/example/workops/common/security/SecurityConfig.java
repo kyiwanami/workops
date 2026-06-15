@@ -22,7 +22,8 @@ public class SecurityConfig {
             CognitoAuthenticationSuccessHandler cognitoAuthenticationSuccessHandler) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/css/**", "/favicon.ico").permitAll()
+                        // ALB health checks cannot pass through Cognito login.
+                        .requestMatchers("/actuator/health", "/css/**", "/favicon.ico").permitAll()
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2.successHandler(cognitoAuthenticationSuccessHandler))
                 .logout(logout -> logout.logoutSuccessUrl("/"));

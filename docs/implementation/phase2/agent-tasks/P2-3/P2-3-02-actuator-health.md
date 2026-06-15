@@ -102,3 +102,52 @@ P2-3-04 の AWS dev 確認:
 - ALB target group health check path が `/actuator/health`
 - ALB target が healthy になる
 - 業務画面ログイン成否は確認対象にしない
+
+---
+
+## 実装時の記録
+
+### 実装方針
+
+Spring Boot Actuator は ALB / ECS health check 用に限定して導入する。
+公開する Actuator endpoint は `/actuator/health` のみとし、health details は表示しない。
+`!local` profile では `/actuator/health` だけを認証不要にし、通常業務画面は従来どおり authenticated のままにする。
+
+### 変更ファイル
+
+- `apps/web/pom.xml`
+- `apps/web/src/main/resources/application.yml`
+- `apps/web/src/main/java/com/example/workops/common/security/SecurityConfig.java`
+- `docs/implementation/phase2/agent-tasks/P2-3/P2-3-02-actuator-health.md`
+
+### 実装結果
+
+- `spring-boot-starter-actuator` を Spring Boot 管理バージョンで追加した。
+- `management.endpoints.web.exposure.include` を `health` にした。
+- `management.endpoint.health.show-details` を `never` にした。
+- `!local` profile の Spring Security 設定で `/actuator/health` を `permitAll` にした。
+- `local` profile の認証方針は変更していない。
+
+### 確認結果
+
+- `cd C:\git\workops\apps\web; .\mvnw.cmd test`
+  - 結果: 成功
+  - Tests run: 193, Failures: 0, Errors: 0, Skipped: 0
+- `cd C:\git\workops\apps\web; docker build -t workops-web:p2-3-local .`
+  - 結果: 成功
+  - Docker build 内で `./mvnw -DskipTests package` が実行され、`workops-web:p2-3-local` image を作成できた。
+- `cd C:\git\workops; docker compose up -d workops-mysql`
+  - 結果: 成功
+  - `workops-mysql` が healthy になったことを確認した。
+- `cd C:\git\workops\apps\web; docker run ... workops-web:p2-3-local`
+  - 結果: 成功
+  - `SPRING_PROFILES_ACTIVE=local`、`WORKOPS_DB_URL=jdbc:mysql://host.docker.internal:3306/workops?...`、`WORKOPS_DB_USERNAME=workops`、`WORKOPS_DB_PASSWORD=workops` で起動した。
+  - `http://localhost:8080/actuator/health` が HTTP 200 を返した。
+  - response body は `{"groups":["liveness","readiness"],"status":"UP"}` で、DB URL、password、secret value、component details は含まれなかった。
+  - ログで `Exposing 1 endpoint beneath base path '/actuator'` を確認した。
+  - 確認後、`workops-p2-3-local` container は削除した。
+
+### 残課題
+
+- P2-3-03 で ALB target group の health check path を `/actuator/health` にする。
+- P2-3-04 で AWS dev の ALB 経由 `/actuator/health` を確認する。
