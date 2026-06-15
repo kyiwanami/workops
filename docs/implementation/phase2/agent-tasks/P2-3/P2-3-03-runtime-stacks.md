@@ -117,7 +117,7 @@ AWS dev 上で `apps/web` を HTTP ALB 経由で起動確認するため、実�
 - image tag が `p2-3-manual` になっている
 - `/workops/${stage}/web` にログ出力する
 - `/workops/${stage}/migration` を P2-3 runtime で使っていない
-- 必要な Secrets Manager / SSM Parameter 読み取り権限が Task Role にある
+- 必要な Secrets Manager / SSM Parameter 読み取り権限が Execution Role にある
 - CDK assertions が代表条件を検証している
 
 ## 確認方法
@@ -151,3 +151,51 @@ CDK assertions で確認する代表条件:
 
 - P2-3-04 で3 Stackを deploy する
 - P2-3-05 で3 Stackを destroy する
+
+---
+
+## 実装時の記録
+
+### 実装方針
+
+P2-3 の実行確認セッション用に `EgressStack`、`EdgeStack`、`AppRuntimeStack` を追加し、既存の `FoundationStack`、`RegistryStack`、`LogsStack` から必要なVPC、subnet、security group、ECS cluster、ECR repository、log groupを受け取る形にした。
+既存維持Stackのtemplate変更を避けるため、ALB / app security group の追加ingress ruleはP2-3側のStackに `CfnSecurityGroupIngress` として作成する。
+ECS secret注入に必要な SSM / Secrets Manager 読み取り権限は、ECS agent が使用する Execution Role に付与する。
+
+### 変更ファイル
+
+- `infra/cdk/lib/egress-stack.ts`
+- `infra/cdk/lib/edge-stack.ts`
+- `infra/cdk/lib/app-runtime-stack.ts`
+- `infra/cdk/bin/cdk.ts`
+- `infra/cdk/test/workops-app.test.ts`
+- `docs/implementation/phase2/agent-tasks/P2-3/P2-3-03-runtime-stacks.md`
+
+### 実装結果
+
+- `EgressStack` で NAT Gateway 1個、NAT Gateway用EIP 1個、app subnet default routeを作成するようにした。
+- `EdgeStack` で internet-facing ALB、HTTP 80 listener、IP target groupを作成し、health checkを `/actuator/health` / `200` にした。
+- `AppRuntimeStack` で Fargate task / service を作成し、`desiredCount=1`、`cpu=512`、`memory=1024MiB`、container port `8080`、image tag `p2-3-manual` にした。
+- `SPRING_PROFILES_ACTIVE=dev` はenvironment、`WORKOPS_DB_URL` / `WORKOPS_DB_USERNAME` / `WORKOPS_DB_PASSWORD` はECS secretsとして渡すようにした。
+- `awslogs` log driver は `/workops/${stage}/web`、stream prefix `web` を使う。
+- `healthCheckGracePeriod` は90秒、deployment circuit breaker rollbackは有効にした。
+- CDK warningを避けるため、ECS deployment configurationは `minHealthyPercent=100`、`maxHealthyPercent=200` を明示した。
+
+### 確認結果
+
+- `cd C:\git\workops\infra\cdk; npm run build`
+  - 結果: 成功
+- `cd C:\git\workops\infra\cdk; npm test`
+  - 結果: 成功
+  - Test Suites: 1 passed
+  - Tests: 12 passed
+- `cd C:\git\workops\infra\cdk; $env:WORKOPS_STAGE='dev'; npm run cdk -- synth`
+  - 結果: 成功
+  - `FoundationStack`、`SecretStack`、`DataStack`、`ConfigStack`、`RegistryStack`、`LogsStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` がsynth対象になった。
+  - `minHealthyPercent` warning は解消済み。
+
+### 残課題
+
+- P2-3-04 で ECR に `workops-dev-web:p2-3-manual` をpushする。
+- P2-3-04 で `workops-dev-egress`、`workops-dev-edge`、`workops-dev-app-runtime` をAWS devへdeployし、ALB経由 `/actuator/health` を確認する。
+- P2-3-05 で実行確認セッション用Stackをdestroyする。

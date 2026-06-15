@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 import { App, Environment, Tags } from 'aws-cdk-lib';
+import { AppRuntimeStack } from '../lib/app-runtime-stack';
 import { ConfigStack } from '../lib/config-stack';
 import { DataStack } from '../lib/data-stack';
+import { EdgeStack } from '../lib/edge-stack';
+import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
 import { LogsStack } from '../lib/logs-stack';
 import { RegistryStack } from '../lib/registry-stack';
@@ -50,13 +53,47 @@ new ConfigStack(app, 'ConfigStack', {
   stage,
   stackName: `workops-${stage}-config`,
 });
-new RegistryStack(app, 'RegistryStack', {
+const registryStack = new RegistryStack(app, 'RegistryStack', {
   env,
   stage,
   stackName: `workops-${stage}-registry`,
 });
-new LogsStack(app, 'LogsStack', {
+const logsStack = new LogsStack(app, 'LogsStack', {
   env,
   stage,
   stackName: `workops-${stage}-logs`,
 });
+
+// P2-3 runtime stacks are synthesized on every run and deployed only for manual verification sessions.
+const egressStack = new EgressStack(app, 'EgressStack', {
+  appSubnets: foundationStack.appSubnets,
+  env,
+  publicSubnets: foundationStack.publicSubnets,
+  stage,
+  stackName: `workops-${stage}-egress`,
+  vpc: foundationStack.vpc,
+});
+const edgeStack = new EdgeStack(app, 'EdgeStack', {
+  albSecurityGroup: foundationStack.albSecurityGroup,
+  env,
+  publicSubnets: foundationStack.publicSubnets,
+  stage,
+  stackName: `workops-${stage}-edge`,
+  vpc: foundationStack.vpc,
+});
+const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
+  albSecurityGroup: foundationStack.albSecurityGroup,
+  appSecurityGroup: foundationStack.appSecurityGroup,
+  appSubnets: foundationStack.appSubnets,
+  cluster: foundationStack.ecsCluster,
+  env,
+  repository: registryStack.repository,
+  stage,
+  stackName: `workops-${stage}-app-runtime`,
+  targetGroup: edgeStack.targetGroup,
+  webLogGroup: logsStack.webLogGroup,
+});
+
+edgeStack.addDependency(egressStack);
+appRuntimeStack.addDependency(egressStack);
+appRuntimeStack.addDependency(edgeStack);

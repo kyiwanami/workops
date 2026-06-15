@@ -4,8 +4,11 @@ import { Topic } from 'aws-cdk-lib/aws-sns';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { Construct } from 'constructs';
+import { AppRuntimeStack } from '../lib/app-runtime-stack';
 import { ConfigStack } from '../lib/config-stack';
 import { DataStack } from '../lib/data-stack';
+import { EdgeStack } from '../lib/edge-stack';
+import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
 import { LogsStack } from '../lib/logs-stack';
 import { RegistryStack } from '../lib/registry-stack';
@@ -51,6 +54,31 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-logs`,
     });
+    const egressStack = new EgressStack(app, 'EgressStack', {
+      appSubnets: foundationStack.appSubnets,
+      publicSubnets: foundationStack.publicSubnets,
+      stage,
+      stackName: `workops-${stage}-egress`,
+      vpc: foundationStack.vpc,
+    });
+    const edgeStack = new EdgeStack(app, 'EdgeStack', {
+      albSecurityGroup: foundationStack.albSecurityGroup,
+      publicSubnets: foundationStack.publicSubnets,
+      stage,
+      stackName: `workops-${stage}-edge`,
+      vpc: foundationStack.vpc,
+    });
+    const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
+      albSecurityGroup: foundationStack.albSecurityGroup,
+      appSecurityGroup: foundationStack.appSecurityGroup,
+      appSubnets: foundationStack.appSubnets,
+      cluster: foundationStack.ecsCluster,
+      repository: registryStack.repository,
+      stage,
+      stackName: `workops-${stage}-app-runtime`,
+      targetGroup: edgeStack.targetGroup,
+      webLogGroup: logsStack.webLogGroup,
+    });
 
     expect(foundationStack.stackName).toBe('workops-dev-foundation');
     expect(secretStack.stackName).toBe('workops-dev-secret');
@@ -58,6 +86,9 @@ describe('WorkOps CDK app', () => {
     expect(configStack.stackName).toBe('workops-dev-config');
     expect(registryStack.stackName).toBe('workops-dev-registry');
     expect(logsStack.stackName).toBe('workops-dev-logs');
+    expect(egressStack.stackName).toBe('workops-dev-egress');
+    expect(edgeStack.stackName).toBe('workops-dev-edge');
+    expect(appRuntimeStack.stackName).toBe('workops-dev-app-runtime');
   });
 
   test('creates the FoundationStack network and cluster resources', () => {
@@ -227,6 +258,222 @@ describe('WorkOps CDK app', () => {
     });
     template.hasOutput('webLogGroupName', {});
     template.hasOutput('migrationLogGroupName', {});
+  });
+
+  test('creates the P2-3 EgressStack NAT route for app subnets', () => {
+    const app = new App();
+    const stage = 'dev';
+    const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      stage,
+      stackName: `workops-${stage}-foundation`,
+    });
+    const egressStack = new EgressStack(app, 'EgressStack', {
+      appSubnets: foundationStack.appSubnets,
+      publicSubnets: foundationStack.publicSubnets,
+      stage,
+      stackName: `workops-${stage}-egress`,
+      vpc: foundationStack.vpc,
+    });
+    const template = Template.fromStack(egressStack);
+
+    template.resourceCountIs('AWS::EC2::EIP', 1);
+    template.resourceCountIs('AWS::EC2::NatGateway', 1);
+    template.hasResourceProperties('AWS::EC2::NatGateway', {
+      AllocationId: {
+        'Fn::GetAtt': [
+          Match.stringLikeRegexp('NatGatewayEip'),
+          'AllocationId',
+        ],
+      },
+    });
+    template.resourceCountIs('AWS::EC2::Route', 2);
+    template.hasResourceProperties('AWS::EC2::Route', {
+      DestinationCidrBlock: '0.0.0.0/0',
+      NatGatewayId: {
+        Ref: Match.stringLikeRegexp('NatGateway'),
+      },
+    });
+  });
+
+  test('creates the P2-3 EdgeStack internet-facing HTTP ALB', () => {
+    const app = new App();
+    const stage = 'dev';
+    const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      stage,
+      stackName: `workops-${stage}-foundation`,
+    });
+    const edgeStack = new EdgeStack(app, 'EdgeStack', {
+      albSecurityGroup: foundationStack.albSecurityGroup,
+      publicSubnets: foundationStack.publicSubnets,
+      stage,
+      stackName: `workops-${stage}-edge`,
+      vpc: foundationStack.vpc,
+    });
+    const template = Template.fromStack(edgeStack);
+
+    template.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
+      CidrIp: '0.0.0.0/0',
+      FromPort: 80,
+      IpProtocol: 'tcp',
+      ToPort: 80,
+    });
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
+      Name: 'workops-dev-web-alb',
+      Scheme: 'internet-facing',
+      Type: 'application',
+    });
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+      Port: 80,
+      Protocol: 'HTTP',
+    });
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+      HealthCheckIntervalSeconds: 30,
+      HealthCheckPath: '/actuator/health',
+      HealthCheckTimeoutSeconds: 5,
+      HealthyThresholdCount: 2,
+      Matcher: {
+        HttpCode: '200',
+      },
+      Port: 8080,
+      Protocol: 'HTTP',
+      TargetGroupAttributes: Match.arrayWith([
+        {
+          Key: 'deregistration_delay.timeout_seconds',
+          Value: '30',
+        },
+      ]),
+      Name: 'workops-dev-web-tg',
+      TargetType: 'ip',
+      UnhealthyThresholdCount: 3,
+    });
+  });
+
+  test('creates the P2-3 AppRuntimeStack web service', () => {
+    const app = new App();
+    const stage = 'dev';
+    const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      stage,
+      stackName: `workops-${stage}-foundation`,
+    });
+    const registryStack = new RegistryStack(app, 'RegistryStack', {
+      stage,
+      stackName: `workops-${stage}-registry`,
+    });
+    const logsStack = new LogsStack(app, 'LogsStack', {
+      stage,
+      stackName: `workops-${stage}-logs`,
+    });
+    const edgeStack = new EdgeStack(app, 'EdgeStack', {
+      albSecurityGroup: foundationStack.albSecurityGroup,
+      publicSubnets: foundationStack.publicSubnets,
+      stage,
+      stackName: `workops-${stage}-edge`,
+      vpc: foundationStack.vpc,
+    });
+    const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
+      albSecurityGroup: foundationStack.albSecurityGroup,
+      appSecurityGroup: foundationStack.appSecurityGroup,
+      appSubnets: foundationStack.appSubnets,
+      cluster: foundationStack.ecsCluster,
+      repository: registryStack.repository,
+      stage,
+      stackName: `workops-${stage}-app-runtime`,
+      targetGroup: edgeStack.targetGroup,
+      webLogGroup: logsStack.webLogGroup,
+    });
+    const template = Template.fromStack(appRuntimeStack);
+    const templateText = JSON.stringify(template.toJSON());
+
+    template.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
+      FromPort: 8080,
+      IpProtocol: 'tcp',
+      ToPort: 8080,
+    });
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      Cpu: '512',
+      Memory: '1024',
+      Family: 'workops-dev-web',
+      NetworkMode: 'awsvpc',
+      RequiresCompatibilities: ['FARGATE'],
+      RuntimePlatform: {
+        CpuArchitecture: 'X86_64',
+        OperatingSystemFamily: 'LINUX',
+      },
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'web',
+          Environment: Match.arrayWith([
+            {
+              Name: 'SPRING_PROFILES_ACTIVE',
+              Value: 'dev',
+            },
+          ]),
+          Essential: true,
+          LogConfiguration: Match.objectLike({
+            LogDriver: 'awslogs',
+            Options: Match.objectLike({
+              'awslogs-stream-prefix': 'web',
+            }),
+          }),
+          PortMappings: Match.arrayWith([
+            Match.objectLike({
+              ContainerPort: 8080,
+            }),
+          ]),
+          Secrets: Match.arrayWith([
+            Match.objectLike({
+              Name: 'WORKOPS_DB_URL',
+            }),
+            Match.objectLike({
+              Name: 'WORKOPS_DB_USERNAME',
+            }),
+            Match.objectLike({
+              Name: 'WORKOPS_DB_PASSWORD',
+            }),
+          ]),
+        }),
+      ]),
+    });
+    expect(templateText).toContain('p2-3-manual');
+    template.hasResourceProperties('AWS::ECS::Service', {
+      DesiredCount: 1,
+      DeploymentConfiguration: Match.objectLike({
+        DeploymentCircuitBreaker: {
+          Enable: true,
+          Rollback: true,
+        },
+        MaximumPercent: 200,
+        MinimumHealthyPercent: 100,
+      }),
+      HealthCheckGracePeriodSeconds: 90,
+      LaunchType: 'FARGATE',
+      NetworkConfiguration: {
+        AwsvpcConfiguration: Match.objectLike({
+          AssignPublicIp: 'DISABLED',
+        }),
+      },
+      ServiceName: 'workops-dev-web',
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['ssm:GetParameters']),
+          }),
+        ]),
+      },
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['secretsmanager:GetSecretValue']),
+          }),
+        ]),
+      },
+    });
+    expect(templateText).toContain('WebLogGroup');
+    expect(templateText).not.toContain('/workops/dev/migration');
   });
 
   test('creates the SecretStack without secret resources in P2-2-01', () => {
