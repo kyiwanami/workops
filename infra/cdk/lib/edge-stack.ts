@@ -1,4 +1,15 @@
 import { CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
+import {
+  AllowedMethods,
+  CachePolicy,
+  CachedMethods,
+  Distribution,
+  OriginProtocolPolicy,
+  OriginRequestPolicy,
+  PriceClass,
+  ViewerProtocolPolicy,
+} from 'aws-cdk-lib/aws-cloudfront';
+import { LoadBalancerV2Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { CfnSecurityGroupIngress, ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import {
   ApplicationLoadBalancer,
@@ -20,6 +31,7 @@ export class EdgeStack extends Stack {
   public readonly loadBalancer: ApplicationLoadBalancer;
   public readonly listener: ApplicationListener;
   public readonly targetGroup: ApplicationTargetGroup;
+  public readonly distribution: Distribution;
 
   constructor(scope: Construct, id: string, props: EdgeStackProps) {
     super(scope, id, props);
@@ -68,8 +80,30 @@ export class EdgeStack extends Stack {
       defaultTargetGroups: [this.targetGroup],
     });
 
+    // CloudFront is the P2-4 HTTPS entrypoint; caching stays disabled for the dynamic web app.
+    this.distribution = new Distribution(this, 'WebDistribution', {
+      comment: `workops-${props.stage}-web-edge`,
+      defaultBehavior: {
+        allowedMethods: AllowedMethods.ALLOW_ALL,
+        cachedMethods: CachedMethods.CACHE_GET_HEAD,
+        cachePolicy: CachePolicy.CACHING_DISABLED,
+        origin: new LoadBalancerV2Origin(this.loadBalancer, {
+          protocolPolicy: OriginProtocolPolicy.HTTP_ONLY,
+        }),
+        originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+      priceClass: PriceClass.PRICE_CLASS_200,
+    });
+
     new CfnOutput(this, 'albDnsName', {
       value: this.loadBalancer.loadBalancerDnsName,
+    });
+    new CfnOutput(this, 'cloudFrontDomainName', {
+      value: this.distribution.distributionDomainName,
+    });
+    new CfnOutput(this, 'cloudFrontHttpsUrl', {
+      value: `https://${this.distribution.distributionDomainName}`,
     });
   }
 }

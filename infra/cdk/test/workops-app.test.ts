@@ -295,7 +295,7 @@ describe('WorkOps CDK app', () => {
     });
   });
 
-  test('creates the P2-3 EdgeStack internet-facing HTTP ALB', () => {
+  test('creates the P2-4 EdgeStack CloudFront HTTPS entrypoint', () => {
     const app = new App();
     const stage = 'dev';
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
@@ -346,7 +346,47 @@ describe('WorkOps CDK app', () => {
       TargetType: 'ip',
       UnhealthyThresholdCount: 3,
     });
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        Comment: 'workops-dev-web-edge',
+        DefaultCacheBehavior: Match.objectLike({
+          AllowedMethods: [
+            'GET',
+            'HEAD',
+            'OPTIONS',
+            'PUT',
+            'PATCH',
+            'POST',
+            'DELETE',
+          ],
+          CachedMethods: [
+            'GET',
+            'HEAD',
+          ],
+          CachePolicyId: '4135ea2d-6df8-44a3-9df3-4b5a84be39ad',
+          OriginRequestPolicyId: 'b689b0a8-53d0-40ab-baf2-68738e2966ac',
+          TargetOriginId: Match.anyValue(),
+          ViewerProtocolPolicy: 'redirect-to-https',
+        }),
+        Origins: Match.arrayWith([
+          Match.objectLike({
+            CustomOriginConfig: Match.objectLike({
+              OriginProtocolPolicy: 'http-only',
+            }),
+            DomainName: {
+              'Fn::GetAtt': [
+                Match.stringLikeRegexp('WebAlb'),
+                'DNSName',
+              ],
+            },
+          }),
+        ]),
+        PriceClass: 'PriceClass_200',
+      }),
+    });
     template.hasOutput('albDnsName', {});
+    template.hasOutput('cloudFrontDomainName', {});
+    template.hasOutput('cloudFrontHttpsUrl', {});
   });
 
   test('creates the P2-3 AppRuntimeStack web service', () => {
