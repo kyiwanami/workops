@@ -60,6 +60,55 @@ M8 完了時点で、MVP をローカルで再現・説明する入口は次の�
 
 Phase 2 以降の AWS デプロイ、Cognito 本格連携、ECS、RDS、CDK、GitHub Actions deploy、PDF、メール、バッチ、CloudWatch Logs 連携は、後続 Phase の着手時に別途整理します。
 
+## AWS 実操作の共通前提
+
+AWS CLI、CDK、ECR、ECS、CloudFormation、RDS、SSM、Secrets Manager など AWS へ接続する手順では、実行前に AWS profile と region を明示します。
+
+PowerShell では次を標準とします。
+
+```powershell
+Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
+
+$env:AWS_PROFILE='amazon-connect'
+$env:AWS_SDK_LOAD_CONFIG='1'
+$env:AWS_REGION='ap-northeast-1'
+$env:CDK_DEFAULT_REGION='ap-northeast-1'
+```
+
+AWS CLI コマンドには原則として `--region $env:AWS_REGION` を付けます。
+
+```powershell
+aws sts get-caller-identity --region $env:AWS_REGION
+aws ec2 describe-managed-prefix-lists --region $env:AWS_REGION
+```
+
+CDK 実行時は、対象 stage も明示します。
+
+```powershell
+$env:WORKOPS_STAGE='dev'
+npm run cdk -- diff <StackName>
+npm run cdk -- deploy <StackName>
+```
+
+AWS 実操作の前には、認証先を確認します。
+
+```powershell
+aws sts get-caller-identity --region $env:AWS_REGION
+aws configure get region
+```
+
+実 account ID、SSO role ARN、SSO ユーザー名、credential 値は git 管理文書に記録しません。
+確認結果を記録する場合は「AWS account は手元の AWS 認証で確認済み」と書きます。
+
+ADR:
+
+- `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN` は消してから profile を使う。古い credential が profile より優先される事故を避けるため。
+- region は環境変数と CLI option の両方で明示する。ローカル shell や AWS config の差異に依存しないため。
+- 実 account ID は git に残す必要がないため記録しない。
+- `WORKOPS_STAGE` は CDK 実行時に明示する。stage 誤爆を避けるため。
+
 ## 後続フェーズの実装運用ルール
 
 M5 以降の agent task では、M4 実装中に判明した次の注意点を先に確認してから実装します。
