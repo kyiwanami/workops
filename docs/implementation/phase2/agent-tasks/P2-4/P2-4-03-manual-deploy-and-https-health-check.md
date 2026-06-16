@@ -12,7 +12,7 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 - `https://{cloudFrontDomainName}/actuator/health` を確認する
 - `https://{cloudFrontDomainName}/` を確認する
 - `http://{cloudFrontDomainName}/actuator/health` が HTTPS へ redirect されることを確認する
-- P2-5 には `cloudFrontHttpsUrl` をベース URL として渡す
+- P2-5 には `EdgeStack.cloudFrontHttpsUrl` を CDK props / cross-stack reference として渡す
 - callback / sign-out の path は P2-5 で決める
 - P2-4 runtime は P2-3 と同じく `SPRING_PROFILES_ACTIVE=local` のままにする
 
@@ -35,14 +35,14 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 - `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の diff を確認する
 - `DataStack` を deploy する
 - `EgressStack` を deploy する
-- `EdgeStack` を deploy し、Output を `p2-4-03-outputs.json` に保存する
+- `EdgeStack` を deploy する
 - `AppRuntimeStack` を deploy する
-- `cloudFrontDomainName` と `cloudFrontHttpsUrl` を `EdgeStack` Output から取得する
+- 手動確認用に `cloudFrontDomainName` と `cloudFrontHttpsUrl` を CloudFormation の `EdgeStack` Output から取得する
 - CloudFront distribution の deploy 完了を待つ
 - CloudFront 経由で `/actuator/health` の HTTPS 200 を確認する
 - CloudFront 経由で `/` の HTTPS 200 を確認する
 - CloudFront HTTP URL が HTTPS へ redirect されることを確認する
-- `cloudFrontHttpsUrl` を P2-5 への引き継ぎ値として記録する
+- P2-5 では `EdgeStack.cloudFrontHttpsUrl` を CDK token として参照する
 
 ## ADR
 
@@ -50,7 +50,8 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 - AWS 実操作はユーザー確認として扱う。CloudFront、ALB、NAT Gateway、ECS、RDS は課金対象リソースであり、AWS 認証情報もユーザー環境に依存するため。
 - P2-4 runtime は `SPRING_PROFILES_ACTIVE=local` のままにする。P2-4 は HTTPS 入口確認であり、Cognito OAuth2 Client 設定不足をここで扱わないため。
 - `DataStack` は P2-4 deploy 前に再作成する。P2-3 cleanup で削除済みであり、ECS task の DB 接続 secret / parameter がないと runtime を起動できないため。
-- `cloudFrontHttpsUrl` は `EdgeStack` Output から取得する。P2-5 の入力となる HTTPS ベース URL を AWS Console 上の目視だけに依存させないため。
+- `cloudFrontHttpsUrl` は P2-5 へ CDK props / cross-stack reference として渡す。環境固有の HTTPS ベース URL をリポジトリ内の静的ファイルや Markdown の正本として管理しないため。
+- CloudFormation Output は手動 HTTPS 確認用にだけ使う。P2-5 の Cognito callback / sign-out URL 組み立ては `EdgeStack.cloudFrontHttpsUrl` から行うため。
 - `/actuator/health` と `/` を確認する。health で runtime 経路を確認し、`/` で Thymeleaf のトップ画面到達を確認するため。
 - 業務操作は確認しない。P2-4 は HTTPS 入口の確認であり、業務画面操作や認証は P2-5 以降の責務であるため。
 - 既存データ移行と後方互換性は考慮しない。
@@ -64,12 +65,12 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 - `EgressStack` deploy手順を記録する
 - `EdgeStack` deploy手順を記録する
 - `AppRuntimeStack` deploy手順を記録する
-- `cloudFrontDomainName` と `cloudFrontHttpsUrl` の取得手順を記録する
+- 手動確認用に CloudFormation Output から `cloudFrontDomainName` と `cloudFrontHttpsUrl` を取得する手順を記録する
 - CloudFront distribution deploy 完了待ち手順を記録する
 - HTTPS `/actuator/health` 確認手順を記録する
 - HTTPS `/` 確認手順を記録する
 - HTTP から HTTPS への redirect 確認手順を記録する
-- P2-5 へ渡すベース URL の記録欄を用意する
+- P2-5 へ渡す CDK token の参照元を記録する
 
 ## 除外範囲
 
@@ -100,13 +101,40 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 - `EgressStack` を deploy できる
 - `EdgeStack` を deploy できる
 - `AppRuntimeStack` を deploy できる
-- `EdgeStack` Output から `cloudFrontDomainName` を取得できる
-- `EdgeStack` Output から `cloudFrontHttpsUrl` を取得できる
+- CloudFormation の `EdgeStack` Output から `cloudFrontDomainName` を取得できる
+- CloudFormation の `EdgeStack` Output から手動確認用の `cloudFrontHttpsUrl` を取得できる
 - CloudFront distribution が deploy 済みになる
 - `https://{cloudFrontDomainName}/actuator/health` が HTTP 200 を返す
 - `https://{cloudFrontDomainName}/` が HTTP 200 を返す
 - `http://{cloudFrontDomainName}/actuator/health` が HTTPS へ redirect される
-- `cloudFrontHttpsUrl` が P2-5 のベース URL として記録されている
+- `EdgeStack.cloudFrontHttpsUrl` が P2-5 のベース URL の CDK 参照元として記録されている
+
+## 実施結果
+
+2026-06-16 時点で、エージェント確認と AWS dev 確認が完了。
+
+エージェント確認:
+
+- `C:\git\workops\apps\web` で `.\mvnw.cmd test` を実行し、193 tests / failures 0 / errors 0 / skipped 0 で成功した
+- `C:\git\workops\infra\cdk` で `npm run build` を実行し、TypeScript build が成功した
+- `C:\git\workops\infra\cdk` で `npm test -- --runInBand` を実行し、1 suite / 12 tests が成功した
+- `WORKOPS_STAGE=dev` で `npm run cdk -- synth` を実行し、全 Stack の synth が成功した
+- `WORKOPS_STAGE=dev` で `npm run cdk -- synth EdgeStack` を実行し、CloudFront Distribution、CloudFront origin-facing prefix list ingress、`cloudFrontDomainName`、`cloudFrontHttpsUrl` Output を確認した
+
+ユーザー確認:
+
+- AWS account `REMOVED_AWS_ACCOUNT_ID`、region `ap-northeast-1` を確認した
+- 維持対象の `FoundationStack`、`RegistryStack`、`LogsStack` が存在し、`DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` が未作成であることを確認した
+- `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の CDK diff を確認した
+- `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` を deploy した
+- CloudFormation Output から手動確認用の `cloudFrontDomainName` と `cloudFrontHttpsUrl` を取得した
+- CloudFront distribution が `Deployed` であることを確認した
+- ECS Service `workops-dev-web` が `desiredCount=1` / `runningCount=1` であることを確認した
+- ALB target group の target が `healthy` であることを確認した
+- HTTPS `/actuator/health` が HTTP 200 を返すことを確認した
+- HTTPS `/` が HTTP 200 を返すことを確認した
+- HTTP `/actuator/health` が HTTPS へ 301 redirect されることを確認した
+- P2-5 へ渡す値は実値記録ではなく、`EdgeStack.cloudFrontHttpsUrl` の CDK 参照とする
 
 ## 確認方法
 
@@ -145,16 +173,16 @@ npm run cdk -- diff AppRuntimeStack
 
 npm run cdk -- deploy DataStack
 npm run cdk -- deploy EgressStack
-npm run cdk -- deploy EdgeStack --outputs-file .\p2-4-03-outputs.json
+npm run cdk -- deploy EdgeStack
 npm run cdk -- deploy AppRuntimeStack
 ```
 
 CloudFront URL 取得:
 
 ```powershell
-$outputs = Get-Content -LiteralPath .\p2-4-03-outputs.json -Encoding UTF8 | ConvertFrom-Json
-$cloudFrontDomainName = $outputs.EdgeStack.cloudFrontDomainName
-$cloudFrontHttpsUrl = $outputs.EdgeStack.cloudFrontHttpsUrl
+$edgeStack = aws cloudformation describe-stacks --stack-name workops-dev-edge | ConvertFrom-Json
+$cloudFrontDomainName = ($edgeStack.Stacks[0].Outputs | Where-Object OutputKey -eq 'cloudFrontDomainName').OutputValue
+$cloudFrontHttpsUrl = ($edgeStack.Stacks[0].Outputs | Where-Object OutputKey -eq 'cloudFrontHttpsUrl').OutputValue
 $cloudFrontDomainName
 $cloudFrontHttpsUrl
 ```
@@ -200,5 +228,7 @@ AWS Console 確認:
 P2-5 引き継ぎ:
 
 ```text
-P2-5 base URL: <cloudFrontHttpsUrl の値>
+P2-5 base URL source: EdgeStack.cloudFrontHttpsUrl
+callback path: P2-5 で確定
+sign-out path: P2-5 で確定
 ```

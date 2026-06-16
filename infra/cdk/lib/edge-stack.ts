@@ -36,6 +36,8 @@ export class EdgeStack extends Stack {
   public readonly listener: ApplicationListener;
   public readonly targetGroup: ApplicationTargetGroup;
   public readonly distribution: Distribution;
+  public readonly cloudFrontDomainName: string;
+  public readonly cloudFrontHttpsUrl: string;
 
   constructor(scope: Construct, id: string, props: EdgeStackProps) {
     super(scope, id, props);
@@ -106,14 +108,18 @@ export class EdgeStack extends Stack {
       priceClass: PriceClass.PRICE_CLASS_200,
     });
 
+    // P2-5 consumes these CDK tokens for Cognito URLs without storing environment-specific values.
+    this.cloudFrontDomainName = this.distribution.distributionDomainName;
+    this.cloudFrontHttpsUrl = `https://${this.cloudFrontDomainName}`;
+
     new CfnOutput(this, 'albDnsName', {
       value: this.loadBalancer.loadBalancerDnsName,
     });
     new CfnOutput(this, 'cloudFrontDomainName', {
-      value: this.distribution.distributionDomainName,
+      value: this.cloudFrontDomainName,
     });
     new CfnOutput(this, 'cloudFrontHttpsUrl', {
-      value: `https://${this.distribution.distributionDomainName}`,
+      value: this.cloudFrontHttpsUrl,
     });
   }
 }

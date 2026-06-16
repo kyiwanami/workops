@@ -11,7 +11,7 @@ P2-4 の AWS dev 実行確認結果を整理し、CloudFront default domain の 
 - CloudFront distribution 削除は時間がかかる前提を明記する
 - 削除後、ALB、CloudFront distribution、NAT Gateway、RDS、ALB / app Security Group ingress が残っていないことを確認する
 - 維持対象は `FoundationStack`、`RegistryStack`、`LogsStack` を基本にする
-- P2-5 には `cloudFrontHttpsUrl` をベース URL として引き継ぐ
+- P2-5 には `EdgeStack.cloudFrontHttpsUrl` を CDK props / cross-stack reference として引き継ぐ
 - タイムゾーン対応は P2-8 に移す
 
 ## 前提
@@ -20,7 +20,7 @@ P2-4 の AWS dev 実行確認結果を整理し、CloudFront default domain の 
 - CloudFront 経由で `/actuator/health` が HTTPS 200 を返している
 - CloudFront 経由で `/` が HTTPS 200 を返している
 - CloudFront の HTTP request が HTTPS へ redirect されている
-- `cloudFrontHttpsUrl` が P2-5 のベース URL として記録されている
+- `EdgeStack.cloudFrontHttpsUrl` が P2-5 のベース URL の CDK 参照元として記録されている
 - P2-4-03 で `DataStack` を再deployしている
 
 ## 案
@@ -28,7 +28,7 @@ P2-4 の AWS dev 実行確認結果を整理し、CloudFront default domain の 
 - P2-4 のエージェント確認結果を記録する
 - P2-4 のユーザー確認結果を記録する
 - `cloudFrontDomainName` を記録する
-- `cloudFrontHttpsUrl` を P2-5 ベース URL として記録する
+- `EdgeStack.cloudFrontHttpsUrl` を P2-5 ベース URL の CDK 参照元として記録する
 - CloudWatch Logs `/workops/dev/web` の Spring Boot 起動ログを確認する
 - CloudFront distribution の状態を確認する
 - ALB target group health を確認する
@@ -46,7 +46,7 @@ P2-4 の AWS dev 実行確認結果を整理し、CloudFront default domain の 
 - `EdgeStack` は確認後に削除する。CloudFront distribution は実行確認セッション用であり、P2-4 完了後に常設しない方針であるため。
 - `DataStack` も P2-4 cleanup で削除する。P2-4 では P2-3 cleanup 後に再作成した RDS を使うため、確認完了後に RDS 課金を残さない。
 - CloudFront distribution 削除は時間がかかる前提にする。CloudFront は distribution disable / delete に待ち時間が発生する AWS リソースであるため。
-- P2-5 の callback / sign-out path は記録しない。P2-4 の責務は `cloudFrontHttpsUrl` をベース URL として確定することに限定するため。
+- P2-5 の callback / sign-out path は記録しない。P2-4 の責務は `EdgeStack.cloudFrontHttpsUrl` を P2-5 の CDK 参照元として確定することに限定するため。
 - タイムゾーン対応は P2-8 で扱う。ログ確認と時刻表示の文脈で判断するため。
 - 既存データ移行と後方互換性は考慮しない。
 
@@ -57,7 +57,7 @@ P2-4 の AWS dev 実行確認結果を整理し、CloudFront default domain の 
 - CloudFront HTTPS `/` 確認結果を記録する
 - CloudFront HTTP to HTTPS redirect 確認結果を記録する
 - `cloudFrontDomainName` を記録する
-- `cloudFrontHttpsUrl` を P2-5 ベース URL として記録する
+- `EdgeStack.cloudFrontHttpsUrl` を P2-5 ベース URL の CDK 参照元として記録する
 - CloudWatch Logs 確認結果を記録する
 - ECS Service / task / target group health の確認結果を記録する
 - destroy 手順を記録する
@@ -85,7 +85,7 @@ P2-4 の AWS dev 実行確認結果を整理し、CloudFront default domain の 
 ## 完了条件
 
 - `cloudFrontDomainName` が記録されている
-- `cloudFrontHttpsUrl` が P2-5 ベース URL として記録されている
+- `EdgeStack.cloudFrontHttpsUrl` が P2-5 ベース URL の CDK 参照元として記録されている
 - `https://{cloudFrontDomainName}/actuator/health` が HTTP 200 を返したことが記録されている
 - `https://{cloudFrontDomainName}/` が HTTP 200 を返したことが記録されている
 - `http://{cloudFrontDomainName}/actuator/health` が HTTPS へ redirect されたことが記録されている
@@ -119,9 +119,9 @@ CloudFront / ECS / ALB 状態:
 
 ```powershell
 cd C:\git\workops\infra\cdk
-$outputs = Get-Content -LiteralPath .\p2-4-03-outputs.json -Encoding UTF8 | ConvertFrom-Json
-$cloudFrontDomainName = $outputs.EdgeStack.cloudFrontDomainName
-$cloudFrontHttpsUrl = $outputs.EdgeStack.cloudFrontHttpsUrl
+$edgeStack = aws cloudformation describe-stacks --stack-name workops-dev-edge | ConvertFrom-Json
+$cloudFrontDomainName = ($edgeStack.Stacks[0].Outputs | Where-Object OutputKey -eq 'cloudFrontDomainName').OutputValue
+$cloudFrontHttpsUrl = ($edgeStack.Stacks[0].Outputs | Where-Object OutputKey -eq 'cloudFrontHttpsUrl').OutputValue
 
 aws cloudfront list-distributions `
   --query "DistributionList.Items[?DomainName=='$cloudFrontDomainName'].[Id,DomainName,Status,Enabled]" `
@@ -185,7 +185,7 @@ aws cloudformation describe-stacks --stack-name workops-dev-logs
 P2-5 引き継ぎ:
 
 ```text
-P2-5 base URL: <cloudFrontHttpsUrl の値>
+P2-5 base URL source: EdgeStack.cloudFrontHttpsUrl
 callback path: P2-5 で確定
 sign-out path: P2-5 で確定
 ```
