@@ -24,7 +24,8 @@ CloudFront を P2-4 以降の HTTPS 入口にするため、ALB 80 ingress を C
 ## 案
 
 - `EdgeStack` の ALB 80 ingress を CloudFront origin-facing managed prefix list のみにする
-- CloudFront origin-facing managed prefix list は CDK の AWS-managed prefix list 参照で扱う
+- CloudFront origin-facing managed prefix list は、`ap-northeast-1` の固定 ID `pl-58a04531` を使う
+- CDK では `PrefixList.fromPrefixListId` で `pl-58a04531` を参照し、名前 lookup は使わない
 - ALB 80 ingress に `0.0.0.0/0` を残さない
 - CloudFront behavior は `OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER` を使う
 - CloudFront は cookies を origin request に含める
@@ -36,6 +37,7 @@ CloudFront を P2-4 以降の HTTPS 入口にするため、ALB 80 ingress を C
 ## ADR
 
 - ALB 80 ingress は CloudFront origin-facing managed prefix list に限定する。P2-4 では CloudFront default domain を HTTPS 入口として成立させるため、ALB を直接の公開入口として残さない。
+- CloudFront origin-facing managed prefix list は `ap-northeast-1` の固定 ID `pl-58a04531` を使う。名前 lookup は `cdk.context.json` と実行環境依存が発生するため、P2-4 の実装判断から除外する。
 - `ALL_VIEWER_EXCEPT_HOST_HEADER` を採用する。Cookie、query string、viewer request header を渡しつつ、viewer の `Host` を ALB origin へ転送しないことで、origin 向け `Host` を ALB に合う形にするため。
 - CloudFront custom header による origin 制限は採用しない。P2-4 の制限は Security Group と managed prefix list で表現でき、listener rule を増やす必要がないため。
 - WAF は作らない。P2-4 は HTTPS 入口の成立確認であり、アプリケーション防御の設計は Phase2 の完了条件ではないため。
@@ -45,6 +47,7 @@ CloudFront を P2-4 以降の HTTPS 入口にするため、ALB 80 ingress を C
 ## 対応範囲
 
 - `EdgeStack` の ALB 80 ingress を CloudFront origin-facing managed prefix list のみに変更する
+- `EdgeStack` で `PrefixList.fromPrefixListId` を使い、`pl-58a04531` を参照する
 - `EdgeStack` から ALB 80 ingress `0.0.0.0/0` を削除する
 - CloudFront origin request policy に `ALL_VIEWER_EXCEPT_HOST_HEADER` を設定する
 - CloudFront cache policy に `CACHING_DISABLED` を設定する
@@ -66,11 +69,14 @@ CloudFront を P2-4 以降の HTTPS 入口にするため、ALB 80 ingress を C
 - CloudFront から ALB 間 HTTPS
 - Cognito Hosted UI
 - users 突合
+- `ec2.PrefixList.fromLookupByName`
+- `cdk.context.json` に依存する prefix list lookup
 - git commit
 
 ## 完了条件
 
 - ALB 80 ingress が CloudFront origin-facing managed prefix list のみになっている
+- ALB 80 ingress が `ap-northeast-1` の CloudFront origin-facing managed prefix list ID `pl-58a04531` を参照している
 - ALB 80 ingress に `0.0.0.0/0` が残っていない
 - CloudFront が ALB を origin として使う
 - CloudFront が `ALL_VIEWER_EXCEPT_HOST_HEADER` を使う
@@ -93,6 +99,7 @@ npm run cdk -- synth EdgeStack
 CDK assertions で確認する代表条件:
 
 - ALB security group ingress の source が CloudFront origin-facing managed prefix list
+- ALB security group ingress の source prefix list ID が `pl-58a04531`
 - ALB security group ingress に `CidrIp: 0.0.0.0/0` が存在しない
 - CloudFront default behavior の origin request policy が `ALL_VIEWER_EXCEPT_HOST_HEADER`
 - CloudFront default behavior の cache policy が `CACHING_DISABLED`
@@ -103,3 +110,21 @@ CDK assertions で確認する代表条件:
 
 - P2-4-03 で CloudFront 経由の HTTPS 到達を確認する
 - P2-4-04 で cleanup 後に `workops-dev-alb-sg` の ingress が空であることを確認する
+
+prefix list ID の確認コマンド:
+
+```powershell
+aws ec2 describe-managed-prefix-lists `
+  --region ap-northeast-1 `
+  --filters Name=prefix-list-name,Values=com.amazonaws.global.cloudfront.origin-facing `
+  --query "PrefixLists[].{PrefixListId:PrefixListId,PrefixListName:PrefixListName,OwnerId:OwnerId}" `
+  --output table
+```
+
+2026-06-16 時点の確認値:
+
+```text
+PrefixListId: pl-58a04531
+PrefixListName: com.amazonaws.global.cloudfront.origin-facing
+OwnerId: AWS
+```

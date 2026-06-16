@@ -10,7 +10,7 @@ import {
   ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
 import { LoadBalancerV2Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
-import { CfnSecurityGroupIngress, ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { CfnSecurityGroupIngress, ISubnet, PrefixList, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import {
   ApplicationLoadBalancer,
   ApplicationListener,
@@ -27,6 +27,10 @@ export interface EdgeStackProps extends StackProps {
   albSecurityGroup: SecurityGroup;
 }
 
+// AWS-managed CloudFront origin-facing prefix list; CDK has no dedicated constant.
+// Keep the fixed ID to avoid context-producing prefix list name searches in P2-4.
+const cloudFrontOriginFacingPrefixListId = 'pl-58a04531';
+
 export class EdgeStack extends Stack {
   public readonly loadBalancer: ApplicationLoadBalancer;
   public readonly listener: ApplicationListener;
@@ -36,14 +40,20 @@ export class EdgeStack extends Stack {
   constructor(scope: Construct, id: string, props: EdgeStackProps) {
     super(scope, id, props);
 
-    // The P2-3 edge is intentionally HTTP-only until HTTPS and domains are introduced later.
+    const cloudFrontOriginPrefixList = PrefixList.fromPrefixListId(
+      this,
+      'CloudFrontOriginPrefixList',
+      cloudFrontOriginFacingPrefixListId,
+    );
+
+    // The ALB accepts public HTTP only from CloudFront origin-facing addresses.
     new CfnSecurityGroupIngress(this, 'AlbHttpIngress', {
       groupId: props.albSecurityGroup.securityGroupId,
       ipProtocol: 'tcp',
-      cidrIp: '0.0.0.0/0',
+      sourcePrefixListId: cloudFrontOriginPrefixList.prefixListId,
       fromPort: 80,
       toPort: 80,
-      description: 'Allow public HTTP traffic to WorkOps ALB',
+      description: 'Allow CloudFront origin-facing HTTP traffic to WorkOps ALB',
     });
 
     this.loadBalancer = new ApplicationLoadBalancer(this, 'WebAlb', {

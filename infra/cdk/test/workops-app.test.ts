@@ -310,11 +310,12 @@ describe('WorkOps CDK app', () => {
       vpc: foundationStack.vpc,
     });
     const template = Template.fromStack(edgeStack);
+    const templateText = JSON.stringify(template.toJSON());
 
     template.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
-      CidrIp: '0.0.0.0/0',
       FromPort: 80,
       IpProtocol: 'tcp',
+      SourcePrefixListId: 'pl-58a04531',
       ToPort: 80,
     });
     template.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
@@ -387,6 +388,9 @@ describe('WorkOps CDK app', () => {
     template.hasOutput('albDnsName', {});
     template.hasOutput('cloudFrontDomainName', {});
     template.hasOutput('cloudFrontHttpsUrl', {});
+    expect(templateText).not.toContain('"CidrIp":"0.0.0.0/0"');
+    expect(templateText).not.toContain('authenticate-cognito');
+    template.resourceCountIs('AWS::WAFv2::WebACLAssociation', 0);
   });
 
   test('creates the P2-3 AppRuntimeStack web service', () => {
