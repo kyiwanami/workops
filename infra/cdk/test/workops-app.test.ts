@@ -10,6 +10,7 @@ import { DataStack } from '../lib/data-stack';
 import { EdgeStack } from '../lib/edge-stack';
 import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
+import { IdentityStack } from '../lib/identity-stack';
 import { LogsStack } from '../lib/logs-stack';
 import { RegistryStack } from '../lib/registry-stack';
 import { SecretStack } from '../lib/secret-stack';
@@ -45,6 +46,10 @@ describe('WorkOps CDK app', () => {
     const configStack = new ConfigStack(app, 'ConfigStack', {
       stage,
       stackName: `workops-${stage}-config`,
+    });
+    const identityStack = new IdentityStack(app, 'IdentityStack', {
+      stage,
+      stackName: `workops-${stage}-identity`,
     });
     const registryStack = new RegistryStack(app, 'RegistryStack', {
       stage,
@@ -84,6 +89,7 @@ describe('WorkOps CDK app', () => {
     expect(secretStack.stackName).toBe('workops-dev-secret');
     expect(dataStack.stackName).toBe('workops-dev-data');
     expect(configStack.stackName).toBe('workops-dev-config');
+    expect(identityStack.stackName).toBe('workops-dev-identity');
     expect(registryStack.stackName).toBe('workops-dev-registry');
     expect(logsStack.stackName).toBe('workops-dev-logs');
     expect(egressStack.stackName).toBe('workops-dev-egress');
@@ -392,6 +398,101 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('authenticate-cognito');
     expect(templateText).not.toContain('pl-58a04531');
     template.resourceCountIs('AWS::WAFv2::WebACLAssociation', 0);
+  });
+
+  test('creates the P2-5 IdentityStack Cognito Hosted UI resources', () => {
+    const app = new App();
+    const stage = 'dev';
+    const identityStack = new IdentityStack(app, 'IdentityStack', {
+      stage,
+      stackName: `workops-${stage}-identity`,
+    });
+    const template = Template.fromStack(identityStack);
+    const templateText = JSON.stringify(template.toJSON());
+
+    template.resourceCountIs('AWS::Cognito::UserPool', 1);
+    template.resourceCountIs('AWS::Cognito::UserPoolDomain', 1);
+    template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
+    template.hasResourceProperties('AWS::Cognito::UserPool', {
+      UserPoolName: 'workops-dev-user-pool',
+      AutoVerifiedAttributes: ['email'],
+      MfaConfiguration: 'OFF',
+      UsernameConfiguration: {
+        CaseSensitive: false,
+      },
+      AdminCreateUserConfig: {
+        AllowAdminCreateUserOnly: true,
+      },
+      AccountRecoverySetting: {
+        RecoveryMechanisms: [
+          {
+            Name: 'verified_email',
+            Priority: 1,
+          },
+        ],
+      },
+      Policies: {
+        PasswordPolicy: Match.objectLike({
+          MinimumLength: 8,
+          RequireLowercase: true,
+          RequireUppercase: true,
+          RequireNumbers: true,
+          RequireSymbols: false,
+        }),
+      },
+      Schema: Match.arrayWith([
+        Match.objectLike({
+          Name: 'email',
+          Required: true,
+          Mutable: true,
+        }),
+      ]),
+    });
+    template.hasResource('AWS::Cognito::UserPool', {
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    template.hasResourceProperties('AWS::Cognito::UserPoolDomain', {
+      Domain: {
+        'Fn::Join': [
+          '',
+          [
+            'workops-dev-',
+            {
+              Ref: 'AWS::AccountId',
+            },
+          ],
+        ],
+      },
+    });
+    template.hasResourceProperties('AWS::Cognito::UserPoolClient', {
+      ClientName: 'workops-dev-web-client',
+      GenerateSecret: false,
+      AllowedOAuthFlowsUserPoolClient: true,
+      AllowedOAuthFlows: ['code'],
+      AllowedOAuthScopes: [
+        'openid',
+        'email',
+      ],
+      SupportedIdentityProviders: ['COGNITO'],
+    });
+    template.hasResource('AWS::Cognito::UserPoolClient', {
+      Properties: Match.objectLike({
+        CallbackURLs: Match.absent(),
+        LogoutURLs: Match.absent(),
+        DefaultRedirectURI: Match.absent(),
+      }),
+    });
+    template.hasOutput('userPoolId', {});
+    template.hasOutput('userPoolClientId', {});
+    template.hasOutput('hostedUiDomainBaseUrl', {});
+    template.resourceCountIs('AWS::CloudFront::Distribution', 0);
+    template.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 0);
+    template.resourceCountIs('AWS::ECS::Service', 0);
+    template.resourceCountIs('AWS::EC2::NatGateway', 0);
+    expect(templateText).not.toContain('EdgeStack');
+    expect(templateText).not.toContain('WebDistribution');
+    expect(templateText).not.toContain('WebAlb');
   });
 
   test('creates the P2-3 AppRuntimeStack web service', () => {

@@ -63,10 +63,13 @@ CDK app は次の Stack を管理します。
 - `workops-{stage}-secret`
 - `workops-{stage}-data`
 - `workops-{stage}-config`
+- `workops-{stage}-identity`
 - `workops-{stage}-registry`
 - `workops-{stage}-logs`
 
 `stage` は `WORKOPS_STAGE` の値です。
+
+`workops-{stage}-identity` は Cognito User Pool、Hosted UI domain、App Client を所有する維持対象 Stack です。CloudFront / ALB / ECS / NAT Gateway の実行確認セッション Stack とは lifecycle を分けます。
 
 ## Bootstrap
 
@@ -126,6 +129,8 @@ $env:AWS_REGION = "ap-northeast-1"
 npm run cdk -- destroy workops-dev-data
 ```
 
+実行確認セッション後に短命 Stack を削除する場合は、`workops-{stage}-app-runtime`、`workops-{stage}-edge`、`workops-{stage}-egress`、`workops-{stage}-data` を対象にします。`workops-{stage}-identity` は残します。
+
 ## Conventions
 
 - resource name は `workops-{stage}-...` 形式にします。
@@ -134,6 +139,8 @@ npm run cdk -- destroy workops-dev-data
 - DB username と DB password は SSM Parameter Store に保存しません。
 - DB endpoint から派生する SSM Parameter は、RDS を所有する Stack に置きます。
 - DB に依存しない runtime config は `ConfigStack` に置きます。
+- Cognito User Pool、Hosted UI domain、App Client は `IdentityStack` に置きます。
+- `IdentityStack` は `EdgeStack` を参照しません。
 - CloudFormation Output に password、secret value、public IP、EC2 instance id を出しません。
 - Stack 間参照は同一 CDK app 内の props 参照で渡し、cross-stack reference は `weak` に固定します。
 - `weak` により、生成 template は `Fn::ImportValue` ではなく `Fn::GetStackOutput` を使います。

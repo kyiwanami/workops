@@ -6,6 +6,7 @@ import { DataStack } from '../lib/data-stack';
 import { EdgeStack } from '../lib/edge-stack';
 import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
+import { IdentityStack } from '../lib/identity-stack';
 import { LogsStack } from '../lib/logs-stack';
 import { RegistryStack } from '../lib/registry-stack';
 import { SecretStack } from '../lib/secret-stack';
@@ -52,6 +53,11 @@ new ConfigStack(app, 'ConfigStack', {
   env,
   stage,
   stackName: `workops-${stage}-config`,
+});
+new IdentityStack(app, 'IdentityStack', {
+  env,
+  stage,
+  stackName: `workops-${stage}-identity`,
 });
 const registryStack = new RegistryStack(app, 'RegistryStack', {
   env,
