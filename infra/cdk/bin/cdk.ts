@@ -76,7 +76,7 @@ const egressStack = new EgressStack(app, 'EgressStack', {
 const edgeStack = new EdgeStack(app, 'EdgeStack', {
   albSecurityGroup: foundationStack.albSecurityGroup,
   env,
-  publicSubnets: foundationStack.publicSubnets,
+  appSubnets: foundationStack.appSubnets,
   stage,
   stackName: `workops-${stage}-edge`,
   vpc: foundationStack.vpc,

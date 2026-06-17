@@ -63,7 +63,7 @@ describe('WorkOps CDK app', () => {
     });
     const edgeStack = new EdgeStack(app, 'EdgeStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
-      publicSubnets: foundationStack.publicSubnets,
+      appSubnets: foundationStack.appSubnets,
       stage,
       stackName: `workops-${stage}-edge`,
       vpc: foundationStack.vpc,
@@ -304,7 +304,7 @@ describe('WorkOps CDK app', () => {
     });
     const edgeStack = new EdgeStack(app, 'EdgeStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
-      publicSubnets: foundationStack.publicSubnets,
+      appSubnets: foundationStack.appSubnets,
       stage,
       stackName: `workops-${stage}-edge`,
       vpc: foundationStack.vpc,
@@ -312,15 +312,10 @@ describe('WorkOps CDK app', () => {
     const template = Template.fromStack(edgeStack);
     const templateText = JSON.stringify(template.toJSON());
 
-    template.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
-      FromPort: 80,
-      IpProtocol: 'tcp',
-      SourcePrefixListId: 'pl-58a04531',
-      ToPort: 80,
-    });
+    template.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
     template.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
       Name: 'workops-dev-web-alb',
-      Scheme: 'internet-facing',
+      Scheme: 'internal',
       Type: 'application',
     });
     template.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
@@ -371,18 +366,23 @@ describe('WorkOps CDK app', () => {
         }),
         Origins: Match.arrayWith([
           Match.objectLike({
-            CustomOriginConfig: Match.objectLike({
-              OriginProtocolPolicy: 'http-only',
+            VpcOriginConfig: Match.objectLike({
+              VpcOriginId: {
+                'Fn::GetAtt': [Match.stringLikeRegexp('WebDistributionOrigin1VpcOrigin'), 'Id'],
+              },
             }),
-            DomainName: {
-              'Fn::GetAtt': [
-                Match.stringLikeRegexp('WebAlb'),
-                'DNSName',
-              ],
-            },
           }),
         ]),
         PriceClass: 'PriceClass_200',
+      }),
+    });
+    template.hasResourceProperties('AWS::CloudFront::VpcOrigin', {
+      VpcOriginEndpointConfig: Match.objectLike({
+        Arn: {
+          Ref: Match.stringLikeRegexp('WebAlb'),
+        },
+        OriginProtocolPolicy: 'http-only',
+        OriginSSLProtocols: ['TLSv1.2'],
       }),
     });
     template.hasOutput('albDnsName', {});
@@ -390,6 +390,7 @@ describe('WorkOps CDK app', () => {
     template.hasOutput('cloudFrontHttpsUrl', {});
     expect(templateText).not.toContain('"CidrIp":"0.0.0.0/0"');
     expect(templateText).not.toContain('authenticate-cognito');
+    expect(templateText).not.toContain('pl-58a04531');
     template.resourceCountIs('AWS::WAFv2::WebACLAssociation', 0);
   });
 
@@ -410,7 +411,7 @@ describe('WorkOps CDK app', () => {
     });
     const edgeStack = new EdgeStack(app, 'EdgeStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
-      publicSubnets: foundationStack.publicSubnets,
+      appSubnets: foundationStack.appSubnets,
       stage,
       stackName: `workops-${stage}-edge`,
       vpc: foundationStack.vpc,

@@ -9,8 +9,8 @@ import {
   PriceClass,
   ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
-import { LoadBalancerV2Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
-import { CfnSecurityGroupIngress, ISubnet, PrefixList, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { VpcOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
+import { ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import {
   ApplicationLoadBalancer,
   ApplicationListener,
@@ -23,13 +23,9 @@ import { Construct } from 'constructs';
 export interface EdgeStackProps extends StackProps {
   stage: string;
   vpc: Vpc;
-  publicSubnets: ISubnet[];
+  appSubnets: ISubnet[];
   albSecurityGroup: SecurityGroup;
 }
-
-// AWS-managed CloudFront origin-facing prefix list; CDK has no dedicated constant.
-// Keep the fixed ID to avoid context-producing prefix list name searches in P2-4.
-const cloudFrontOriginFacingPrefixListId = 'pl-58a04531';
 
 export class EdgeStack extends Stack {
   public readonly loadBalancer: ApplicationLoadBalancer;
@@ -42,29 +38,13 @@ export class EdgeStack extends Stack {
   constructor(scope: Construct, id: string, props: EdgeStackProps) {
     super(scope, id, props);
 
-    const cloudFrontOriginPrefixList = PrefixList.fromPrefixListId(
-      this,
-      'CloudFrontOriginPrefixList',
-      cloudFrontOriginFacingPrefixListId,
-    );
-
-    // The ALB accepts public HTTP only from CloudFront origin-facing addresses.
-    new CfnSecurityGroupIngress(this, 'AlbHttpIngress', {
-      groupId: props.albSecurityGroup.securityGroupId,
-      ipProtocol: 'tcp',
-      sourcePrefixListId: cloudFrontOriginPrefixList.prefixListId,
-      fromPort: 80,
-      toPort: 80,
-      description: 'Allow CloudFront origin-facing HTTP traffic to WorkOps ALB',
-    });
-
     this.loadBalancer = new ApplicationLoadBalancer(this, 'WebAlb', {
       vpc: props.vpc,
-      internetFacing: true,
+      internetFacing: false,
       loadBalancerName: `workops-${props.stage}-web-alb`,
       securityGroup: props.albSecurityGroup,
       vpcSubnets: {
-        subnets: props.publicSubnets,
+        subnets: props.appSubnets,
       },
     });
 
@@ -99,7 +79,7 @@ export class EdgeStack extends Stack {
         allowedMethods: AllowedMethods.ALLOW_ALL,
         cachedMethods: CachedMethods.CACHE_GET_HEAD,
         cachePolicy: CachePolicy.CACHING_DISABLED,
-        origin: new LoadBalancerV2Origin(this.loadBalancer, {
+        origin: VpcOrigin.withApplicationLoadBalancer(this.loadBalancer, {
           protocolPolicy: OriginProtocolPolicy.HTTP_ONLY,
         }),
         originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,

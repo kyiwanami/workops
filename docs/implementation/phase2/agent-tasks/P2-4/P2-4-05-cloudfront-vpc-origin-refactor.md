@@ -134,20 +134,41 @@ CDK assertions で確認する代表条件:
 
 ### 実装方針
 
-未実装。
+P2-4 の公開 ALB + managed prefix list 依存を、内部 ALB + CloudFront VPC Origin へ置き換えるため、EdgeStack 側を `publicSubnets` 依存から `appSubnets` 依存へ移行した。
+
+- `EdgeStackProps` を `publicSubnets` から `appSubnets` に変更し、ALB 配置を app private subnet に固定した。
+- ALB を `internetFacing: false` に変更した。
+- CloudFront origin を `VpcOrigin.withApplicationLoadBalancer` に変更して、`AWS::CloudFront::VpcOrigin` を経由する構成にした。
+- P2-4-01 / P2-4-02 で入れた prefix list 参照 (`pl-58a04531`) と `AlbHttpIngress` を削除した。
+- CloudFront の既存の methods/policy 方針（ALLOW_ALL、CACHE_GET_HEAD、CACHING_DISABLED、ALL_VIEWER_EXCEPT_HOST_HEADER、REDIRECT_TO_HTTPS）は維持した。
+- `albDnsName` は引き続き output し、正規入口は `cloudFrontHttpsUrl` のみとする。
 
 ### 変更ファイル
 
-未実装。
+1. `infra/cdk/lib/edge-stack.ts`
+2. `infra/cdk/bin/cdk.ts`
+3. `infra/cdk/test/workops-app.test.ts`
+4. `docs/implementation/phase2/agent-tasks/P2-4/P2-4-05-cloudfront-vpc-origin-refactor.md`
 
 ### 実装結果
 
-未実装。
+- `EdgeStackProps` の `publicSubnets` を `appSubnets` に置換し、ALB 配置と `EdgeStack` 生成時の参照を更新した。
+- ALB を internal に変更し、`VpcOrigin.withApplicationLoadBalancer` により CloudFront VPC Origin を作成する形へ更新した。
+- prefix list 由来の ingress 制御を削除し、ALB Security Group ingress を増やさない構成へ変更した。
+- テストを VPC Origin と internal ALB 構成前提へ更新した。
 
 ### 確認結果
 
-未実装。
+- `npm run build`
+- `npm test -- --runInBand`
+- `npm run cdk -- synth EdgeStack`（`WORKOPS_STAGE=dev`）
+- CDK assertions 確認
+  - `AWS::CloudFront::VpcOrigin` 存在
+  - `AWS::ElasticLoadBalancingV2::LoadBalancer` の `Scheme` が `internal`
+  - `CloudFront::Distribution` の origin が `VpcOriginConfig` を持つ
+  - `pl-58a04531` がテンプレート本文に残っていない
+  - `cloudFrontDomainName` / `cloudFrontHttpsUrl` / `albDnsName` output が存在
 
 ### 残課題
 
-未実装。
+なし。
