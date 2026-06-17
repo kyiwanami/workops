@@ -24,6 +24,9 @@ class TaggedResourceStack extends Stack {
   }
 }
 
+const testCognitoUserPoolId = 'ap-northeast-1_test';
+const testCognitoUserPoolClientId = 'testclientid';
+
 describe('WorkOps CDK app', () => {
   test('creates Phase 2 base stack shells using the requested stage', () => {
     const app = new App();
@@ -69,6 +72,8 @@ describe('WorkOps CDK app', () => {
     const edgeStack = new EdgeStack(app, 'EdgeStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
+      cognitoUserPoolClientId: testCognitoUserPoolClientId,
+      cognitoUserPoolId: testCognitoUserPoolId,
       stage,
       stackName: `workops-${stage}-edge`,
       vpc: foundationStack.vpc,
@@ -311,6 +316,8 @@ describe('WorkOps CDK app', () => {
     const edgeStack = new EdgeStack(app, 'EdgeStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
+      cognitoUserPoolClientId: testCognitoUserPoolClientId,
+      cognitoUserPoolId: testCognitoUserPoolId,
       stage,
       stackName: `workops-${stage}-edge`,
       vpc: foundationStack.vpc,
@@ -394,6 +401,39 @@ describe('WorkOps CDK app', () => {
     template.hasOutput('albDnsName', {});
     template.hasOutput('cloudFrontDomainName', {});
     template.hasOutput('cloudFrontHttpsUrl', {});
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'workops-dev-cognito-client-url-updater',
+      Handler: 'index.handler',
+      Runtime: 'nodejs22.x',
+      Timeout: 60,
+    });
+    template.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater',
+      RetentionInDays: 7,
+    });
+    template.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater-provider',
+      RetentionInDays: 7,
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: [
+              'cognito-idp:DescribeUserPoolClient',
+              'cognito-idp:UpdateUserPoolClient',
+            ],
+            Effect: 'Allow',
+          }),
+        ]),
+      },
+    });
+    template.resourceCountIs('Custom::WorkOpsCognitoClientUrlUpdater', 1);
+    template.hasResourceProperties('Custom::WorkOpsCognitoClientUrlUpdater', {
+      UserPoolId: testCognitoUserPoolId,
+      UserPoolClientId: testCognitoUserPoolClientId,
+      CloudFrontDomainName: Match.anyValue(),
+    });
     expect(templateText).not.toContain('"CidrIp":"0.0.0.0/0"');
     expect(templateText).not.toContain('authenticate-cognito');
     expect(templateText).not.toContain('pl-58a04531');
@@ -513,6 +553,8 @@ describe('WorkOps CDK app', () => {
     const edgeStack = new EdgeStack(app, 'EdgeStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
+      cognitoUserPoolClientId: testCognitoUserPoolClientId,
+      cognitoUserPoolId: testCognitoUserPoolId,
       stage,
       stackName: `workops-${stage}-edge`,
       vpc: foundationStack.vpc,

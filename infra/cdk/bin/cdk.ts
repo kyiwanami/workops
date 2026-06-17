@@ -54,7 +54,7 @@ new ConfigStack(app, 'ConfigStack', {
   stage,
   stackName: `workops-${stage}-config`,
 });
-new IdentityStack(app, 'IdentityStack', {
+const identityStack = new IdentityStack(app, 'IdentityStack', {
   env,
   stage,
   stackName: `workops-${stage}-identity`,
@@ -83,6 +83,8 @@ const edgeStack = new EdgeStack(app, 'EdgeStack', {
   albSecurityGroup: foundationStack.albSecurityGroup,
   env,
   appSubnets: foundationStack.appSubnets,
+  cognitoUserPoolClientId: identityStack.userPoolClientId,
+  cognitoUserPoolId: identityStack.userPoolId,
   stage,
   stackName: `workops-${stage}-edge`,
   vpc: foundationStack.vpc,
@@ -101,5 +103,6 @@ const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
 });
 
 edgeStack.addDependency(egressStack);
+edgeStack.addDependency(identityStack);
 appRuntimeStack.addDependency(egressStack);
 appRuntimeStack.addDependency(edgeStack);

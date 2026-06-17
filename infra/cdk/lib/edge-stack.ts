@@ -1,4 +1,4 @@
-import { CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { ArnFormat, CfnOutput, CustomResource, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import {
   AllowedMethods,
   CachePolicy,
@@ -10,6 +10,7 @@ import {
   ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
 import { VpcOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
+import { Provider } from 'aws-cdk-lib/custom-resources';
 import { ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import {
   ApplicationLoadBalancer,
@@ -18,13 +19,20 @@ import {
   ApplicationTargetGroup,
   TargetType,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
+import { join } from 'path';
 
 export interface EdgeStackProps extends StackProps {
   stage: string;
   vpc: Vpc;
   appSubnets: ISubnet[];
   albSecurityGroup: SecurityGroup;
+  cognitoUserPoolId: string;
+  cognitoUserPoolClientId: string;
 }
 
 export class EdgeStack extends Stack {
@@ -91,6 +99,57 @@ export class EdgeStack extends Stack {
     // P2-5 consumes these CDK tokens for Cognito URLs without storing environment-specific values.
     this.cloudFrontDomainName = this.distribution.distributionDomainName;
     this.cloudFrontHttpsUrl = `https://${this.cloudFrontDomainName}`;
+
+    const updaterLogGroup = new LogGroup(this, 'CognitoClientUrlUpdaterLogGroup', {
+      logGroupName: `/workops/${props.stage}/custom-resources/cognito-client-url-updater`,
+      retention: RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    const providerLogGroup = new LogGroup(this, 'CognitoClientUrlUpdaterProviderLogGroup', {
+      logGroupName: `/workops/${props.stage}/custom-resources/cognito-client-url-updater-provider`,
+      retention: RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    const updaterFunction = new NodejsFunction(this, 'CognitoClientUrlUpdaterFunction', {
+      functionName: `workops-${props.stage}-cognito-client-url-updater`,
+      runtime: Runtime.NODEJS_22_X,
+      entry: join(__dirname, '..', 'custom-resources', 'cognito-client-url-updater', 'index.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(1),
+      logGroup: updaterLogGroup,
+      bundling: {
+        bundleAwsSDK: true,
+      },
+    });
+    updaterFunction.addToRolePolicy(new PolicyStatement({
+      actions: [
+        'cognito-idp:DescribeUserPoolClient',
+        'cognito-idp:UpdateUserPoolClient',
+      ],
+      resources: [
+        this.formatArn({
+          service: 'cognito-idp',
+          resource: 'userpool',
+          resourceName: props.cognitoUserPoolId,
+          arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
+        }),
+      ],
+    }));
+    const updaterProvider = new Provider(this, 'CognitoClientUrlUpdaterProvider', {
+      onEventHandler: updaterFunction,
+      logGroup: providerLogGroup,
+    });
+
+    // The custom resource registers the current CloudFront endpoint without making IdentityStack depend on EdgeStack.
+    new CustomResource(this, 'CognitoClientUrlUpdater', {
+      resourceType: 'Custom::WorkOpsCognitoClientUrlUpdater',
+      serviceToken: updaterProvider.serviceToken,
+      properties: {
+        UserPoolId: props.cognitoUserPoolId,
+        UserPoolClientId: props.cognitoUserPoolClientId,
+        CloudFrontDomainName: this.cloudFrontDomainName,
+      },
+    });
 
     new CfnOutput(this, 'albDnsName', {
       value: this.loadBalancer.loadBalancerDnsName,
