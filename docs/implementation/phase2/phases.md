@@ -29,6 +29,7 @@ Phase 2 のスコープ、設計方針、実装順序、完了条件は、Notion
 - Phase 2 は P2-0 から P2-10 で MVP の `apps/web` を AWS dev 上に再現可能にする
 - P2-3 は HTTP ALB による Web アプリ起動、RDS 接続、`/actuator/health`、起動時 Flyway 適用の確認に限定する
 - P2-4 は HTTPS 入口 / CloudFront default domain を扱い、Cognito callback URL と sign-out URL に使う HTTPS URL を確定する
+- P2-4-05 で CloudFront VPC origins を採用し、P2-4 の最終状態を内部 ALB + CloudFront VPC origin にする
 - P2-9 の GitHub Actions OIDC deploy は暫定 deploy 手段として扱う
 - P2-10 完了後、既存 Phase 3 の前に Phase 2α を置き、CI/CD を CodePipeline + CodeBuild へ AWS ネイティブ化する
 - Phase 2 の migration は `apps/web` の Spring Boot 起動時 Flyway 実行を維持する
@@ -42,7 +43,8 @@ Phase 2 のスコープ、設計方針、実装順序、完了条件は、Notion
 - Phase 2 の AWS dev migration は `apps/web` 起動時に実行し、Phase 2α で migration 用 ECS Task へ分離する
 - Cognito の redirect URI は localhost 例外を除き HTTPS が必要なため、Cognito Hosted UI ログイン前に P2-4 で HTTPS URL を確定する
 - P2-3 は CloudFront、HTTPS 入口、ACM certificate、Route 53、独自ドメイン、DNS validation を扱わず、HTTP ALB 経由の稼働確認に集中する
-- P2-4 は CloudFront default domain を利用者向け HTTPS 入口として扱い、ALB は CloudFront からの HTTP origin request を受ける
+- P2-4 は CloudFront default domain を利用者向け HTTPS 入口として扱い、CloudFront VPC origins で private subnet の内部 ALB へ HTTP origin request を送る
+- P2-4-01 / P2-4-02 で作った公開 ALB + CloudFront origin-facing managed prefix list の設計は、P2-4-05 で内部 ALB + CloudFront VPC origin へ置き換える
 - ACM certificate、Route 53、独自ドメイン、DNS validation、ALB HTTPS listener は Phase 2 では採用しない
 - Phase 2α 完了後、GitHub Actions workflow は PR チェック用にも残さない
 - CodeDeploy、Blue/Green deploy、Canary deploy、PR レビューゲートは Phase 2 / Phase 2α では採用しない
@@ -56,7 +58,7 @@ MVP で完成した `apps/web` が、AWS dev 環境上で次の構成を使っ�
 - PLATFORM / TENANT App Client
 - ECS Fargate
 - ALB
-- CloudFront default domain による HTTPS 入口
+- CloudFront default domain と CloudFront VPC origin による HTTPS 入口
 - ECR
 - Secrets Manager
 - SSM Parameter Store Standard
@@ -81,7 +83,7 @@ Phase 2 の中心は新規業務機能の追加ではなく、MVP の Web アプ
 - ユーザー作成、権限割当、ユーザー無効化の対象範囲を広げる
 - PLATFORM / TENANT の利用者境界を変更する
 - RDS、ECS、CloudFront、ALB、NAT Gateway のライフサイクル方針を変更する
-- CloudFront default domain、HTTPS 入口、ACM certificate の責務を変更する
+- CloudFront default domain、CloudFront VPC origin、HTTPS 入口、ACM certificate の責務を変更する
 - Secrets Manager と SSM Parameter Store の責務を変更する
 - Flyway migration の実行方式を変更する
 - Phase 2 で作らない AWS リソースを追加する
@@ -119,8 +121,9 @@ agent task またはフェーズの完了条件にユーザー確認が含まれ
 - `EdgeStack` は CloudFront distribution、ALB、Target Group、HTTP listener を扱う
 - CloudFront default domain を Cognito callback URL と sign-out URL に使う HTTPS URL の正本として扱う
 - CloudFront viewer protocol policy は HTTP to HTTPS redirect とする
-- CloudFront origin は ALB とし、origin protocol policy は HTTP only とする
-- ALB HTTP 80 ingress は CloudFront origin-facing managed prefix list からの通信に制限する
+- CloudFront origin は CloudFront VPC origin 経由の内部 ALB とし、origin protocol policy は HTTP only とする
+- ALB は private subnet に置き、internet-facing にしない
+- CloudFront VPC origins を使い、CloudFront から ALB へ private 到達させる
 - ACM certificate、Route 53、独自ドメイン、DNS validation、ALB HTTPS listener は Phase 2 では作らない
 - VPC Endpoint と Container Insights は作成しない
 - ALB Cognito 認証を使わず、Spring Security OAuth2 Login と Cognito Hosted UI を使う
@@ -467,7 +470,8 @@ ACM 独自ドメイン証明書、Route 53 独自ドメイン運用、ALB HTTPS 
 - CloudFront distribution
 - CloudFront default domain
 - CloudFront default certificate による viewer 向け HTTPS 入口
-- ALB を origin にした CloudFront 設定
+- CloudFront VPC origin
+- 内部 ALB を origin にした CloudFront 設定
 - CloudFront から ALB への HTTP origin 通信
 - Cognito callback URL と sign-out URL に使う HTTPS URL の確定
 - CloudFront 経由の `/actuator/health` 確認
@@ -481,7 +485,8 @@ ACM 独自ドメイン証明書、Route 53 独自ドメイン運用、ALB HTTPS 
 - CloudFront への HTTP request は HTTPS へ redirect する
 - CloudFront から ALB は HTTP とする
 - ALB から ECS task も HTTP とする
-- ALB HTTP 80 ingress は CloudFront origin-facing managed prefix list からの通信に制限する
+- ALB は private subnet に配置し、internet-facing にしない
+- CloudFront VPC origins で CloudFront から内部 ALB へ private 到達させる
 - CloudFront はキャッシュを無効化し、動的 Web アプリとして必要な request 情報を ALB origin へ渡す
 - ALB Cognito 認証は使わない
 - Cognito 認証は P2-5 で Spring Security OAuth2 Login + Cognito Hosted UI として扱う
@@ -505,6 +510,7 @@ CloudFront は無料利用枠の範囲に収める努力目標としますが、
 - HTTP listener から HTTPS への redirect
 - CloudFront custom domain
 - CloudFront から ALB 間 HTTPS
+- 公開 ALB を CloudFront 送信元 IP 範囲で保護する構成
 - WAF
 - ALB Cognito 認証
 - 本番ドメイン設計
@@ -517,19 +523,20 @@ CloudFront は無料利用枠の範囲に収める努力目標としますが、
 ### 完了条件
 
 AWS dev 環境で、CloudFront default domain の HTTPS URL から WorkOps へ到達できる。
-CloudFront で viewer 向け HTTPS を終端し、ALB へ HTTP で転送できる。
+CloudFront で viewer 向け HTTPS を終端し、CloudFront VPC origin 経由で内部 ALB へ HTTP で転送できる。
 CloudFront 経由で `/actuator/health` を確認できる。
 P2-5 で Cognito Hosted UI の callback URL と sign-out URL として使う HTTPS URL が確定している。
 独自ドメイン、ACM 独自ドメイン証明書、Route 53、ALB HTTPS listener なしで HTTPS 入口を成立させられる。
+ALB DNS 直アクセスを正規入口にせず、CloudFront default domain を正規確認 URL として扱える。
 
 ### 確認方針
 
-エージェントは、CloudFront distribution、CloudFront default domain、ALB origin、CloudFront origin-facing managed prefix list、CDK synth、README の確認手順を確認します。
+エージェントは、CloudFront distribution、CloudFront default domain、CloudFront VPC origin、内部 ALB、CDK synth、README の確認手順を確認します。
 ユーザーは、CloudFront default domain の HTTPS 到達、CloudFront 経由の `/actuator/health`、確認後の実行確認セッション Stack 削除を確認します。
 
 ### agent task 分割方針
 
-P2-4 着手前に、CloudFront edge stack、origin security、manual deploy と HTTPS health check、README と確認記録の境界で agent task 分割案を提示します。
+P2-4 着手前に、CloudFront edge stack、origin security、manual deploy と HTTPS health check、CloudFront VPC origins refactor、README と確認記録の境界で agent task 分割案を提示します。
 Cognito Hosted UI ログイン本体を P2-4 の task に含めません。
 
 ## P2-5. Cognito Hosted UI ログイン・`users` 突合
@@ -938,7 +945,7 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 - `apps/web` 起動時に RDS へ Flyway migration と AWS dev seed を適用できる
 - `apps/web` が ECS Fargate で動作する
 - HTTP ALB 経由の `/actuator/health` が成功する
-- HTTPS 入口が作成され、HTTPS 経由で `/actuator/health` を確認できる
+- HTTPS 入口が作成され、CloudFront VPC origin 経由で内部 ALB へ到達し、HTTPS 経由で `/actuator/health` を確認できる
 - HTTP アクセスが HTTPS へ redirect される
 - Cognito Hosted UI でログインできる
 - Cognito `sub` と `users.cognito_sub` を突合できる

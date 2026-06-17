@@ -60,6 +60,14 @@ M8 完了時点で、MVP をローカルで再現・説明する入口は次の�
 
 Phase 2 以降の AWS デプロイ、Cognito 本格連携、ECS、RDS、CDK、GitHub Actions deploy、PDF、メール、バッチ、CloudWatch Logs 連携は、後続 Phase の着手時に別途整理します。
 
+## Phase 2 HTTPS 入口方針
+
+Phase 2 の HTTPS 入口は CloudFront default domain で成立させます。
+CloudFront から `apps/web` の ALB へ到達する経路は CloudFront VPC origins を使い、ALB をインターネットへ直接公開しません。
+ALB は private subnet に置き、CloudFront から ALB、ALB から ECS task への通信は HTTP のまま扱います。
+独自ドメイン、ACM 独自ドメイン証明書、Route 53、ALB HTTPS listener は Phase 2 では作りません。
+実 AWS 環境での CloudFront default domain 到達確認、ALB 直アクセスが正規入口ではないことの確認、実行確認セッション Stack の削除はユーザー確認として扱います。
+
 ## AWS 実操作の共通前提
 
 AWS CLI、CDK、ECR、ECS、CloudFormation、RDS、SSM、Secrets Manager など AWS へ接続する手順では、実行前に AWS profile と region を明示します。

@@ -42,6 +42,7 @@ CloudFront を P2-4 以降の HTTPS 入口にするため、ALB 80 ingress を C
 - CloudFront custom header による origin 制限は採用しない。P2-4 の制限は Security Group と managed prefix list で表現でき、listener rule を増やす必要がないため。
 - WAF は作らない。P2-4 は HTTPS 入口の成立確認であり、アプリケーション防御の設計は Phase2 の完了条件ではないため。
 - ALB Cognito 認証は使わない。WorkOps の認証は P2-5 以降で Spring Security OAuth2 Login + Cognito Hosted UI として扱うため。
+- 本 task の公開 ALB + CloudFront origin-facing managed prefix list による origin 制限は、P2-4-05 で CloudFront VPC origin 経由の内部 ALB 構成へ置き換える。
 - 既存データ移行と後方互換性は考慮しない。
 
 ## 対応範囲

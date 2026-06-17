@@ -52,6 +52,7 @@ P2-4 では独自ドメイン、ACM 独自ドメイン証明書、Route 53、ALB
 - Allowed methods は全 HTTP メソッドとする。P2-5 以降で同じ HTTPS 入口を Cognito callback と業務 Web 入口に使うため、P2-4 で GET / HEAD に閉じない。
 - Cached methods は GET / HEAD とする。CloudFront の cached methods としては標準的な最小範囲にし、実際の caching は `CACHING_DISABLED` で無効化するため。
 - `cloudFrontHttpsUrl` を Output にする。P2-5 へ渡すベース URL を `https://` 付きで固定し、転記時の誤りを避けるため。
+- 本 task の CloudFront から公開 ALB へ HTTP で到達する構成は、P2-4-05 で CloudFront VPC origin 経由の内部 ALB 構成へ置き換える。
 - 既存データ移行と後方互換性は考慮しない。
 
 ## 対応範囲
