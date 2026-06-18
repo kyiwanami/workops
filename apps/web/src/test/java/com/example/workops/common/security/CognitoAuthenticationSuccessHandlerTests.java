@@ -1,0 +1,89 @@
+package com.example.workops.common.security;
+
+import java.util.List;
+import java.util.Optional;
+
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(OutputCaptureExtension.class)
+class CognitoAuthenticationSuccessHandlerTests {
+
+    private static final String COGNITO_SUB = "11111111-2222-3333-4444-555555555555";
+
+    @Test
+    void platformLoginStoresWorkOpsAuthentication() throws Exception {
+        DbLoginUserContextFactory dbLoginUserContextFactory = mock(DbLoginUserContextFactory.class);
+        CognitoAuthenticationSuccessHandler handler = new CognitoAuthenticationSuccessHandler(
+                dbLoginUserContextFactory,
+                new WorkOpsAuthenticationFactory());
+        when(dbLoginUserContextFactory.fromCognitoSub(COGNITO_SUB))
+                .thenReturn(Optional.of(platformUser()));
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response, authentication("platform"));
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/");
+    }
+
+    @Test
+    void routeActorTypeMismatchReturnsForbiddenAndWarns(CapturedOutput output) throws Exception {
+        DbLoginUserContextFactory dbLoginUserContextFactory = mock(DbLoginUserContextFactory.class);
+        CognitoAuthenticationSuccessHandler handler = new CognitoAuthenticationSuccessHandler(
+                dbLoginUserContextFactory,
+                new WorkOpsAuthenticationFactory());
+        when(dbLoginUserContextFactory.fromCognitoSub(COGNITO_SUB))
+                .thenReturn(Optional.of(platformUser()));
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response, authentication("tenant"));
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(output.getAll()).contains("actor_type mismatch");
+    }
+
+    @Test
+    void unlinkedCognitoUserReturnsForbiddenAndWarns(CapturedOutput output) throws Exception {
+        DbLoginUserContextFactory dbLoginUserContextFactory = mock(DbLoginUserContextFactory.class);
+        CognitoAuthenticationSuccessHandler handler = new CognitoAuthenticationSuccessHandler(
+                dbLoginUserContextFactory,
+                new WorkOpsAuthenticationFactory());
+        when(dbLoginUserContextFactory.fromCognitoSub(COGNITO_SUB))
+                .thenReturn(Optional.empty());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response, authentication("platform"));
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(output.getAll()).contains("not linked to WorkOps user");
+    }
+
+    private OAuth2AuthenticationToken authentication(String registrationId) {
+        OidcUser oidcUser = mock(OidcUser.class);
+        when(oidcUser.getSubject()).thenReturn(COGNITO_SUB);
+
+        return new OAuth2AuthenticationToken(oidcUser, List.of(), registrationId);
+    }
+
+    private LoginUserContext platformUser() {
+        return new LoginUserContext(
+                1L,
+                "platform-admin",
+                "platform-admin@example.local",
+                "PLATFORM",
+                null,
+                List.of(new PermissionSetContext("PLATFORM_ADMIN", "WorkOps管理者")));
+    }
+}

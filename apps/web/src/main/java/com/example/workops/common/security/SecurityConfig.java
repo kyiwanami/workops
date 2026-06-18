@@ -23,11 +23,17 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(authorize -> authorize
                         // ALB health checks cannot pass through Cognito login.
-                        .requestMatchers("/actuator/health", "/css/**", "/favicon.ico").permitAll()
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/css/**",
+                                "/favicon.ico",
+                                "/login",
+                                "/login/platform",
+                                "/login/tenant").permitAll()
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
-                        // CloudFront is the public host; start login through a relative path.
-                        .loginPage("/oauth2/authorization/cognito")
+                        // CloudFront is the public host; route unauthenticated users to the tenant-facing login page.
+                        .loginPage("/login")
                         .successHandler(cognitoAuthenticationSuccessHandler))
                 .logout(logout -> logout.logoutSuccessUrl("/"));
 

@@ -42,11 +42,19 @@ spring:
     oauth2:
       client:
         registration:
-          cognito:
-            client-id: ${WORKOPS_COGNITO_CLIENT_ID:}
+          platform:
+            client-id: ${WORKOPS_COGNITO_PLATFORM_CLIENT_ID:}
             client-authentication-method: none
             authorization-grant-type: authorization_code
-            redirect-uri: ${WORKOPS_COGNITO_REDIRECT_URI:http://localhost:8080/login/oauth2/code/cognito}
+            redirect-uri: ${WORKOPS_COGNITO_PLATFORM_REDIRECT_URI:http://localhost:8080/login/oauth2/code/platform}
+            scope:
+              - openid
+              - email
+          tenant:
+            client-id: ${WORKOPS_COGNITO_TENANT_CLIENT_ID:}
+            client-authentication-method: none
+            authorization-grant-type: authorization_code
+            redirect-uri: ${WORKOPS_COGNITO_TENANT_REDIRECT_URI:http://localhost:8080/login/oauth2/code/tenant}
             scope:
               - openid
               - email
