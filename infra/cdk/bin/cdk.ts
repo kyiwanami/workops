@@ -49,7 +49,7 @@ new DataStack(app, 'DataStack', {
   stackName: `workops-${stage}-data`,
   vpc: foundationStack.vpc,
 });
-new ConfigStack(app, 'ConfigStack', {
+const configStack = new ConfigStack(app, 'ConfigStack', {
   env,
   stage,
   stackName: `workops-${stage}-config`,
@@ -93,7 +93,10 @@ const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
   albSecurityGroup: foundationStack.albSecurityGroup,
   appSecurityGroup: foundationStack.appSecurityGroup,
   appSubnets: foundationStack.appSubnets,
+  cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
   cluster: foundationStack.ecsCluster,
+  cognitoUserPoolClientId: identityStack.userPoolClientId,
+  cognitoUserPoolId: identityStack.userPoolId,
   env,
   repository: registryStack.repository,
   stage,
@@ -106,3 +109,5 @@ edgeStack.addDependency(egressStack);
 edgeStack.addDependency(identityStack);
 appRuntimeStack.addDependency(egressStack);
 appRuntimeStack.addDependency(edgeStack);
+appRuntimeStack.addDependency(identityStack);
+appRuntimeStack.addDependency(configStack);

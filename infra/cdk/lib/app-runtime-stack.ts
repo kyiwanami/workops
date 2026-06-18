@@ -27,6 +27,9 @@ export interface AppRuntimeStackProps extends StackProps {
   repository: IRepository;
   webLogGroup: ILogGroup;
   targetGroup: ApplicationTargetGroup;
+  cognitoUserPoolId: string;
+  cognitoUserPoolClientId: string;
+  cloudFrontHttpsUrl: string;
 }
 
 export class AppRuntimeStack extends Stack {
@@ -51,6 +54,11 @@ export class AppRuntimeStack extends Stack {
       'DbUrlParameter',
       `/workops/${props.stage}/db/url`,
     );
+    const springProfileParameter = StringParameter.fromStringParameterName(
+      this,
+      'SpringProfileParameter',
+      `/workops/${props.stage}/spring/profile`,
+    );
     const dbMasterSecret = SecretsManagerSecret.fromSecretNameV2(
       this,
       'DbMasterSecret',
@@ -69,15 +77,21 @@ export class AppRuntimeStack extends Stack {
 
     const executionRole = this.taskDefinition.obtainExecutionRole();
     dbUrlParameter.grantRead(executionRole);
+    springProfileParameter.grantRead(executionRole);
     dbMasterSecret.grantRead(executionRole);
 
+    // The dev ECS task runs the non-local Spring security profile and reads Cognito settings from CDK wiring.
     this.taskDefinition.addContainer('WebContainer', {
       containerName: 'web',
       image: ContainerImage.fromEcrRepository(props.repository, 'p2-3-manual'),
       environment: {
-        SPRING_PROFILES_ACTIVE: 'local',
+        AWS_REGION: Stack.of(this).region,
+        WORKOPS_COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
+        WORKOPS_COGNITO_CLIENT_ID: props.cognitoUserPoolClientId,
+        WORKOPS_COGNITO_REDIRECT_URI: `${props.cloudFrontHttpsUrl}/login/oauth2/code/cognito`,
       },
       secrets: {
+        SPRING_PROFILES_ACTIVE: EcsSecret.fromSsmParameter(springProfileParameter),
         WORKOPS_DB_URL: EcsSecret.fromSsmParameter(dbUrlParameter),
         WORKOPS_DB_USERNAME: EcsSecret.fromSecretsManager(dbMasterSecret, 'username'),
         WORKOPS_DB_PASSWORD: EcsSecret.fromSecretsManager(dbMasterSecret, 'password'),

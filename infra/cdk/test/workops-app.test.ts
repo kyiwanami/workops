@@ -82,7 +82,10 @@ describe('WorkOps CDK app', () => {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSecurityGroup: foundationStack.appSecurityGroup,
       appSubnets: foundationStack.appSubnets,
+      cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
       cluster: foundationStack.ecsCluster,
+      cognitoUserPoolClientId: identityStack.userPoolClientId,
+      cognitoUserPoolId: identityStack.userPoolId,
       repository: registryStack.repository,
       stage,
       stackName: `workops-${stage}-app-runtime`,
@@ -563,7 +566,10 @@ describe('WorkOps CDK app', () => {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSecurityGroup: foundationStack.appSecurityGroup,
       appSubnets: foundationStack.appSubnets,
+      cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
       cluster: foundationStack.ecsCluster,
+      cognitoUserPoolClientId: testCognitoUserPoolClientId,
+      cognitoUserPoolId: testCognitoUserPoolId,
       repository: registryStack.repository,
       stage,
       stackName: `workops-${stage}-app-runtime`,
@@ -593,8 +599,27 @@ describe('WorkOps CDK app', () => {
           Name: 'web',
           Environment: Match.arrayWith([
             {
-              Name: 'SPRING_PROFILES_ACTIVE',
-              Value: 'local',
+              Name: 'AWS_REGION',
+              Value: {
+                Ref: 'AWS::Region',
+              },
+            },
+            {
+              Name: 'WORKOPS_COGNITO_USER_POOL_ID',
+              Value: testCognitoUserPoolId,
+            },
+            {
+              Name: 'WORKOPS_COGNITO_CLIENT_ID',
+              Value: testCognitoUserPoolClientId,
+            },
+            {
+              Name: 'WORKOPS_COGNITO_REDIRECT_URI',
+              Value: {
+                'Fn::Join': [
+                  '',
+                  Match.arrayWith(['/login/oauth2/code/cognito']),
+                ],
+              },
             },
           ]),
           Essential: true,
@@ -611,6 +636,9 @@ describe('WorkOps CDK app', () => {
           ]),
           Secrets: Match.arrayWith([
             Match.objectLike({
+              Name: 'SPRING_PROFILES_ACTIVE',
+            }),
+            Match.objectLike({
               Name: 'WORKOPS_DB_URL',
             }),
             Match.objectLike({
@@ -623,7 +651,9 @@ describe('WorkOps CDK app', () => {
         }),
       ]),
     });
+    expect(templateText).not.toContain('"Name":"SPRING_PROFILES_ACTIVE","Value":"local"');
     expect(templateText).toContain('p2-3-manual');
+    expect(templateText).toContain('/login/oauth2/code/cognito');
     template.hasResourceProperties('AWS::ECS::Service', {
       DesiredCount: 1,
       DeploymentConfiguration: Match.objectLike({
