@@ -107,6 +107,14 @@ aws sts get-caller-identity --region $env:AWS_REGION
 aws configure get region
 ```
 
+### AWS dev RDS / MySQL 操作ルール
+
+AWS dev RDS に対する MySQL 実行は、ユーザーが実施するか、ユーザーから明示的な実行指示が出た場合だけ行います。
+コーディングエージェントは、ユーザーが実行すると決めている MySQL / RDS 更新を勝手に代行しません。
+
+AWS dev RDS への MySQL 実行は、RDS Console integrated CloudShell VPC から実施します。
+一時 ECS task、Lambda、踏み台、ローカル直結など、別経路での MySQL 実行へ勝手に切り替えません。
+
 実 account ID、SSO role ARN、SSO ユーザー名、credential 値は git 管理文書に記録しません。
 確認結果を記録する場合は「AWS account は手元の AWS 認証で確認済み」と書きます。
 

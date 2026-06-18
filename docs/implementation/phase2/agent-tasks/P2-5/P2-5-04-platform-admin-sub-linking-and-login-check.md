@@ -160,6 +160,16 @@ linked_platform_admin_count = 1
 - `/auth/claims` で `platform-admin`、`PLATFORM`、`PLATFORM_ADMIN` を確認する
 - `/admin/users` または `/admin/companies` に到達できることを確認する
 
+## 実 AWS 確認結果
+
+ユーザー確認により、P2-5-04 の成功ログイン確認は完了した。
+
+- Cognito Hosted UI で `platform-admin` としてログインできた
+- CloudFront default domain から Cognito Hosted UI へのログイン導線が成立した
+- P2-5 の実 AWS 確認は完了扱いとする
+- 実 Cognito `sub`、パスワード、RDS の実更新値は task Markdown に記録しない
+- 今後の AWS dev RDS への MySQL 実行は、PJ 横断ルールに従い、ユーザー実施またはユーザーの明示指示時のみ RDS Console integrated CloudShell VPC から行う
+
 P2-7 引き継ぎ:
 
 ```text

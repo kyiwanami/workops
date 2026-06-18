@@ -2,18 +2,21 @@
 
 ## 目的
 
-P2-4 の HTTPS 入口の最終状態を、公開 ALB + CloudFront origin-facing managed prefix list 制限から、内部 ALB + CloudFront VPC origin へ置き換える。
+P2-4 の HTTPS 入口の最終状態を、公開 ALB + 静的 prefix list ID 制限から、内部 ALB + CloudFront VPC origin + managed prefix list 名参照へ置き換える。
 
 CloudFront default domain は引き続き P2-5 以降の Cognito callback URL と sign-out URL に使う HTTPS URL の正本とする。
 
 ## ユーザー要求
 
 - `P2-4-05` として CloudFront VPC origins へリファクタリングする agent task Markdown を追加する
-- P2-4 の最終状態を「公開 ALB + CloudFront origin-facing managed prefix list」から「内部 ALB + CloudFront VPC origin」へ差し替える
+- P2-4 の最終状態を「公開 ALB + 静的 prefix list ID」から「内部 ALB + CloudFront VPC origin + managed prefix list 名参照」へ差し替える
 - Phase 2 全体の方針にも、ALB を CloudFront から private 到達させる意思を明記する
 - `EdgeStack` の ALB を `internetFacing: false` へ変更する方針を固定する
 - CloudFront origin を VPC origin 化する方針を固定する
 - `publicSubnets` 前提の ALB 配置をやめ、app private subnet へ配置する方針にする
+- ALB Security Group inbound は CloudFront origin-facing managed prefix list を名前参照して HTTP 80 を許可する
+- `pl-...` の静的 ID はコードへ固定しない
+- CloudFront VPC Origin の service-managed Security Group 取得用 Custom Resource は作らない
 - CloudFront から ALB、ALB から ECS task は HTTP のまま維持する
 - `npm run build`、`npm test -- --runInBand`、`npm run cdk -- synth EdgeStack` を実装時確認に含める
 - CloudFormation テンプレートで `AWS::CloudFront::VpcOrigin`、内部 ALB、CloudFront distribution origin の VPC origin 設定を確認する
@@ -35,7 +38,7 @@ CloudFront default domain は引き続き P2-5 以降の Cognito callback URL �
 - `EdgeStack` の `ApplicationLoadBalancer` は `internetFacing: false` にする
 - `EdgeStack` の ALB は app private subnet に配置する
 - `EdgeStack` から CloudFront origin-facing managed prefix list の固定 ID `pl-58a04531` 参照を削除する
-- `EdgeStack` から `AlbHttpIngress` の prefix list ingress を削除する
+- `EdgeStack` で CloudFront origin-facing managed prefix list `com.amazonaws.global.cloudfront.origin-facing` を CDK lookup し、ALB Security Group inbound に HTTP 80 を許可する
 - CloudFront origin は `LoadBalancerV2Origin` ではなく `VpcOrigin.withApplicationLoadBalancer` で作る CloudFront VPC origin を使う
 - CloudFront default behavior の allowed methods、cached methods、cache policy、origin request policy、viewer protocol policy は P2-4-01 / P2-4-02 の方針を維持する
 - CloudFront から ALB は HTTP のままにする
@@ -48,6 +51,8 @@ CloudFront default domain は引き続き P2-5 以降の Cognito callback URL �
 - CloudFront VPC origins を採用する。公開 ALB を CloudFront origin-facing managed prefix list で制限するより、ALB をインターネットへ直接公開しない構成を Phase 2 の HTTPS 入口の最終状態にできるため。
 - ALB は `internetFacing: false` にする。P2-4 以降の正規入口は CloudFront default domain であり、ALB DNS 直アクセスを利用者向け入口にしないため。
 - ALB は app private subnet に配置する。CloudFront VPC origin は VPC 内の private origin へ到達する目的で使い、公開 subnet に ALB を残さないため。
+- ALB Security Group inbound は CloudFront origin-facing managed prefix list を名前参照して許可する。CloudFront VPC Origin でも origin 側の inbound 許可は必要であり、静的な `pl-...` ID をコードに固定せず CDK 標準の context lookup に寄せるため。
+- CloudFront VPC Origin の service-managed Security Group 取得用 Custom Resource は作らない。より狭い許可にはなるが、P2-4-05 では Custom Resource を増やさない方針を優先するため。
 - CloudFront から ALB は HTTP のままにする。P2-4 の目的は viewer 向け HTTPS 入口の成立であり、CloudFront から ALB 間 HTTPS、ACM 独自ドメイン証明書、ALB HTTPS listener は Phase 2 の範囲外であるため。
 - P2-4-01 / P2-4-02 の CloudFront behavior 方針は維持する。WorkOps は Spring Boot + Thymeleaf の動的 Web アプリであり、Cookie、query string、`Host` 以外の viewer headers を origin へ渡し、CloudFront caching は無効化するため。
 - `P2-4-05` は任意改善ではなく P2-4 の最終状態を置き換える必須 task とする。P2-5 以降の Cognito Hosted UI callback URL は CloudFront default domain を正本として使い続けるため、HTTPS 入口の origin 境界を P2-4 内で確定する必要があるため。
@@ -58,7 +63,8 @@ CloudFront default domain は引き続き P2-5 以降の Cognito callback URL �
 - `EdgeStackProps` の subnet 入力を `publicSubnets` から `appSubnets` へ変更する
 - `EdgeStack` の ALB を internal ALB にする
 - `EdgeStack` の ALB を app private subnet へ配置する
-- CloudFront origin-facing managed prefix list 参照と prefix list ingress を削除する
+- CloudFront origin-facing managed prefix list の静的 ID 参照を削除する
+- CloudFront origin-facing managed prefix list を名前参照し、ALB Security Group inbound に HTTP 80 を追加する
 - CloudFront origin を `VpcOrigin.withApplicationLoadBalancer` に変更する
 - CDK entrypoint の `EdgeStack` props を `appSubnets` に変更する
 - CDK assertion test を CloudFront VPC origin、internal ALB、VPC origin 付き distribution の検証へ変更する
@@ -74,7 +80,8 @@ CloudFront default domain は引き続き P2-5 以降の Cognito callback URL �
 - ALB HTTPS listener
 - CloudFront から ALB 間 HTTPS
 - ALB DNS 直アクセスを正規確認経路にすること
-- CloudFront origin-facing managed prefix list を最終防御境界にすること
+- CloudFront origin-facing managed prefix list の静的 ID をコードに固定すること
+- CloudFront VPC Origin の service-managed Security Group 取得用 Custom Resource
 - WAF
 - ALB Cognito 認証
 - CloudFront custom header による origin 制限
@@ -95,7 +102,8 @@ CloudFront default domain は引き続き P2-5 以降の Cognito callback URL �
 - CloudFront origin request policy が `ALL_VIEWER_EXCEPT_HOST_HEADER` のままである
 - ALB から ECS task への HTTP 8080 通信が維持されている
 - CloudFront origin-facing managed prefix list ID `pl-58a04531` に依存していない
-- ALB HTTP 80 ingress を CloudFront origin-facing managed prefix list で制限する設計が P2-4 の最終状態として残っていない
+- ALB HTTP 80 ingress が CloudFront origin-facing managed prefix list の名前参照で許可されている
+- CloudFront VPC Origin の service-managed Security Group 取得用 Custom Resource が作られていない
 - `cloudFrontHttpsUrl` が P2-5 へ渡す HTTPS URL の正本として残っている
 - ALB Cognito 認証、WAF、custom header 制限が作られていない
 
@@ -119,7 +127,8 @@ CDK assertions で確認する代表条件:
 - CloudFront distribution の origin が VPC origin 設定を持つ
 - CloudFront default behavior の cache policy が `CACHING_DISABLED`
 - CloudFront default behavior の origin request policy が `ALL_VIEWER_EXCEPT_HOST_HEADER`
-- CloudFront origin-facing managed prefix list ID `pl-58a04531` がテンプレートに出ない
+- ALB Security Group inbound が CloudFront origin-facing managed prefix list 由来の HTTP 80 許可を持つ
+- `infra/cdk/lib/edge-stack.ts` に `pl-58a04531` が出ない
 - ALB listener に Cognito authenticate action が存在しない
 - WAF association が存在しない
 
@@ -134,12 +143,13 @@ CDK assertions で確認する代表条件:
 
 ### 実装方針
 
-P2-4 の公開 ALB + managed prefix list 依存を、内部 ALB + CloudFront VPC Origin へ置き換えるため、EdgeStack 側を `publicSubnets` 依存から `appSubnets` 依存へ移行した。
+P2-4 の公開 ALB + 静的 prefix list ID 依存を、内部 ALB + CloudFront VPC Origin + managed prefix list 名参照へ置き換えるため、EdgeStack 側を `publicSubnets` 依存から `appSubnets` 依存へ移行した。
 
 - `EdgeStackProps` を `publicSubnets` から `appSubnets` に変更し、ALB 配置を app private subnet に固定した。
 - ALB を `internetFacing: false` に変更した。
 - CloudFront origin を `VpcOrigin.withApplicationLoadBalancer` に変更して、`AWS::CloudFront::VpcOrigin` を経由する構成にした。
-- P2-4-01 / P2-4-02 で入れた prefix list 参照 (`pl-58a04531`) と `AlbHttpIngress` を削除した。
+- P2-4-01 / P2-4-02 で入れた静的 prefix list ID (`pl-58a04531`) は削除し、`com.amazonaws.global.cloudfront.origin-facing` の CDK lookup に置き換えた。
+- CloudFront VPC Origin から internal ALB へ到達するため、ALB Security Group inbound に managed prefix list 由来の HTTP 80 許可を追加した。
 - CloudFront の既存の methods/policy 方針（ALLOW_ALL、CACHE_GET_HEAD、CACHING_DISABLED、ALL_VIEWER_EXCEPT_HOST_HEADER、REDIRECT_TO_HTTPS）は維持した。
 - `albDnsName` は引き続き output し、正規入口は `cloudFrontHttpsUrl` のみとする。
 
@@ -154,7 +164,7 @@ P2-4 の公開 ALB + managed prefix list 依存を、内部 ALB + CloudFront VPC
 
 - `EdgeStackProps` の `publicSubnets` を `appSubnets` に置換し、ALB 配置と `EdgeStack` 生成時の参照を更新した。
 - ALB を internal に変更し、`VpcOrigin.withApplicationLoadBalancer` により CloudFront VPC Origin を作成する形へ更新した。
-- prefix list 由来の ingress 制御を削除し、ALB Security Group ingress を増やさない構成へ変更した。
+- 静的 prefix list ID を削除し、CloudFront origin-facing managed prefix list の CDK lookup で ALB Security Group ingress を追加する構成へ変更した。
 - テストを VPC Origin と internal ALB 構成前提へ更新した。
 
 ### 確認結果
@@ -166,8 +176,10 @@ P2-4 の公開 ALB + managed prefix list 依存を、内部 ALB + CloudFront VPC
   - `AWS::CloudFront::VpcOrigin` 存在
   - `AWS::ElasticLoadBalancingV2::LoadBalancer` の `Scheme` が `internal`
   - `CloudFront::Distribution` の origin が `VpcOriginConfig` を持つ
-  - `pl-58a04531` がテンプレート本文に残っていない
+  - ALB Security Group inbound に CloudFront origin-facing managed prefix list 由来の HTTP 80 許可が存在
+  - `pl-58a04531` が `infra/cdk/lib/edge-stack.ts` に残っていない
   - `cloudFrontDomainName` / `cloudFrontHttpsUrl` / `albDnsName` output が存在
+  - 実 AWS の CloudFront default domain `/actuator/health` が 200 / `status: UP` を返す
 
 ### 残課題
 

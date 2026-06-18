@@ -26,44 +26,56 @@ class TaggedResourceStack extends Stack {
 
 const testCognitoUserPoolId = 'ap-northeast-1_test';
 const testCognitoUserPoolClientId = 'testclientid';
+const testEnv = {
+  account: '123456789012',
+  region: 'ap-northeast-1',
+};
 
 describe('WorkOps CDK app', () => {
   test('creates Phase 2 base stack shells using the requested stage', () => {
     const app = new App();
     const stage = 'dev';
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-foundation`,
     });
     const secretStack = new SecretStack(app, 'SecretStack', {
+      env: testEnv,
       stackName: `workops-${stage}-secret`,
     });
     const dataStack = new DataStack(app, 'DataStack', {
       appSecurityGroup: foundationStack.appSecurityGroup,
       dbSecurityGroup: foundationStack.dbSecurityGroup,
       dbSubnets: foundationStack.dbSubnets,
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-data`,
       vpc: foundationStack.vpc,
     });
     const configStack = new ConfigStack(app, 'ConfigStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-config`,
     });
     const identityStack = new IdentityStack(app, 'IdentityStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-identity`,
     });
     const registryStack = new RegistryStack(app, 'RegistryStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-registry`,
     });
     const logsStack = new LogsStack(app, 'LogsStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-logs`,
     });
     const egressStack = new EgressStack(app, 'EgressStack', {
       appSubnets: foundationStack.appSubnets,
+      env: testEnv,
       publicSubnets: foundationStack.publicSubnets,
       stage,
       stackName: `workops-${stage}-egress`,
@@ -74,6 +86,7 @@ describe('WorkOps CDK app', () => {
       appSubnets: foundationStack.appSubnets,
       cognitoUserPoolClientId: testCognitoUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-edge`,
       vpc: foundationStack.vpc,
@@ -86,6 +99,7 @@ describe('WorkOps CDK app', () => {
       cluster: foundationStack.ecsCluster,
       cognitoUserPoolClientId: identityStack.userPoolClientId,
       cognitoUserPoolId: identityStack.userPoolId,
+      env: testEnv,
       repository: registryStack.repository,
       stage,
       stackName: `workops-${stage}-app-runtime`,
@@ -109,6 +123,7 @@ describe('WorkOps CDK app', () => {
     const app = new App();
     const stage = 'dev';
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-foundation`,
     });
@@ -278,11 +293,13 @@ describe('WorkOps CDK app', () => {
     const app = new App();
     const stage = 'dev';
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-foundation`,
     });
     const egressStack = new EgressStack(app, 'EgressStack', {
       appSubnets: foundationStack.appSubnets,
+      env: testEnv,
       publicSubnets: foundationStack.publicSubnets,
       stage,
       stackName: `workops-${stage}-egress`,
@@ -313,6 +330,7 @@ describe('WorkOps CDK app', () => {
     const app = new App();
     const stage = 'dev';
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-foundation`,
     });
@@ -321,14 +339,28 @@ describe('WorkOps CDK app', () => {
       appSubnets: foundationStack.appSubnets,
       cognitoUserPoolClientId: testCognitoUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-edge`,
       vpc: foundationStack.vpc,
     });
     const template = Template.fromStack(edgeStack);
+    const foundationTemplate = Template.fromStack(foundationStack);
     const templateText = JSON.stringify(template.toJSON());
+    const edgeStackSource = readFileSync(join(__dirname, '..', 'lib', 'edge-stack.ts'), 'utf8');
 
     template.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
+    foundationTemplate.resourceCountIs('AWS::EC2::SecurityGroupIngress', 1);
+    foundationTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
+      Description: 'Allow CloudFront VPC origin to reach WorkOps ALB',
+      FromPort: 80,
+      GroupId: {
+        'Fn::GetAtt': [Match.stringLikeRegexp('AlbSecurityGroup'), 'GroupId'],
+      },
+      IpProtocol: 'tcp',
+      SourcePrefixListId: Match.stringLikeRegexp('^pl-'),
+      ToPort: 80,
+    });
     template.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
       Name: 'workops-dev-web-alb',
       Scheme: 'internal',
@@ -439,7 +471,8 @@ describe('WorkOps CDK app', () => {
     });
     expect(templateText).not.toContain('"CidrIp":"0.0.0.0/0"');
     expect(templateText).not.toContain('authenticate-cognito');
-    expect(templateText).not.toContain('pl-58a04531');
+    expect(edgeStackSource).toContain('com.amazonaws.global.cloudfront.origin-facing');
+    expect(edgeStackSource).not.toContain('pl-58a04531');
     template.resourceCountIs('AWS::WAFv2::WebACLAssociation', 0);
   });
 
@@ -456,8 +489,10 @@ describe('WorkOps CDK app', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolDomain', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
+    template.resourceCountIs('AWS::Cognito::ManagedLoginBranding', 1);
     template.hasResourceProperties('AWS::Cognito::UserPool', {
       UserPoolName: 'workops-dev-user-pool',
+      UserPoolTier: 'ESSENTIALS',
       AutoVerifiedAttributes: ['email'],
       MfaConfiguration: 'OFF',
       UsernameConfiguration: {
@@ -507,6 +542,7 @@ describe('WorkOps CDK app', () => {
           ],
         ],
       },
+      ManagedLoginVersion: 2,
     });
     template.hasResourceProperties('AWS::Cognito::UserPoolClient', {
       ClientName: 'workops-dev-web-client',
@@ -519,13 +555,21 @@ describe('WorkOps CDK app', () => {
       ],
       SupportedIdentityProviders: ['COGNITO'],
     });
+    template.hasResourceProperties('AWS::Cognito::ManagedLoginBranding', {
+      UserPoolId: Match.anyValue(),
+      ClientId: Match.anyValue(),
+      UseCognitoProvidedValues: true,
+    });
     template.hasResource('AWS::Cognito::UserPoolClient', {
       Properties: Match.objectLike({
-        CallbackURLs: Match.absent(),
-        LogoutURLs: Match.absent(),
-        DefaultRedirectURI: Match.absent(),
+        CallbackURLs: ['https://workops-dev-placeholder.invalid/login/oauth2/code/cognito'],
+        LogoutURLs: ['https://workops-dev-placeholder.invalid/'],
+        DefaultRedirectURI: 'https://workops-dev-placeholder.invalid/login/oauth2/code/cognito',
       }),
     });
+    const brandingTemplateText = JSON.stringify(template.findResources('AWS::Cognito::ManagedLoginBranding'));
+    expect(brandingTemplateText).not.toContain('"Settings"');
+    expect(brandingTemplateText).not.toContain('"Assets"');
     template.hasOutput('userPoolId', {});
     template.hasOutput('userPoolClientId', {});
     template.hasOutput('hostedUiDomainBaseUrl', {});
@@ -536,20 +580,24 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('EdgeStack');
     expect(templateText).not.toContain('WebDistribution');
     expect(templateText).not.toContain('WebAlb');
+    expect(templateText).not.toContain('localhost');
   });
 
   test('creates the P2-3 AppRuntimeStack web service', () => {
     const app = new App();
     const stage = 'dev';
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-foundation`,
     });
     const registryStack = new RegistryStack(app, 'RegistryStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-registry`,
     });
     const logsStack = new LogsStack(app, 'LogsStack', {
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-logs`,
     });
@@ -558,6 +606,7 @@ describe('WorkOps CDK app', () => {
       appSubnets: foundationStack.appSubnets,
       cognitoUserPoolClientId: testCognitoUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
+      env: testEnv,
       stage,
       stackName: `workops-${stage}-edge`,
       vpc: foundationStack.vpc,
@@ -570,6 +619,7 @@ describe('WorkOps CDK app', () => {
       cluster: foundationStack.ecsCluster,
       cognitoUserPoolClientId: testCognitoUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
+      env: testEnv,
       repository: registryStack.repository,
       stage,
       stackName: `workops-${stage}-app-runtime`,
@@ -600,9 +650,7 @@ describe('WorkOps CDK app', () => {
           Environment: Match.arrayWith([
             {
               Name: 'AWS_REGION',
-              Value: {
-                Ref: 'AWS::Region',
-              },
+              Value: Match.anyValue(),
             },
             {
               Name: 'WORKOPS_COGNITO_USER_POOL_ID',

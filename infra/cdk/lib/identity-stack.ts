@@ -1,7 +1,9 @@
 import { Aws, CfnOutput, Fn, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import {
   AccountRecovery,
-  CfnUserPoolClient,
+  CfnManagedLoginBranding,
+  FeaturePlan,
+  ManagedLoginVersion,
   Mfa,
   OAuthScope,
   UserPool,
@@ -51,6 +53,7 @@ export class IdentityStack extends Stack {
         requireDigits: true,
         requireSymbols: false,
       },
+      featurePlan: FeaturePlan.ESSENTIALS,
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
@@ -58,7 +61,11 @@ export class IdentityStack extends Stack {
       cognitoDomain: {
         domainPrefix: `workops-${props.stage}-${Aws.ACCOUNT_ID}`,
       },
+      managedLoginVersion: ManagedLoginVersion.NEWER_MANAGED_LOGIN,
     });
+
+    const placeholderCallbackUrl = `https://workops-${props.stage}-placeholder.invalid/login/oauth2/code/cognito`;
+    const placeholderLogoutUrl = `https://workops-${props.stage}-placeholder.invalid/`;
 
     this.userPoolClient = this.userPool.addClient('WebClient', {
       userPoolClientName: `workops-${props.stage}-web-client`,
@@ -71,16 +78,19 @@ export class IdentityStack extends Stack {
           OAuthScope.OPENID,
           OAuthScope.EMAIL,
         ],
+        // Cognito requires a callback URL at App Client creation; EdgeStack replaces it with CloudFront.
+        callbackUrls: [placeholderCallbackUrl],
+        logoutUrls: [placeholderLogoutUrl],
+        defaultRedirectUri: placeholderCallbackUrl,
       },
     });
-    const cfnUserPoolClient = this.userPoolClient.node.defaultChild;
-    if (!CfnUserPoolClient.isCfnUserPoolClient(cfnUserPoolClient)) {
-      throw new Error('WebClient must synthesize to AWS::Cognito::UserPoolClient');
-    }
-    // P2-5-02 owns CloudFront redirect URL registration through a custom resource.
-    cfnUserPoolClient.callbackUrLs = undefined;
-    cfnUserPoolClient.logoutUrLs = undefined;
-    cfnUserPoolClient.defaultRedirectUri = undefined;
+
+    // Keep hosted auth pages on Managed Login v2 with Cognito's default branding.
+    new CfnManagedLoginBranding(this, 'ManagedLoginBranding', {
+      userPoolId: this.userPool.userPoolId,
+      clientId: this.userPoolClient.userPoolClientId,
+      useCognitoProvidedValues: true,
+    });
 
     this.userPoolId = this.userPool.userPoolId;
     this.userPoolClientId = this.userPoolClient.userPoolClientId;

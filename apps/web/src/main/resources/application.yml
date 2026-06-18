@@ -13,6 +13,10 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: false
 
+server:
+  tomcat:
+    use-relative-redirects: true
+
 mybatis:
   mapper-locations: classpath*:mapper/**/*.xml
   configuration:
