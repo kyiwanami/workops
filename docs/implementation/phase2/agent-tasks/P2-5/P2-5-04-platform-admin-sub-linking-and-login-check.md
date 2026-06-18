@@ -15,6 +15,7 @@ AWS dev の実 Cognito テストユーザーの `sub` を、短命 RDS の `plat
 - 更新前確認、UPDATE、更新後確認をセットにする
 - P2-5 の実 AWS 確認は成功ログイン、`sub` 突合、DB 由来権限での画面利用に限定する
 - 突合失敗時の HTTP 403 確認は P2-5 task に入れない
+- P2-5-04 では `cdk deploy` を実行しない
 
 ## 前提
 
@@ -24,10 +25,15 @@ AWS dev の実 Cognito テストユーザーの `sub` を、短命 RDS の `plat
 - `platform-admin` は PLATFORM_ADMIN 相当の権限セットを持つ
 - Cognito テストユーザーはユーザーが AWS コンソールまたは AWS CLI で作成する
 - Cognito テストユーザーの `sub` はユーザーが取得する
+- P2-5-04 の実 AWS 確認は、`IdentityStack`、`EdgeStack`、`AppRuntimeStack` が AWS dev に deploy 済みであることを前提にする
+- 未 deploy の場合、P2-5-04 に入る前に別手順で `cdk deploy` を実行する
+- P2-5-04 自体では `cdk deploy` しない
 - P2-7 までは WorkOps 管理導線からの `AdminCreateUser` を使わない
 
 ## 案
 
+- P2-5-04 では CDK / Java / Flyway / seed は変更しない
+- P2-5-04 では `cdk deploy` を実行しない
 - AWS dev 用 seed は変更しない
 - Cognito テストユーザー作成はユーザー確認手順にする
 - Cognito テストユーザーの `sub` 取得はユーザー確認手順にする
@@ -37,14 +43,16 @@ AWS dev の実 Cognito テストユーザーの `sub` を、短命 RDS の `plat
 - 更新後に `platform-admin` の `cognito_sub` が更新されたことを確認する
 - Hosted UI からログインする
 - CloudFront callback で `apps/web` に戻る
-- `platform-admin` として業務画面へ入れることを確認する
-- DB 由来の権限で PLATFORM_ADMIN 向け画面に到達できることを確認する
+- `/auth/claims` で `platform-admin`、`PLATFORM`、`PLATFORM_ADMIN` を確認する
+- `/admin/users` または `/admin/companies` に到達し、DB 由来の PLATFORM_ADMIN 権限で画面利用できることを確認する
+- 管理画面での登録・更新・削除操作は P2-5-04 の必須確認にしない
 
 ## ADR
 
 - 実 Cognito `sub` は Flyway に入れない。User Pool やユーザーを作り直すたびに変わる環境生成値であり、DB 正本の seed に固定できないため。
 - `platform-admin` を最初の確認ユーザーにする。P2-5 は単一 App Client での Hosted UI ログインと `sub` 突合の成立確認に限定し、PLATFORM / TENANT の導線分離を扱わないため。
 - 一時 SQL はファイル化しない。環境ごとに変わる `sub` を入れる確認手順であり、実行資産や Flyway seed と誤認させないため。
+- P2-5-04 では `cdk deploy` を扱わない。P2-5-04 は deploy 済み環境に対する Cognito `sub` と短命 RDS の一時リンク確認であり、インフラ変更の適用は P2-5-01 から P2-5-03 の実装確認とは別の前提準備にするため。
 - 突合失敗時の HTTP 403 確認は P2-5 task に入れない。AWS 固有の確認ではなく、アプリ側挙動の確認であるため。
 - 既存データ移行と後方互換性は考慮しない。
 
@@ -56,10 +64,12 @@ AWS dev の実 Cognito テストユーザーの `sub` を、短命 RDS の `plat
 - 更新後確認 SQL 記載
 - Hosted UI 成功ログイン確認手順記載
 - DB 由来権限での画面利用確認手順記載
+- deploy 済み前提と `cdk deploy` 除外の明記
 - P2-7 で不要になる一時手順であることの記録
 
 ## 除外範囲
 
+- `cdk deploy`
 - Flyway migration への実 Cognito `sub` 追加
 - `db/seed/aws-dev` への実 Cognito `sub` 追加
 - SQL ファイル追加
@@ -122,20 +132,23 @@ linked_platform_admin_count = 1
 - 更新後確認で `linked_platform_admin_count = 1` になる
 - Hosted UI で Cognito テストユーザーとしてログインできる
 - CloudFront callback で `apps/web` に戻れる
-- `platform-admin` として業務画面へ入れる
-- DB 由来の PLATFORM_ADMIN 権限で画面利用できる
+- `/auth/claims` で `username = platform-admin`、`actorType = PLATFORM`、権限セット `PLATFORM_ADMIN` を確認できる
+- `/admin/users` または `/admin/companies` に 200 応答で到達できる
 - 実 Cognito `sub` が Flyway migration / seed / SQL ファイルに残っていない
 
 ## 確認方法
 
 エージェント確認:
 
-- `db/seed/aws-dev/V6__insert_users.sql` が `cognito_sub = NULL` のままであることを確認する
+- `apps/web/src/main/resources/db/seed/aws-dev/V6__insert_users.sql` が `platform-admin` を `cognito_sub = NULL` のまま投入していることを確認する
+- `platform-admin` が `actor_type = 'PLATFORM'` で、`user_permission_sets` により `PLATFORM_ADMIN` 権限セットへ紐付くことを確認する
+- `CognitoAuthenticationSuccessHandler` が OIDC `sub` を DB 突合に使い、DB 由来の `LoginUserContext` を Spring Security principal に保存することを確認する
 - P2-5 task に SQL 手順が記載されていることを確認する
 - 実 Cognito `sub` がリポジトリ内に固定値として記録されていないことを確認する
 
 ユーザー確認:
 
+- `IdentityStack`、`EdgeStack`、`AppRuntimeStack` が AWS dev に deploy 済みであることを確認する
 - Cognito テストユーザーを作成する
 - Cognito テストユーザーの `sub` を取得する
 - RDS Console integrated CloudShell VPC から RDS に接続する
@@ -143,7 +156,9 @@ linked_platform_admin_count = 1
 - `:cognito_sub` に実 Cognito `sub` を渡して UPDATE を実行する
 - 更新後確認 SQL を実行する
 - Hosted UI からログインする
-- `platform-admin` として業務画面へ入れることを確認する
+- CloudFront callback で WorkOps に戻ることを確認する
+- `/auth/claims` で `platform-admin`、`PLATFORM`、`PLATFORM_ADMIN` を確認する
+- `/admin/users` または `/admin/companies` に到達できることを確認する
 
 P2-7 引き継ぎ:
 
