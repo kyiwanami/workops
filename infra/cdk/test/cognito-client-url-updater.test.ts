@@ -70,12 +70,13 @@ class CognitoClientFake implements CognitoClient {
 
 const resourceProperties: ResourceProperties = {
   UserPoolId: 'ap-northeast-1_test',
-  UserPoolClientId: 'client123',
+  PlatformClientId: 'platformclient123',
+  TenantClientId: 'tenantclient123',
   CloudFrontDomainName: 'd111111abcdef8.cloudfront.net',
 };
 
 const existingClient: UserPoolClientType = {
-  ClientName: 'workops-dev-web-client',
+  ClientName: 'workops-dev-platform-client',
   RefreshTokenValidity: 30,
   AccessTokenValidity: 60,
   IdTokenValidity: 60,
@@ -114,18 +115,26 @@ const existingClient: UserPoolClientType = {
 
 describe('cognito-client-url-updater custom resource', () => {
   test('builds Cognito callback and logout URLs from the CloudFront domain', () => {
-    const urls = buildUrls('d111111abcdef8.cloudfront.net');
+    const urls = buildUrls('d111111abcdef8.cloudfront.net', 'platform');
 
-    expect(urls.callbackUrl).toBe('https://d111111abcdef8.cloudfront.net/login/oauth2/code/cognito');
-    expect(urls.logoutUrl).toBe('https://d111111abcdef8.cloudfront.net/');
+    expect(urls.callbackUrl).toBe('https://d111111abcdef8.cloudfront.net/login/oauth2/code/platform');
+    expect(urls.logoutUrl).toBe('https://d111111abcdef8.cloudfront.net/login');
+    expect(urls.defaultRedirectUri).toBe(urls.callbackUrl);
+  });
+
+  test('builds tenant Cognito callback URL from the CloudFront domain', () => {
+    const urls = buildUrls('d111111abcdef8.cloudfront.net', 'tenant');
+
+    expect(urls.callbackUrl).toBe('https://d111111abcdef8.cloudfront.net/login/oauth2/code/tenant');
+    expect(urls.logoutUrl).toBe('https://d111111abcdef8.cloudfront.net/login');
     expect(urls.defaultRedirectUri).toBe(urls.callbackUrl);
   });
 
   test('keeps existing app client settings and replaces only URL fields', () => {
-    const input = buildUpdateInput(existingClient, resourceProperties);
+    const input = buildUpdateInput(existingClient, resourceProperties, resourceProperties.PlatformClientId, 'platform');
 
     expect(input.UserPoolId).toBe(resourceProperties.UserPoolId);
-    expect(input.ClientId).toBe(resourceProperties.UserPoolClientId);
+    expect(input.ClientId).toBe(resourceProperties.PlatformClientId);
     expect(input.ClientName).toBe(existingClient.ClientName);
     expect(input.RefreshTokenValidity).toBe(existingClient.RefreshTokenValidity);
     expect(input.AccessTokenValidity).toBe(existingClient.AccessTokenValidity);
@@ -143,9 +152,9 @@ describe('cognito-client-url-updater custom resource', () => {
     expect(input.EnableTokenRevocation).toBe(true);
     expect(input.AuthSessionValidity).toBe(existingClient.AuthSessionValidity);
     expect(input.RefreshTokenRotation).toEqual(existingClient.RefreshTokenRotation);
-    expect(input.CallbackURLs).toEqual(['https://d111111abcdef8.cloudfront.net/login/oauth2/code/cognito']);
-    expect(input.LogoutURLs).toEqual(['https://d111111abcdef8.cloudfront.net/']);
-    expect(input.DefaultRedirectURI).toBe('https://d111111abcdef8.cloudfront.net/login/oauth2/code/cognito');
+    expect(input.CallbackURLs).toEqual(['https://d111111abcdef8.cloudfront.net/login/oauth2/code/platform']);
+    expect(input.LogoutURLs).toEqual(['https://d111111abcdef8.cloudfront.net/login']);
+    expect(input.DefaultRedirectURI).toBe('https://d111111abcdef8.cloudfront.net/login/oauth2/code/platform');
     expect(JSON.stringify(input)).not.toContain('ClientSecret');
     expect(JSON.stringify(input)).not.toContain('GenerateSecret');
     expect(JSON.stringify(input)).not.toContain('CreationDate');
@@ -160,10 +169,12 @@ describe('cognito-client-url-updater custom resource', () => {
     };
     const response = await handleEvent(event, client);
 
-    expect(response.PhysicalResourceId).toBe('cognito-client-url-updater-ap-northeast-1_test-client123');
-    expect(client.commands).toHaveLength(2);
+    expect(response.PhysicalResourceId).toBe('cognito-client-url-updater-ap-northeast-1_test');
+    expect(client.commands).toHaveLength(4);
     expect(client.commands[0].kind).toBe('describe');
     expect(client.commands[1].kind).toBe('update');
+    expect(client.commands[2].kind).toBe('describe');
+    expect(client.commands[3].kind).toBe('update');
   });
 
   test('updates the app client on Update', async () => {
@@ -176,9 +187,11 @@ describe('cognito-client-url-updater custom resource', () => {
     const response = await handleEvent(event, client);
 
     expect(response.PhysicalResourceId).toBe('existing-physical-id');
-    expect(client.commands).toHaveLength(2);
+    expect(client.commands).toHaveLength(4);
     expect(client.commands[0].kind).toBe('describe');
     expect(client.commands[1].kind).toBe('update');
+    expect(client.commands[2].kind).toBe('describe');
+    expect(client.commands[3].kind).toBe('update');
   });
 
   test('does not call Cognito on Delete', async () => {

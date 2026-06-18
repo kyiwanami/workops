@@ -28,7 +28,8 @@ export interface AppRuntimeStackProps extends StackProps {
   webLogGroup: ILogGroup;
   targetGroup: ApplicationTargetGroup;
   cognitoUserPoolId: string;
-  cognitoUserPoolClientId: string;
+  cognitoPlatformUserPoolClientId: string;
+  cognitoTenantUserPoolClientId: string;
   cloudFrontHttpsUrl: string;
 }
 
@@ -87,8 +88,10 @@ export class AppRuntimeStack extends Stack {
       environment: {
         AWS_REGION: Stack.of(this).region,
         WORKOPS_COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
-        WORKOPS_COGNITO_CLIENT_ID: props.cognitoUserPoolClientId,
-        WORKOPS_COGNITO_REDIRECT_URI: `${props.cloudFrontHttpsUrl}/login/oauth2/code/cognito`,
+        WORKOPS_COGNITO_PLATFORM_CLIENT_ID: props.cognitoPlatformUserPoolClientId,
+        WORKOPS_COGNITO_TENANT_CLIENT_ID: props.cognitoTenantUserPoolClientId,
+        WORKOPS_COGNITO_PLATFORM_REDIRECT_URI: `${props.cloudFrontHttpsUrl}/login/oauth2/code/platform`,
+        WORKOPS_COGNITO_TENANT_REDIRECT_URI: `${props.cloudFrontHttpsUrl}/login/oauth2/code/tenant`,
       },
       secrets: {
         SPRING_PROFILES_ACTIVE: EcsSecret.fromSsmParameter(springProfileParameter),

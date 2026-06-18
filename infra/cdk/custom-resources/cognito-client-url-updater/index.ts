@@ -10,7 +10,8 @@ import {
 
 export interface ResourceProperties {
   UserPoolId: string;
-  UserPoolClientId: string;
+  PlatformClientId: string;
+  TenantClientId: string;
   CloudFrontDomainName: string;
 }
 
@@ -35,13 +36,16 @@ export interface CognitoClient {
   send(command: UpdateUserPoolClientCommand): Promise<UpdateUserPoolClientCommandOutput>;
 }
 
-export function buildUrls(cloudFrontDomainName: string): UrlSet {
+export function buildUrls(cloudFrontDomainName: string, registrationId: string): UrlSet {
   if (cloudFrontDomainName.length === 0) {
     throw new Error('CloudFrontDomainName must not be empty');
   }
+  if (registrationId.length === 0) {
+    throw new Error('registrationId must not be empty');
+  }
 
-  const callbackUrl = `https://${cloudFrontDomainName}/login/oauth2/code/cognito`;
-  const logoutUrl = `https://${cloudFrontDomainName}/`;
+  const callbackUrl = `https://${cloudFrontDomainName}/login/oauth2/code/${registrationId}`;
+  const logoutUrl = `https://${cloudFrontDomainName}/login`;
 
   return {
     callbackUrl,
@@ -53,11 +57,13 @@ export function buildUrls(cloudFrontDomainName: string): UrlSet {
 export function buildUpdateInput(
   userPoolClient: UserPoolClientType,
   resourceProperties: ResourceProperties,
+  clientId: string,
+  registrationId: string,
 ): UpdateUserPoolClientCommandInput {
-  const urls = buildUrls(resourceProperties.CloudFrontDomainName);
+  const urls = buildUrls(resourceProperties.CloudFrontDomainName, registrationId);
   const updateInput: UpdateUserPoolClientCommandInput = {
     UserPoolId: resourceProperties.UserPoolId,
-    ClientId: resourceProperties.UserPoolClientId,
+    ClientId: clientId,
     CallbackURLs: [urls.callbackUrl],
     LogoutURLs: [urls.logoutUrl],
     DefaultRedirectURI: urls.defaultRedirectUri,
@@ -126,7 +132,26 @@ function getPhysicalResourceId(event: CustomResourceEvent): string {
     return event.PhysicalResourceId;
   }
 
-  return `cognito-client-url-updater-${event.ResourceProperties.UserPoolId}-${event.ResourceProperties.UserPoolClientId}`;
+  return `cognito-client-url-updater-${event.ResourceProperties.UserPoolId}`;
+}
+
+async function updateUserPoolClient(
+  client: CognitoClient,
+  properties: ResourceProperties,
+  clientId: string,
+  registrationId: string,
+): Promise<void> {
+  const describeResponse = await client.send(new DescribeUserPoolClientCommand({
+    UserPoolId: properties.UserPoolId,
+    ClientId: clientId,
+  }));
+  const userPoolClient = describeResponse.UserPoolClient;
+  if (userPoolClient === undefined) {
+    throw new Error('DescribeUserPoolClient did not return UserPoolClient');
+  }
+
+  const updateInput = buildUpdateInput(userPoolClient, properties, clientId, registrationId);
+  await client.send(new UpdateUserPoolClientCommand(updateInput));
 }
 
 export async function handleEvent(event: CustomResourceEvent, client: CognitoClient): Promise<HandlerResponse> {
@@ -140,17 +165,8 @@ export async function handleEvent(event: CustomResourceEvent, client: CognitoCli
   }
 
   const properties = event.ResourceProperties;
-  const describeResponse = await client.send(new DescribeUserPoolClientCommand({
-    UserPoolId: properties.UserPoolId,
-    ClientId: properties.UserPoolClientId,
-  }));
-  const userPoolClient = describeResponse.UserPoolClient;
-  if (userPoolClient === undefined) {
-    throw new Error('DescribeUserPoolClient did not return UserPoolClient');
-  }
-
-  const updateInput = buildUpdateInput(userPoolClient, properties);
-  await client.send(new UpdateUserPoolClientCommand(updateInput));
+  await updateUserPoolClient(client, properties, properties.PlatformClientId, 'platform');
+  await updateUserPoolClient(client, properties, properties.TenantClientId, 'tenant');
 
   return {
     PhysicalResourceId: physicalResourceId,

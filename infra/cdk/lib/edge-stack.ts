@@ -32,7 +32,8 @@ export interface EdgeStackProps extends StackProps {
   appSubnets: ISubnet[];
   albSecurityGroup: SecurityGroup;
   cognitoUserPoolId: string;
-  cognitoUserPoolClientId: string;
+  cognitoPlatformUserPoolClientId: string;
+  cognitoTenantUserPoolClientId: string;
 }
 
 export class EdgeStack extends Stack {
@@ -157,7 +158,8 @@ export class EdgeStack extends Stack {
       serviceToken: updaterProvider.serviceToken,
       properties: {
         UserPoolId: props.cognitoUserPoolId,
-        UserPoolClientId: props.cognitoUserPoolClientId,
+        PlatformClientId: props.cognitoPlatformUserPoolClientId,
+        TenantClientId: props.cognitoTenantUserPoolClientId,
         CloudFrontDomainName: this.cloudFrontDomainName,
       },
     });

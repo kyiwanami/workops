@@ -18,10 +18,12 @@ export interface IdentityStackProps extends StackProps {
 
 export class IdentityStack extends Stack {
   public readonly userPool: UserPool;
-  public readonly userPoolClient: UserPoolClient;
+  public readonly platformUserPoolClient: UserPoolClient;
+  public readonly tenantUserPoolClient: UserPoolClient;
   public readonly userPoolDomain: UserPoolDomain;
   public readonly userPoolId: string;
-  public readonly userPoolClientId: string;
+  public readonly platformUserPoolClientId: string;
+  public readonly tenantUserPoolClientId: string;
   public readonly hostedUiDomainBaseUrl: string;
 
   constructor(scope: Construct, id: string, props: IdentityStackProps) {
@@ -64,11 +66,12 @@ export class IdentityStack extends Stack {
       managedLoginVersion: ManagedLoginVersion.NEWER_MANAGED_LOGIN,
     });
 
-    const placeholderCallbackUrl = `https://workops-${props.stage}-placeholder.invalid/login/oauth2/code/cognito`;
-    const placeholderLogoutUrl = `https://workops-${props.stage}-placeholder.invalid/`;
+    const platformPlaceholderCallbackUrl = `https://workops-${props.stage}-placeholder.invalid/login/oauth2/code/platform`;
+    const tenantPlaceholderCallbackUrl = `https://workops-${props.stage}-placeholder.invalid/login/oauth2/code/tenant`;
+    const placeholderLogoutUrl = `https://workops-${props.stage}-placeholder.invalid/login`;
 
-    this.userPoolClient = this.userPool.addClient('WebClient', {
-      userPoolClientName: `workops-${props.stage}-web-client`,
+    this.platformUserPoolClient = this.userPool.addClient('PlatformClient', {
+      userPoolClientName: `workops-${props.stage}-platform-client`,
       generateSecret: false,
       oAuth: {
         flows: {
@@ -79,21 +82,45 @@ export class IdentityStack extends Stack {
           OAuthScope.EMAIL,
         ],
         // Cognito requires a callback URL at App Client creation; EdgeStack replaces it with CloudFront.
-        callbackUrls: [placeholderCallbackUrl],
+        callbackUrls: [platformPlaceholderCallbackUrl],
         logoutUrls: [placeholderLogoutUrl],
-        defaultRedirectUri: placeholderCallbackUrl,
+        defaultRedirectUri: platformPlaceholderCallbackUrl,
+      },
+    });
+
+    this.tenantUserPoolClient = this.userPool.addClient('TenantClient', {
+      userPoolClientName: `workops-${props.stage}-tenant-client`,
+      generateSecret: false,
+      oAuth: {
+        flows: {
+          authorizationCodeGrant: true,
+        },
+        scopes: [
+          OAuthScope.OPENID,
+          OAuthScope.EMAIL,
+        ],
+        // Cognito requires a callback URL at App Client creation; EdgeStack replaces it with CloudFront.
+        callbackUrls: [tenantPlaceholderCallbackUrl],
+        logoutUrls: [placeholderLogoutUrl],
+        defaultRedirectUri: tenantPlaceholderCallbackUrl,
       },
     });
 
     // Keep hosted auth pages on Managed Login v2 with Cognito's default branding.
-    new CfnManagedLoginBranding(this, 'ManagedLoginBranding', {
+    new CfnManagedLoginBranding(this, 'PlatformManagedLoginBranding', {
       userPoolId: this.userPool.userPoolId,
-      clientId: this.userPoolClient.userPoolClientId,
+      clientId: this.platformUserPoolClient.userPoolClientId,
+      useCognitoProvidedValues: true,
+    });
+    new CfnManagedLoginBranding(this, 'TenantManagedLoginBranding', {
+      userPoolId: this.userPool.userPoolId,
+      clientId: this.tenantUserPoolClient.userPoolClientId,
       useCognitoProvidedValues: true,
     });
 
     this.userPoolId = this.userPool.userPoolId;
-    this.userPoolClientId = this.userPoolClient.userPoolClientId;
+    this.platformUserPoolClientId = this.platformUserPoolClient.userPoolClientId;
+    this.tenantUserPoolClientId = this.tenantUserPoolClient.userPoolClientId;
     this.hostedUiDomainBaseUrl = Fn.sub('https://${Domain}.auth.${AWS::Region}.amazoncognito.com', {
       Domain: this.userPoolDomain.domainName,
     });
@@ -101,8 +128,11 @@ export class IdentityStack extends Stack {
     new CfnOutput(this, 'userPoolId', {
       value: this.userPoolId,
     });
-    new CfnOutput(this, 'userPoolClientId', {
-      value: this.userPoolClientId,
+    new CfnOutput(this, 'platformUserPoolClientId', {
+      value: this.platformUserPoolClientId,
+    });
+    new CfnOutput(this, 'tenantUserPoolClientId', {
+      value: this.tenantUserPoolClientId,
     });
     new CfnOutput(this, 'hostedUiDomainBaseUrl', {
       value: this.hostedUiDomainBaseUrl,
