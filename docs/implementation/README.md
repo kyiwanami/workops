@@ -82,6 +82,8 @@ Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
 $env:AWS_PROFILE='amazon-connect'
 $env:AWS_SDK_LOAD_CONFIG='1'
 $env:AWS_REGION='ap-northeast-1'
+$env:AWS_DEFAULT_REGION='ap-northeast-1'
+$env:CDK_DEFAULT_ACCOUNT=(aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
 $env:CDK_DEFAULT_REGION='ap-northeast-1'
 ```
 
@@ -123,6 +125,7 @@ ADR:
 - `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN` は消してから profile を使う。古い credential が profile より優先される事故を避けるため。
 - region は環境変数と CLI option の両方で明示する。ローカル shell や AWS config の差異に依存しないため。
 - 実 account ID は git に残す必要がないため記録しない。
+- `CDK_DEFAULT_ACCOUNT` は実行時に `aws sts get-caller-identity` から設定し、git 管理文書に実 account ID を書かない。`PrefixList.fromLookup` など CDK context lookup が account / region を必要とするため。
 - `WORKOPS_STAGE` は CDK 実行時に明示する。stage 誤爆を避けるため。
 
 ## 後続フェーズの実装運用ルール

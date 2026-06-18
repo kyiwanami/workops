@@ -81,17 +81,40 @@ CDK:
 cd C:\git\workops\infra\cdk
 npm run build
 npm test -- --runInBand
+Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
 $env:WORKOPS_STAGE='dev'
+$env:AWS_PROFILE='amazon-connect'
+$env:AWS_SDK_LOAD_CONFIG='1'
+$env:AWS_REGION='ap-northeast-1'
+$env:AWS_DEFAULT_REGION='ap-northeast-1'
+$env:CDK_DEFAULT_ACCOUNT=(aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
+$env:CDK_DEFAULT_REGION='ap-northeast-1'
 npm run cdk -- synth IdentityStack
 npm run cdk -- synth EdgeStack
 npm run cdk -- synth AppRuntimeStack
 ```
 
+`EdgeStack` は CloudFront origin-facing managed prefix list を `PrefixList.fromLookup` で参照する。
+そのため、CDK synth でも AWS profile と `CDK_DEFAULT_ACCOUNT` / `CDK_DEFAULT_REGION` を明示する。
+古い一時 credential 環境変数が残っていると profile より優先されるため、`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` は先に削除する。
+実 account ID は git 管理文書に記録せず、実行時に `aws sts get-caller-identity` から設定する。
+
 AWS dev 実確認を行う場合:
 
 ```powershell
 cd C:\git\workops\infra\cdk
+Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
 $env:WORKOPS_STAGE='dev'
+$env:AWS_PROFILE='amazon-connect'
+$env:AWS_SDK_LOAD_CONFIG='1'
+$env:AWS_REGION='ap-northeast-1'
+$env:AWS_DEFAULT_REGION='ap-northeast-1'
+$env:CDK_DEFAULT_ACCOUNT=(aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
+$env:CDK_DEFAULT_REGION='ap-northeast-1'
 npm run cdk -- deploy IdentityStack
 npm run cdk -- deploy DataStack
 npm run cdk -- deploy EgressStack
@@ -115,4 +138,3 @@ npm run cdk -- destroy DataStack
 ```text
 IdentityStack は destroy しない。
 ```
-

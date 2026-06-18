@@ -23,16 +23,27 @@ PowerShell で次の環境変数を指定します。
 
 ```powershell
 cd C:\git\workops\infra\cdk
+Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
+
 $env:WORKOPS_STAGE = "dev"
 $env:AWS_PROFILE = "your-profile"
+$env:AWS_SDK_LOAD_CONFIG = "1"
 $env:AWS_REGION = "ap-northeast-1"
+$env:AWS_DEFAULT_REGION = "ap-northeast-1"
+$env:CDK_DEFAULT_ACCOUNT = (aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
+$env:CDK_DEFAULT_REGION = "ap-northeast-1"
 ```
 
 - `WORKOPS_STAGE` は CloudFormation stackName、resource name、tag の `Environment` に使います。
-- `AWS_PROFILE` と `AWS_REGION` は CDK CLI の deploy 先指定です。
+- `AWS_PROFILE` と `AWS_REGION` は AWS CLI / CDK CLI の接続先指定です。
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` は削除してから profile を使います。
+- `CDK_DEFAULT_ACCOUNT` と `CDK_DEFAULT_REGION` は CDK stack の `env` と context lookup に使います。
 - CDK app は AWS account、profile、region を固定しません。
 - CDK app は環境変数ファイルを読みません。
 - `stage` は CDK context ではなく `WORKOPS_STAGE` から渡します。
+- 実 account ID は git 管理文書に記録せず、実行時に `aws sts get-caller-identity` から設定します。
 
 ## Commands
 
@@ -48,12 +59,23 @@ CloudFormation template を生成します。
 
 ```powershell
 cd C:\git\workops\infra\cdk
+Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
+
 $env:WORKOPS_STAGE = "dev"
+$env:AWS_PROFILE = "your-profile"
+$env:AWS_SDK_LOAD_CONFIG = "1"
+$env:AWS_REGION = "ap-northeast-1"
+$env:AWS_DEFAULT_REGION = "ap-northeast-1"
+$env:CDK_DEFAULT_ACCOUNT = (aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
+$env:CDK_DEFAULT_REGION = "ap-northeast-1"
 npm run cdk -- synth
 ```
 
-`synth` は AWS account 未指定でも実行できます。
-AWS 環境を参照する lookup を使っていないため、template 生成だけなら account は確定しません。
+`EdgeStack` は CloudFront origin-facing managed prefix list を `PrefixList.fromLookup` で参照します。
+そのため、lookup を含む CDK synth では AWS profile と `CDK_DEFAULT_ACCOUNT` / `CDK_DEFAULT_REGION` を明示します。
+未キャッシュの lookup がある場合、`synth` でも AWS 認証情報が必要です。
 
 ## Stacks
 
