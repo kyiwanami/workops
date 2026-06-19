@@ -35,6 +35,7 @@ class RequestIdMdcFilterTests {
         assertThat(responseHeader).isNotBlank();
         assertThat(UUID.fromString(responseHeader)).isNotNull();
         assertThat(requestIdDuringFilter[0]).isEqualTo(responseHeader);
+        assertThat(request.getAttribute(RequestIdMdcFilter.REQUEST_ATTRIBUTE_REQUEST_ID)).isEqualTo(responseHeader);
     }
 
     @Test

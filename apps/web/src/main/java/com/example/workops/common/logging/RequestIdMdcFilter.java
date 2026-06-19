@@ -23,6 +23,7 @@ public class RequestIdMdcFilter extends OncePerRequestFilter {
 
     static final String MDC_REQUEST_ID = "requestId";
     static final String RESPONSE_HEADER_REQUEST_ID = "X-Request-Id";
+    public static final String REQUEST_ATTRIBUTE_REQUEST_ID = "workops.requestId";
 
     @Override
     protected void doFilterInternal(
@@ -30,6 +31,7 @@ public class RequestIdMdcFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
         String requestId = UUID.randomUUID().toString();
+        request.setAttribute(REQUEST_ATTRIBUTE_REQUEST_ID, requestId);
         response.setHeader(RESPONSE_HEADER_REQUEST_ID, requestId);
 
         try (MDC.MDCCloseable ignored = MDC.putCloseable(MDC_REQUEST_ID, requestId)) {
