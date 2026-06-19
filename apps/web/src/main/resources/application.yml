@@ -13,6 +13,10 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: false
 
+logging:
+  pattern:
+    level: "requestId=%X{requestId:--} %5p"
+
 server:
   tomcat:
     use-relative-redirects: true

@@ -12,7 +12,7 @@ P2-8 の認証・認可・例外・業務操作ログを CloudWatch Logs 上で�
 - `requestId` は `OncePerRequestFilter` で生成して MDC へ入れる
 - MDC への設定は `MDC.putCloseable("requestId", requestId)` を使う
 - response header `X-Request-Id` に同じ値を返す
-- `logging.pattern.level` に `requestId=%X{requestId:-}` を追加する
+- `logging.pattern.level` に `requestId=%X{requestId:--}` を追加する
 - `logging.pattern.console` は全面上書きしない
 - HTTP request 外の Flyway 起動ログは `requestId=-` として扱う
 - Plan Mode 中にファイル作成はしない。Default mode で本 task Markdown を作成する
@@ -39,7 +39,7 @@ P2-8 の認証・認可・例外・業務操作ログを CloudWatch Logs 上で�
 - try-with-resources の範囲内で `filterChain.doFilter(request, response)` を呼び出す
 - filter 完了後、MDC の `requestId` は `MDCCloseable.close()` により削除される
 - `application.yml` に `logging.pattern.level` を追加する
-- `logging.pattern.level` の値は `requestId=%X{requestId:-} %5p` とする
+- `logging.pattern.level` の値は `requestId=%X{requestId:--} %5p` とする
 - `logging.pattern.console` は設定しない
 - 既存 `OperationLogger` の `requestId=` 出力は P2-8-01 では削除しない
 - `OperationLogger` の `requestId` 重複整理は、P2-8-02 以降でログ形式全体を確認してから扱う
@@ -53,6 +53,7 @@ P2-8 の認証・認可・例外・業務操作ログを CloudWatch Logs 上で�
 - `MDC.putCloseable` を採用する。SLF4J 公式が close 時に key を削除する用途として提供しており、Logback が推奨する put / remove の対応漏れを避けやすいため。
 - `X-Request-Id` を response header に返す。ブラウザ操作時のエラー画面、CloudWatch Logs、ユーザー報告を同じ request ID で照合できるようにするため。
 - `logging.pattern.level` だけを変更する。Spring Boot 公式が MDC を既定ログ形式へ足す方法として `logging.pattern.level` を示しており、console pattern の全面上書きより既定形式を壊しにくいため。
+- MDC 未設定時の pattern は `%X{requestId:--}` とする。`%X{requestId:-}` では未設定時の表示が空になり、HTTP request 外ログを `requestId=-` として扱う完了条件を満たさないため。
 - JSON structured logging は採用しない。P2-8 は既存の `key=value` ログ方針を CloudWatch Logs で調査可能にするフェーズであり、JSON ログ基盤への全面移行は除外範囲であるため。
 - HTTP request 外のログに `requestId=-` を許容する。Flyway 起動ログと ECS task 停止理由は HTTP request に紐づかないため。
 - 既存データ移行と後方互換性は考慮しない。
@@ -88,7 +89,7 @@ P2-8 の認証・認可・例外・業務操作ログを CloudWatch Logs 上で�
 - response header `X-Request-Id` に生成した `requestId` が設定される
 - request 処理中のログへ `requestId` が出力される
 - request 処理後に MDC の `requestId` が残らない
-- `logging.pattern.level` に `requestId=%X{requestId:-}` が含まれている
+- `logging.pattern.level` に `requestId=%X{requestId:--}` が含まれている
 - `logging.pattern.console` が追加されていない
 - HTTP request 外ログは `requestId=-` として扱う方針が明記されている
 - Java test が成功している
@@ -113,7 +114,7 @@ cd C:\git\workops\apps\web
 
 ```powershell
 Select-String -Path 'C:\git\workops\apps\web\src\main\resources\application.yml' `
-  -Pattern 'logging:', 'pattern:', 'level:', 'requestId=%X\{requestId:-\}' `
+  -Pattern 'logging:', 'pattern:', 'level:', 'requestId=%X\{requestId:--\}' `
   -Encoding UTF8
 ```
 
