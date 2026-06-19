@@ -89,7 +89,6 @@ CloudFront default domain は引き続き P2-5 以降の Cognito callback URL �
 - Lambda@Edge
 - Cognito Hosted UI ログイン本体
 - users 突合
-- git commit
 
 ## 完了条件
 

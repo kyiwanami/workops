@@ -76,7 +76,6 @@ P2-5 で使う Cognito User Pool、Hosted UI domain、単一 App Client を `Ide
 - 独自ドメイン
 - Route 53
 - ACM 独自ドメイン証明書
-- git commit
 
 ## 完了条件
 

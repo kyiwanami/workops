@@ -23,7 +23,6 @@ P2-2 以降の RDS、Cognito、ECS を載せるための AWS dev 基盤として
 - 共通タグは `Project=WorkOps`、`Environment={stage}`、`ManagedBy=CDK` とする
 - 後続 Stack からの参照は CloudFormation Export や SSM ではなく、同一 CDK app 内の props 参照を使う
 - CloudFormation Output は人間確認用に出す
-- Git commit は実行しない
 
 ## 対応範囲
 
@@ -94,7 +93,6 @@ P2-2 以降の RDS、Cognito、ECS を載せるための AWS dev 基盤として
 - migration 専用 Security Group
 - `infra/cdk/README.md` 更新
 - AWS deploy
-- git commit
 
 ## Outputs
 

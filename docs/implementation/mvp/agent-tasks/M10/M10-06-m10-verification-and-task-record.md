@@ -15,7 +15,6 @@ M10 の初期 TENANT_MANAGER 作成、ユーザー作成、権限割当・変更
 - `actor_type` と `company_id` は作成後変更不可とする
 - TENANT_MANAGER 数が 0 になる権限変更は、認可ではなく、更新後 count による業務バリデーションで拒否する
 - 削除済み部署に所属するユーザーは、ユーザー一覧・詳細で `部署名（削除済み）` と表示する
-- Git commit は実行しない
 
 ## 対応範囲
 
@@ -57,7 +56,6 @@ M10 の初期 TENANT_MANAGER 作成、ユーザー作成、権限割当・変更
 - Cognito 側ユーザー属性変更
 - ユーザー無効化
 - 権限セット定義そのものの CRUD
-- git commit
 
 ## 完了条件
 
@@ -89,7 +87,6 @@ Phase 2 へ回す範囲が、Cognito 本物 API 呼び出し、Cognito Hosted UI
 - README と MVP 動作確認シナリオを、M10 のユーザー管理導線が分かる状態へ更新する
 - M10-01 から M10-05 の古い残課題は、後続 M10 task で解消済みのものと Phase 2 残しに分けて整理する
 - 実 Cognito E2E は行わず、ユーザー確認対象として残す
-- Git commit は実行しない
 
 ### 変更ファイル
 

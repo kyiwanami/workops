@@ -23,7 +23,6 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 - Phase 2 の AWS dev Flyway migration は `apps/web` の Spring Boot 起動時実行を維持する
 - Phase 2α で migration 用 ECS Task へ分離し、AWS dev の Web アプリ起動時 Flyway 自動実行を止める
 - ローカルでは Spring Boot 起動時の Flyway 実行を維持する
-- Git commit は実行しない
 
 ## 案
 
@@ -108,7 +107,6 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 - MySQL 9.x
 - 既存データ移行
 - 後方互換性対応
-- git commit
 
 ## 完了条件
 

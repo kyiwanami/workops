@@ -142,7 +142,6 @@ agent task またはフェーズの完了条件にユーザー確認が含まれ
 - P2-10 完了後、Phase 2α で CodePipeline + CodeBuild へ移行し、GitHub Actions workflow を撤去する
 - CodeDeploy、Blue/Green deploy、Canary deploy、PR レビューゲートは採用しない
 - 旧サービス単位の Stack 名は、ADR 内の却下案を除き、実装、README、agent task 名、基本設計寄りの説明に出さない
-- Git commit は実行しない
 
 ## P2-0. Phase 2 設計・リポジトリ準備
 

@@ -9,7 +9,6 @@ P2-6 の CDK / Spring Boot 実装が、2 App Client 構成と login route / acto
 ## ユーザー要求
 
 - 現在は有料スタックを消している
-- P2-6 実装では、不要な AWS deploy / destroy を勝手に実行しない
 - 既に判断済みのことを再質問しない
 - SaaS 管理者用入口は通常利用者へ表出しない
 - 旧 `cognito` registration / App Client の互換を残さない
@@ -19,7 +18,6 @@ P2-6 の CDK / Spring Boot 実装が、2 App Client 構成と login route / acto
 - 維持対象の `IdentityStack` は残っている
 - 課金対象の `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` は削除済みでよい
 - ローカル検証では AWS へ接続しない
-- AWS dev 実確認はユーザーの明示指示後に行う
 
 ## 案
 
@@ -53,7 +51,6 @@ P2-6 の CDK / Spring Boot 実装が、2 App Client 構成と login route / acto
 - Cognito ユーザー作成
 - RDS への `users.cognito_sub` 投入
 - P2-7 以降の管理導線
-- git commit
 
 ## 完了条件
 
@@ -97,9 +94,6 @@ npm run cdk -- synth AppRuntimeStack
 ```
 
 `EdgeStack` は CloudFront origin-facing managed prefix list を `PrefixList.fromLookup` で参照する。
-そのため、CDK synth でも AWS profile と `CDK_DEFAULT_ACCOUNT` / `CDK_DEFAULT_REGION` を明示する。
-古い一時 credential 環境変数が残っていると profile より優先されるため、`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` は先に削除する。
-実 account ID は git 管理文書に記録せず、実行時に `aws sts get-caller-identity` から設定する。
 
 AWS dev 実確認を行う場合:
 

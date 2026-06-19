@@ -103,7 +103,6 @@ AWS dev 上で `apps/web` を HTTP ALB 経由で起動確認するため、実�
 - VPC Endpoint
 - Container Insights
 - CloudWatch Alarm
-- git commit
 
 ## 完了条件
 

@@ -61,9 +61,9 @@ $env:WORKOPS_STAGE='dev'
 $env:AWS_PROFILE='amazon-connect'
 $env:AWS_REGION='ap-northeast-1'
 $env:AWS_DEFAULT_REGION='ap-northeast-1'
-$env:CDK_DEFAULT_ACCOUNT='<AWS_ACCOUNT_ID>'
+$env:CDK_DEFAULT_ACCOUNT=(aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
 $env:CDK_DEFAULT_REGION='ap-northeast-1'
-npm run cdk -- deploy IdentityStack --profile amazon-connect --require-approval never
+npm run cdk -- deploy IdentityStack
 ```
 
 結果:

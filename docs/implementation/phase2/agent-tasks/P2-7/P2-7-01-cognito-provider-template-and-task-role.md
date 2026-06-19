@@ -19,8 +19,6 @@ P2-7 の AWS dev 実確認に入る前に、P2-6 のログイン分離設定を�
 - 招待メールテンプレートは `IdentityStack` の `userInvitation` で管理する
 - 招待メールは日本語 HTML とする
 - Cognito の送信元はデフォルトのままとし、SES カスタム FROM は扱わない
-- AWS deploy / destroy は、この task 作成時点では実行しない
-- git commit は今回だけユーザーが許可している
 
 ## 前提
 
@@ -112,5 +110,3 @@ cd C:\git\workops\infra\cdk
 npm run build
 npm test -- --runInBand
 ```
-
-実 AWS 確認は P2-7-02 で扱う。P2-7-01 の task 作成または実装時点では、AWS の `cdk deploy` / `cdk destroy` を実行しない。

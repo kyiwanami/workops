@@ -17,7 +17,6 @@ TENANT_MANAGER は PLATFORM ユーザー、他社ユーザー、PLATFORM_ADMIN �
 - `actor_type` と `company_id` は作成後変更不可とする
 - TENANT_MANAGER 数が 0 になる権限変更は、認可ではなく、更新後 count による業務バリデーションで拒否する
 - 削除済み部署に所属するユーザーは、ユーザー一覧・詳細で `部署名（削除済み）` と表示する
-- Git commit は実行しない
 
 ## 対応範囲
 

@@ -18,7 +18,6 @@ M9 の会社作成と部署管理を実装する前提として、local profile 
 - `users.actor_type = 'TENANT'` のユーザーは `company_id` 必須とする
 - `PLATFORM` / `TENANT` は `users.actor_type` で区別する
 - Cognito 本物 API 呼び出し、Cognito Hosted UI ログインの本格確認、PLATFORM / TENANT App Client 分離は M9 で扱わない
-- Git commit は実行しない
 
 ## 対応範囲
 

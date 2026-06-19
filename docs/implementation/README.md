@@ -66,68 +66,6 @@ Phase 2 の HTTPS 入口は CloudFront default domain で成立させます。
 CloudFront から `apps/web` の ALB へ到達する経路は CloudFront VPC origins を使い、ALB をインターネットへ直接公開しません。
 ALB は private subnet に置き、CloudFront から ALB、ALB から ECS task への通信は HTTP のまま扱います。
 独自ドメイン、ACM 独自ドメイン証明書、Route 53、ALB HTTPS listener は Phase 2 では作りません。
-実 AWS 環境での CloudFront default domain 到達確認、ALB 直アクセスが正規入口ではないことの確認、実行確認セッション Stack の削除はユーザー確認として扱います。
-
-## AWS 実操作の共通前提
-
-AWS CLI、CDK、ECR、ECS、CloudFormation、RDS、SSM、Secrets Manager など AWS へ接続する手順では、実行前に AWS profile と region を明示します。
-
-PowerShell では次を標準とします。
-
-```powershell
-Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
-Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
-Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
-
-$env:AWS_PROFILE='amazon-connect'
-$env:AWS_SDK_LOAD_CONFIG='1'
-$env:AWS_REGION='ap-northeast-1'
-$env:AWS_DEFAULT_REGION='ap-northeast-1'
-$env:CDK_DEFAULT_ACCOUNT=(aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
-$env:CDK_DEFAULT_REGION='ap-northeast-1'
-```
-
-AWS CLI コマンドには原則として `--region $env:AWS_REGION` を付けます。
-
-```powershell
-aws sts get-caller-identity --region $env:AWS_REGION
-aws ec2 describe-managed-prefix-lists --region $env:AWS_REGION
-```
-
-CDK 実行時は、対象 stage も明示します。
-
-```powershell
-$env:WORKOPS_STAGE='dev'
-npm run cdk -- diff <StackName>
-npm run cdk -- deploy <StackName>
-```
-
-AWS 実操作の前には、認証先を確認します。
-
-```powershell
-aws sts get-caller-identity --region $env:AWS_REGION
-aws configure get region
-```
-
-### AWS dev RDS / MySQL 操作ルール
-
-AWS dev RDS に対する MySQL 実行は、ユーザーが実施するか、ユーザーから明示的な実行指示が出た場合だけ行います。
-コーディングエージェントは、ユーザーが実行すると決めている MySQL / RDS 更新を勝手に代行しません。
-
-AWS dev RDS への MySQL 実行は、RDS Console integrated CloudShell VPC から実施します。
-一時 ECS task、Lambda、踏み台、ローカル直結など、別経路での MySQL 実行へ勝手に切り替えません。
-
-実 account ID、SSO role ARN、SSO ユーザー名、credential 値は git 管理文書に記録しません。
-確認結果を記録する場合は「AWS account は手元の AWS 認証で確認済み」と書きます。
-
-ADR:
-
-- `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN` は消してから profile を使う。古い credential が profile より優先される事故を避けるため。
-- region は環境変数と CLI option の両方で明示する。ローカル shell や AWS config の差異に依存しないため。
-- 実 account ID は git に残す必要がないため記録しない。
-- `CDK_DEFAULT_ACCOUNT` は実行時に `aws sts get-caller-identity` から設定し、git 管理文書に実 account ID を書かない。`PrefixList.fromLookup` など CDK context lookup が account / region を必要とするため。
-- `WORKOPS_STAGE` は CDK 実行時に明示する。stage 誤爆を避けるため。
-
 ## 後続フェーズの実装運用ルール
 
 M5 以降の agent task では、M4 実装中に判明した次の注意点を先に確認してから実装します。
@@ -138,7 +76,6 @@ M5 以降の agent task では、M4 実装中に判明した次の注意点を�
 - 業務操作の前提条件は、`assertOwnedStatus` のような汎用名に寄せず、`assertSubmittableDraft` のように操作名と状態が分かるメソッド名にします。
 - Form / DTO / Mapper 入力では、手書き getter / setter を作りません。record で表現できるものは record を使い、生成IDの受け取りなど record に向かない都合がある場合は、別案を検討してから実装します。
 - Controller だけに認可を閉じ込めず、Service 単体で検証したい業務操作には `@PreAuthorize` を付けます。
-- UI の最終操作確認はユーザーが行います。コーディングエージェントは `mvnw test` などの機械的検証を行い、ユーザー操作確認を勝手に進めません。
 
 ## agent task 作成ルール
 
@@ -285,7 +222,6 @@ agent task を実装した後は、対象の agent task Markdown に次を記録
 - 残課題
 
 実装で判明した具体事項はリポジトリ側へ記録します。
-Notion 側の要件、スコープ、ADR を変更する必要がある場合は、リポジトリ側で確定せず、ユーザー確認を挟みます。
 
 ## 疎通確認結果の扱い
 

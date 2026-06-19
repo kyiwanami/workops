@@ -22,7 +22,6 @@ P2-4 では独自ドメイン、ACM 独自ドメイン証明書、Route 53、ALB
 - P2-3 の cleanup により `AppRuntimeStack`、`EdgeStack`、`EgressStack`、`DataStack` は削除済みである
 - 維持対象の `FoundationStack`、`RegistryStack`、`LogsStack` は AWS dev に残っている
 - `EdgeStack` は既に ALB、HTTP listener、target group、`albDnsName` Output を持っている
-- P2-4 の AWS 実操作はユーザー確認として扱う
 
 ## 案
 
@@ -85,7 +84,6 @@ P2-4 では独自ドメイン、ACM 独自ドメイン証明書、Route 53、ALB
 - callback / sign-out path 確定
 - タイムゾーン対応
 - GitHub Actions workflow
-- git commit
 
 ## 完了条件
 

@@ -84,7 +84,6 @@ P2-4 の AWS dev 実行確認結果を整理し、CloudFront default domain の 
 - Observability Dashboard
 - タイムゾーン実装
 - P2-4-04 時点での AWS Stack destroy
-- git commit
 
 ## 完了条件
 

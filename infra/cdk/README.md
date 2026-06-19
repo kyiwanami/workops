@@ -38,12 +38,10 @@ $env:CDK_DEFAULT_REGION = "ap-northeast-1"
 
 - `WORKOPS_STAGE` は CloudFormation stackName、resource name、tag の `Environment` に使います。
 - `AWS_PROFILE` と `AWS_REGION` は AWS CLI / CDK CLI の接続先指定です。
-- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` は削除してから profile を使います。
 - `CDK_DEFAULT_ACCOUNT` と `CDK_DEFAULT_REGION` は CDK stack の `env` と context lookup に使います。
 - CDK app は AWS account、profile、region を固定しません。
 - CDK app は環境変数ファイルを読みません。
 - `stage` は CDK context ではなく `WORKOPS_STAGE` から渡します。
-- 実 account ID は git 管理文書に記録せず、実行時に `aws sts get-caller-identity` から設定します。
 
 ## Commands
 
@@ -74,7 +72,6 @@ npm run cdk -- synth
 ```
 
 `EdgeStack` は CloudFront origin-facing managed prefix list を `PrefixList.fromLookup` で参照します。
-そのため、lookup を含む CDK synth では AWS profile と `CDK_DEFAULT_ACCOUNT` / `CDK_DEFAULT_REGION` を明示します。
 未キャッシュの lookup がある場合、`synth` でも AWS 認証情報が必要です。
 
 ## Stacks
@@ -163,6 +160,5 @@ npm run cdk -- destroy workops-dev-data
 - DB に依存しない runtime config は `ConfigStack` に置きます。
 - Cognito User Pool、Hosted UI domain、App Client は `IdentityStack` に置きます。
 - `IdentityStack` は `EdgeStack` を参照しません。
-- CloudFormation Output に password、secret value、public IP、EC2 instance id を出しません。
 - Stack 間参照は同一 CDK app 内の props 参照で渡し、cross-stack reference は `weak` に固定します。
 - `weak` により、生成 template は `Fn::ImportValue` ではなく `Fn::GetStackOutput` を使います。

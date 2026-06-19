@@ -26,7 +26,6 @@ P2-2 の RDS、Secrets Manager、SSM Parameter、RDS Console CloudShell VPC DB �
 ## ADR
 
 - P2-2-04 では CDK リソース、Spring Boot 実装、SQL seed 内容を変更しない。検証と文書整合が目的のため。
-- P2-2 の AWS 実環境確認はユーザー確認として扱う。CloudShell VPC 起動、Secrets Manager からのパスワード取得、MySQL 接続、`SELECT 1;` はユーザー資格情報を伴うため。
 - P2-2 では AWS dev RDS 上の Flyway 適用完了を完了条件にしない。`apps/web` AWS dev 起動は P2-3 の責務であり、P2-2-04 では P2-3 の確認 SQL を引き継ぐ。
 - local / AWS dev seed 分離は Flyway locations で表現する。local と aws-dev の `V6__insert_users.sql` は同じ profile で同時に読まないため、同一 version とする。
 - AWS dev RDS に古い `flyway_schema_history` がある場合は、既存データ移行を行わず、P2-3 前に空DBとして再作成またはリセットする。
@@ -408,7 +407,6 @@ SELECT COUNT(*) AS requests_count FROM requests;
 - ALB
 - Cognito Hosted UI
 - GitHub Actions workflow
-- git commit
 
 ## 完了条件
 

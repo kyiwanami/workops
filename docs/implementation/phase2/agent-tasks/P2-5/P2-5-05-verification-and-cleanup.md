@@ -29,7 +29,6 @@ P2-5 の最終構成、AWS dev 実確認結果、短命 Stack cleanup 結果、P
 - RDS は短命運用とし、次回作成時は `platform-admin` の `users.cognito_sub` を再度 SQL で投入する
 - Custom Resource Delete 時は Cognito App Client を変更しない
 - 次回 `EdgeStack` 作成時に新しい CloudFront default domain で App Client URL が自動更新されることを確認手順に入れる
-- P2-5-05 の手順作成時点では AWS の `cdk deploy` / `cdk destroy` を実行しない
 - 実 AWS 確認と cleanup は、ユーザーの明示指示後に実行した
 
 ## 前提
@@ -45,8 +44,6 @@ P2-5 の最終構成、AWS dev 実確認結果、短命 Stack cleanup 結果、P
 ## 案
 
 - P2-5-05 では Java / CDK / Flyway / seed は変更しない
-- P2-5-05 の手順作成時点では AWS の `cdk deploy` / `cdk destroy` を実行しない
-- 実 AWS 確認と cleanup はユーザーの明示指示後に実行し、結果をこの task Markdown に記録する
 - エージェント確認では CDK build / test / synth を行う
 - CDK synth は `IdentityStack`、`DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` を対象にする
 - エージェント確認では Spring Boot test を行う
@@ -65,7 +62,6 @@ P2-5 の最終構成、AWS dev 実確認結果、短命 Stack cleanup 結果、P
 
 ## ADR
 
-- P2-5-05 の手順作成時点では AWS deploy / destroy を実行しない。実 AWS 操作はユーザーの明示指示後に実行し、完了記録としてこの task Markdown に残すため。
 - P2-5 の AWS 実環境確認は成功ログインに限定する。P2-5 の AWS 固有論点は Hosted UI、CloudFront callback、Cognito `sub`、RDS 上の `users.cognito_sub`、ECS dev profile 起動にあるため。
 - `DataStack` を deploy 手順に含める。P2-5-04 の `platform-admin` SQL 紐付けには AWS dev RDS が必要であり、deploy 手順から抜けると Hosted UI 成功ログインの前提が成立しないため。
 - `IdentityStack` は cleanup 対象にしない。Cognito 本体は維持対象であり、短命 Edge / Runtime / Egress の lifecycle と分けるため。
@@ -99,7 +95,6 @@ P2-5 の最終構成、AWS dev 実確認結果、短命 Stack cleanup 結果、P
 - CodeBuild
 - CloudWatch Alarm
 - Observability Dashboard
-- git commit
 
 ## 完了条件
 
@@ -224,7 +219,6 @@ P2-5 実 AWS 確認結果:
 - CloudFront default domain から Cognito Hosted UI へのログイン導線が成立した
 - P2-5 の実 AWS 確認は完了扱いとする
 - 実 Cognito `sub`、パスワード、RDS の実更新値は task Markdown に記録しない
-- 今後の AWS dev RDS への MySQL 実行は、PJ 横断ルールに従い、ユーザー実施またはユーザーの明示指示時のみ RDS Console integrated CloudShell VPC から行う
 
 実行確認セッション終了時の cleanup:
 

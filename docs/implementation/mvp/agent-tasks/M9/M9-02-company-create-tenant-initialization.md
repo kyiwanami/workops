@@ -17,7 +17,6 @@ PLATFORM_ADMIN が会社を作成できるようにし、会社作成時に会�
 - `generic_master` 種別管理やマスタ管理画面の拡張は M9 で扱わない
 - 会社別初期値は既存の `generic_master` 種別に対する `generic_master_values` として投入する
 - 削除済みコードの再利用は許可しない
-- Git commit は実行しない
 
 ## 対応範囲
 

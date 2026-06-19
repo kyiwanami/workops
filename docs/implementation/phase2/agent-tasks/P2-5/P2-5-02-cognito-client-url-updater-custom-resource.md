@@ -77,7 +77,6 @@ CloudFront default domain は `EdgeStack` 作成ごとに変わるため、手�
 - ACM 独自ドメイン証明書
 - Lambda@Edge
 - CloudFront Functions
-- git commit
 
 ## 完了条件
 

@@ -68,7 +68,6 @@ P2-5 の単一 Cognito App Client を、PLATFORM 用と TENANT 用の 2 App Clie
 - WorkOps 管理画面からの Cognito ユーザー作成
 - ユーザー停止 / 権限割当の実装
 - AWS deploy / destroy
-- git commit
 
 ## 完了条件
 

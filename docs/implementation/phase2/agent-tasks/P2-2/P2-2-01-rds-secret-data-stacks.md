@@ -29,7 +29,6 @@ AWS dev 環境に WorkOps の業務 DB 正本となる RDS for MySQL 8.4 LTS と
 - CloudFormation stackName は `workops-${stage}-...` 形式で生成する
 - Stack 間参照は同一 CDK app 内の props 参照で渡し、`@aws-cdk/core:defaultCrossStackReferences` は `weak` に固定する
 - 共通タグは `Project=WorkOps`、`Environment={stage}`、`ManagedBy=CDK` とする
-- Git commit は実行しない
 
 ## 案
 
@@ -105,7 +104,6 @@ AWS dev 環境に WorkOps の業務 DB 正本となる RDS for MySQL 8.4 LTS と
 - `ConfigStack` の SSM Parameter Store Standard に `/workops/${stage}/db/url` を作成する
 - DB URL は `jdbc:mysql://{rds-endpoint}:3306/workops?useSSL=true&serverTimezone=Asia/Tokyo` とする
 - CloudFormation Outputs に RDS instance identifier、endpoint address、port、DB 名、DB Subnet Group 名、RDS master secret ARN を出す
-- CloudFormation Outputs に password、secret value、DB username 値そのものを出さない
 - CDK assertions を追加する
 
 ## 対応ファイル
@@ -148,7 +146,6 @@ AWS dev 環境に WorkOps の業務 DB 正本となる RDS for MySQL 8.4 LTS と
 - SSM Parameter Store への region 保存
 - SSM Parameter Store への retentionDays 保存
 - SSM Parameter Store への ECR repository 名保存
-- git commit
 
 ## 完了条件
 

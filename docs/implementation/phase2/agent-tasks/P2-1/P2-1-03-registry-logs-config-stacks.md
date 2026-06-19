@@ -22,7 +22,6 @@ P2-3 以降の Web アプリ deploy と調査ログ確認に必要な ECR、Clou
 - Stack class 名に環境名を入れない
 - 共通タグは `Project=WorkOps`、`Environment={stage}`、`ManagedBy=CDK` とする
 - CloudFormation Output は人間確認用に出す
-- Git commit は実行しない
 
 ## 対応範囲
 
@@ -106,7 +105,6 @@ P2-3 以降の Web アプリ deploy と調査ログ確認に必要な ECR、Clou
 - GitHub Actions workflow
 - `infra/cdk/README.md` 更新
 - AWS deploy
-- git commit
 
 ## Outputs
 

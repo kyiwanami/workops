@@ -20,7 +20,6 @@ P2-3 の AWS dev 実行確認結果を整理し、CloudWatch Logs、RDS 上の F
 - P2-3-04 で AWS dev への手動 deploy が完了している
 - HTTP ALB 経由で `/actuator/health` が HTTP 200 を返している
 - ECS task が `RUNNING` で Target Group が healthy である
-- RDS Console integrated CloudShell VPC による DB 接続確認はユーザー確認として扱う
 - P2-3-04 で `DataStack` を再deployしている
 
 ## 案
@@ -76,7 +75,6 @@ P2-3 の AWS dev 実行確認結果を整理し、CloudWatch Logs、RDS 上の F
 - migration 用 ECS Task
 - CloudWatch Alarm
 - Observability Dashboard
-- git commit
 
 ## 完了条件
 

@@ -22,7 +22,6 @@ RDS Console integrated CloudShell VPC を使い、EC2 踏み台を作らずに A
 - AWS profile と region は CDK CLI 実行環境に任せる
 - `stage` は `WORKOPS_STAGE` 環境変数で指定する
 - Phase 2 の確認例は `WORKOPS_STAGE=dev` とする
-- Git commit は実行しない
 
 ## 案
 
@@ -56,7 +55,6 @@ RDS Console integrated CloudShell VPC を使い、EC2 踏み台を作らずに A
 - RDS Console CloudShell Security Group に self-reference TCP 3306 egress / ingress を追加する
 - RDS `DatabaseInstance.securityGroups` に既存 DB SG と RDS Console CloudShell Security Group を設定する
 - CloudFormation Outputs に RDS Console CloudShell Security Group id を出す
-- CloudFormation Outputs に EC2 instance id、public IP、password、secret value を出さない
 - CDK assertions を追加する
 
 ## 対応ファイル
@@ -87,7 +85,6 @@ RDS Console integrated CloudShell VPC を使い、EC2 踏み台を作らずに A
 - RDS public access
 - RDS Proxy
 - IAM DB authentication
-- git commit
 
 ## 完了条件
 
@@ -104,7 +101,6 @@ RDS Console integrated CloudShell VPC を使い、EC2 踏み台を作らずに A
 - エージェント確認だけでは P2-2-02 を完了扱いにしない
 - P2-2-02 の完了には、ユーザー確認の AWS dev 実接続確認を必須とする
 - `npm run build`、`npm test`、`cdk synth`、生成テンプレート確認は、エージェント確認完了として扱う
-- AWS dev への deploy、RDS Console CloudShell 起動、TCP 到達確認、MySQL 接続、`SELECT 1;`、CloudShell 環境削除は、ユーザー確認として扱う
 - ユーザー確認が未実施の場合は、報告文で `P2-2-02 はエージェント確認完了、ユーザー確認未実施のためフェーズ未完了` と明記する
 - P2-2-04 は手順整理と横断確認であり、P2-2-02 の初回実接続確認を代替しない
 

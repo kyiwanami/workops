@@ -64,7 +64,6 @@
 - CodePipeline
 - CodeBuild
 - migration 専用 ECS task
-- git commit
 
 ## 完了条件
 

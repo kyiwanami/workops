@@ -3,7 +3,6 @@
 ## 目的
 
 P2-3 で追加した Docker image と実行確認セッション Stack を使い、AWS dev 上で `apps/web` を手動 deploy して HTTP ALB 経由の `/actuator/health` を確認する。
-AWS 実操作はユーザー確認として扱い、エージェント確認と混同しない。
 
 ## ユーザー要求
 
@@ -13,7 +12,6 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 - `DataStack` を再deployして RDS、RDS master secret、DB接続SSM Parameter を作成し直す
 - runtime deploy 順序は `EgressStack`、`EdgeStack`、`AppRuntimeStack` とする
 - HTTP ALB 経由で `/actuator/health` を確認する
-- AWS 実操作はユーザー確認として記録する
 
 ## 前提
 
@@ -21,7 +19,6 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 - P2-2 の維持対象 Stack が必要分 deploy 済みである
 - `DataStack` は削除済みであるため、P2-3 runtime deploy の前に再deployする
 - `DataStack` 再deploy後、RDS、RDS master secret、DB接続SSM Parameter が存在する
-- AWS CLI の認証、ECR push、CDK deploy はユーザー確認として扱う
 - AWS deploy 前に AWS account / region、CDK diff、既存Stack状態を確認する
 - GitHub Actions deploy は使わない
 
@@ -44,13 +41,10 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 ## ADR
 
 - P2-3 の deploy は手動で行う。GitHub Actions OIDC deploy は P2-9 の責務であるため。
-- AWS 実操作はユーザー確認として扱う。AWS 認証、課金対象リソース作成、ECR push、CDK deploy はユーザー資格情報と課金を伴うため。
 - ECR image tag は `p2-3-manual` に固定する。P2-3 は手動 deploy であり、CI 由来 tag を使わないため。
 - `DataStack` は runtime Stack より先に再deployする。ECS task の secrets 注入で参照する `/workops/${stage}/db/url` と `/workops/${stage}/db/master` が存在しないと web task が起動できないため。
 - deploy 順序は `EgressStack`、`EdgeStack`、`AppRuntimeStack` とする。NAT、ALB、runtime の依存順に合わせるため。
 - ALB DNS は `EdgeStack` の `albDnsName` Output から取得する。AWS Console だけに依存せず、手順上の取得元を固定するため。
-- CDK deploy では `--require-approval never` を使わない。security group ingress や IAM 変更をユーザーが確認できるようにするため。
-- CDK deploy 前に `aws sts get-caller-identity` と `cdk diff` を必ず実行する。削除済み `DataStack` の再作成、NAT Gateway、ALB、ECS、IAM、Security Group 変更を事前確認するため。
 - ALB 80 ingress と ALB から app 8080 ingress は `EdgeStack` / `AppRuntimeStack` の `AWS::EC2::SecurityGroupIngress` として所有する。P2-3 の一時実行確認 Stack を destroy したときに、公開口とruntime接続ruleも同じライフサイクルで削除するため。
 - CDK L2 の自動 Security Group 接続は一般には妥当だが、P2-3 では `FoundationStack` へ ingress rule を残さないことを優先する。課金対象の ALB / NAT / ECS と公開口を実行確認セッション終了時に閉じるため。
 - `/actuator/health` だけを HTTP ALB 経由の成功確認にする。業務画面ログイン、Cognito Hosted UI、users 突合は P2-3 の責務ではないため。
@@ -88,7 +82,6 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 - seed 件数確認
 - Cognito 用 dev profile 起動確認
 - destroy 手順
-- git commit
 
 ## 完了条件
 
@@ -184,7 +177,6 @@ AWS Console 確認:
 
 `EdgeStack` に ALB DNS name の CloudFormation Output を追加し、P2-3-04 のHTTP health確認で参照する値を固定する。
 `DataStack` は削除済みのため、ECR push後、runtime Stack deploy前に再deployする手順へ変更する。
-AWS実操作はユーザー確認として扱い、エージェントはローカル検証と手順整備までを行う。
 
 ### 変更ファイル
 

@@ -65,7 +65,6 @@ Spring Security の OAuth2 Login registration を `platform` と `tenant` に分
 - tenant 業務画面の追加
 - 独自エラーページ
 - Cognito Hosted UI の文言カスタマイズ
-- git commit
 
 ## 完了条件
 

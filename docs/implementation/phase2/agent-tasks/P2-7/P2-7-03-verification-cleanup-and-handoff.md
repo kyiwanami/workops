@@ -8,8 +8,6 @@ P2-7 では WorkOps 管理導線からの `AdminCreateUser`、`users.cognito_sub
 
 ## ユーザー要求
 
-- P2-7 task 作成時点では AWS deploy / destroy を実行しない
-- AWS deploy / destroy はユーザー確認手順として記載する
 - 有料リソースは確認後に削除する
 - `IdentityStack` は維持する
 - `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` は短命 Stack として扱う
@@ -18,7 +16,6 @@ P2-7 では WorkOps 管理導線からの `AdminCreateUser`、`users.cognito_sub
 - Cognito 作成成功後に DB 登録が失敗した場合、自動削除補償はしない
 - 不整合は Cognito コンソールと DB を確認して運用で削除する
 - P2-8 では CloudWatch Logs / 認証・認可イベントログ確認へ進む
-- git commit は今回だけユーザーが許可している
 
 ## 前提
 
@@ -48,7 +45,6 @@ P2-7 では WorkOps 管理導線からの `AdminCreateUser`、`users.cognito_sub
 
 ## ADR
 
-- AWS deploy / destroy は task 作成時点で実行しない。有料リソースの再作成を伴うため、ユーザー確認手順として明記し、実行はユーザーの明示指示後に限定する。
 - cleanup 対象に `IdentityStack` を含めない。Cognito User Pool / Hosted UI domain / App Client は Phase2 期間中の維持対象であり、短命 runtime stack と lifecycle を分けるため。
 - メール未着時は未完了にする。P2-7 の完了条件に Cognito 招待メールの実配送確認を含めたため。
 - 自動削除補償は実装しない。P2-7 の目的は `AdminCreateUser` と DB 登録の接続確認であり、DB 登録失敗後の Cognito 削除フローは範囲外である。
@@ -142,7 +138,6 @@ Select-String -Path 'apps\web\src\main\**\*','infra\cdk\lib\*.ts','infra\cdk\bin
   -Encoding UTF8
 ```
 
-実 AWS 確認後の cleanup はユーザー確認として行う。
 
 ```powershell
 cd C:\git\workops\infra\cdk

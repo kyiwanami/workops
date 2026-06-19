@@ -20,7 +20,6 @@ Notion 側で M9 が会社管理全体へ拡張された後は、会社一覧・
 - `users.actor_type = 'TENANT'` のユーザーは `company_id` 必須とする
 - 会社作成時の会社別 `generic_master_values` 初期投入は、会社作成に伴うテナント初期化処理として扱う
 - `generic_master` 種別管理やマスタ管理画面の拡張は M9 で扱わない
-- Git commit は実行しない
 
 ## 対応範囲
 
@@ -59,7 +58,6 @@ Notion 側で M9 が会社管理全体へ拡張された後は、会社一覧・
 - Cognito 本物 API 呼び出し
 - Phase 2 設計変更
 - README / docs の無断拡張
-- git commit
 
 ## 完了条件
 

@@ -72,7 +72,6 @@ CloudFront を P2-4 以降の HTTPS 入口にするため、ALB 80 ingress を C
 - users 突合
 - `ec2.PrefixList.fromLookupByName`
 - `cdk.context.json` に依存する prefix list lookup
-- git commit
 
 ## 完了条件
 

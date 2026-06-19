@@ -3,7 +3,6 @@
 ## 目的
 
 P2-4 で拡張した `EdgeStack` を AWS dev に手動 deploy し、CloudFront default domain の HTTPS URL から WorkOps へ到達できることを確認する。
-AWS 実操作はユーザー確認として扱い、エージェント確認と混同しない。
 
 ## ユーザー要求
 
@@ -47,7 +46,6 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 ## ADR
 
 - P2-4 の deploy は手動で行う。GitHub Actions OIDC deploy は P2-9 の責務であり、P2-4 では CloudFront HTTPS 入口を個別に確認するため。
-- AWS 実操作はユーザー確認として扱う。CloudFront、ALB、NAT Gateway、ECS、RDS は課金対象リソースであり、AWS 認証情報もユーザー環境に依存するため。
 - P2-4 runtime は `SPRING_PROFILES_ACTIVE=local` のままにする。P2-4 は HTTPS 入口確認であり、Cognito OAuth2 Client 設定不足をここで扱わないため。
 - `DataStack` は P2-4 deploy 前に再作成する。P2-3 cleanup で削除済みであり、ECS task の DB 接続 secret / parameter がないと runtime を起動できないため。
 - `cloudFrontHttpsUrl` は P2-5 へ CDK props / cross-stack reference として渡す。環境固有の HTTPS ベース URL をリポジトリ内の静的ファイルや Markdown の正本として管理しないため。
@@ -89,7 +87,6 @@ AWS 実操作はユーザー確認として扱い、エージェント確認と�
 - ACM 独自ドメイン証明書
 - ALB HTTPS listener
 - destroy 手順
-- git commit
 
 ## 完了条件
 

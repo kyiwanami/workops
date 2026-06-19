@@ -21,7 +21,6 @@ AWS dev 環境で、M9 / M10 で作成済みの管理導線を使い、WorkOps �
 - TENANT ユーザーは `/login/tenant` からログインする
 - `registrationId=tenant` と `users.actor_type = TENANT` の整合を確認する
 - 既存会社への TENANT ユーザー追加、PLATFORM ユーザー追加、権限変更は補助確認にする
-- AWS deploy / destroy はユーザー確認手順として記載し、task 作成時点では実行しない
 
 ## 前提
 
@@ -33,7 +32,6 @@ AWS dev 環境で、M9 / M10 で作成済みの管理導線を使い、WorkOps �
 - RDS を作り直すたびに AWS dev seed の `users.cognito_sub` は NULL に戻る
 - `db/seed/aws-dev/V6__insert_users.sql` は `platform-admin` を `cognito_sub = NULL` で投入する
 - `platform-admin` は `actor_type = 'PLATFORM'` で、`PLATFORM_ADMIN` 権限セットを持つ
-- AWS dev RDS への SQL 実行は、ユーザー実施またはユーザーの明示指示時のみ RDS Console integrated CloudShell VPC から行う
 - P2-7 では既存データ移行と後方互換性を考慮しない
 
 ## 案
@@ -116,7 +114,6 @@ AWS dev 環境で、M9 / M10 で作成済みの管理導線を使い、WorkOps �
 
 ## 確認方法
 
-AWS dev 環境作成はユーザー確認として行う。
 
 ```powershell
 cd C:\git\workops\infra\cdk

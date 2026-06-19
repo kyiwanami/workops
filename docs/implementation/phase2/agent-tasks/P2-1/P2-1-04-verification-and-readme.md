@@ -24,7 +24,6 @@ P2-1 の CDK 基盤、FoundationStack、RegistryStack、LogsStack、ConfigStack 
 - Phase 2 の確認例は `WORKOPS_STAGE=dev` とする
 - AWS deploy 確認は P2-1 完了条件に含める
 - AWS deploy 確認は認証と課金対象リソース作成を伴うため、ユーザー確認に分類する
-- Git commit は実行しない
 
 ## 対応範囲
 
@@ -127,7 +126,6 @@ P2-1 の CDK 基盤、FoundationStack、RegistryStack、LogsStack、ConfigStack 
 - Docker build
 - ECR push
 - P2-2 以降の README 整理
-- git commit
 
 ## 完了条件
 

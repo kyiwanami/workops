@@ -15,7 +15,6 @@ AWS dev の実 Cognito テストユーザーの `sub` を、短命 RDS の `plat
 - 更新前確認、UPDATE、更新後確認をセットにする
 - P2-5 の実 AWS 確認は成功ログイン、`sub` 突合、DB 由来権限での画面利用に限定する
 - 突合失敗時の HTTP 403 確認は P2-5 task に入れない
-- P2-5-04 では `cdk deploy` を実行しない
 
 ## 前提
 
@@ -27,13 +26,11 @@ AWS dev の実 Cognito テストユーザーの `sub` を、短命 RDS の `plat
 - Cognito テストユーザーの `sub` はユーザーが取得する
 - P2-5-04 の実 AWS 確認は、`IdentityStack`、`EdgeStack`、`AppRuntimeStack` が AWS dev に deploy 済みであることを前提にする
 - 未 deploy の場合、P2-5-04 に入る前に別手順で `cdk deploy` を実行する
-- P2-5-04 自体では `cdk deploy` しない
 - P2-7 までは WorkOps 管理導線からの `AdminCreateUser` を使わない
 
 ## 案
 
 - P2-5-04 では CDK / Java / Flyway / seed は変更しない
-- P2-5-04 では `cdk deploy` を実行しない
 - AWS dev 用 seed は変更しない
 - Cognito テストユーザー作成はユーザー確認手順にする
 - Cognito テストユーザーの `sub` 取得はユーザー確認手順にする
@@ -52,7 +49,6 @@ AWS dev の実 Cognito テストユーザーの `sub` を、短命 RDS の `plat
 - 実 Cognito `sub` は Flyway に入れない。User Pool やユーザーを作り直すたびに変わる環境生成値であり、DB 正本の seed に固定できないため。
 - `platform-admin` を最初の確認ユーザーにする。P2-5 は単一 App Client での Hosted UI ログインと `sub` 突合の成立確認に限定し、PLATFORM / TENANT の導線分離を扱わないため。
 - 一時 SQL はファイル化しない。環境ごとに変わる `sub` を入れる確認手順であり、実行資産や Flyway seed と誤認させないため。
-- P2-5-04 では `cdk deploy` を扱わない。P2-5-04 は deploy 済み環境に対する Cognito `sub` と短命 RDS の一時リンク確認であり、インフラ変更の適用は P2-5-01 から P2-5-03 の実装確認とは別の前提準備にするため。
 - 突合失敗時の HTTP 403 確認は P2-5 task に入れない。AWS 固有の確認ではなく、アプリ側挙動の確認であるため。
 - 既存データ移行と後方互換性は考慮しない。
 
@@ -78,7 +74,6 @@ AWS dev の実 Cognito テストユーザーの `sub` を、短命 RDS の `plat
 - TENANT ユーザーの Hosted UI ログイン確認
 - PLATFORM / TENANT App Client 分離
 - 突合失敗時の HTTP 403 実 AWS 確認
-- git commit
 
 ## SQL 手順
 
@@ -168,7 +163,6 @@ linked_platform_admin_count = 1
 - CloudFront default domain から Cognito Hosted UI へのログイン導線が成立した
 - P2-5 の実 AWS 確認は完了扱いとする
 - 実 Cognito `sub`、パスワード、RDS の実更新値は task Markdown に記録しない
-- 今後の AWS dev RDS への MySQL 実行は、PJ 横断ルールに従い、ユーザー実施またはユーザーの明示指示時のみ RDS Console integrated CloudShell VPC から行う
 
 P2-7 引き継ぎ:
 

@@ -73,7 +73,6 @@ P2-3 では GitHub Actions や CodeBuild を使わず、手動 build / push の�
 - `/actuator/health` の認証除外
 - AWS dev RDS 接続確認
 - Cognito Hosted UI
-- git commit
 
 ## 完了条件
 

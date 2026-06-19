@@ -18,3 +18,40 @@
 - メモには、回答・用語解説に入らない補足だけを書く。
 - 回答・用語解説とメモは、仕様判断や採用方針の正本にしない。
 - 採用技術や実装方針を変更する必要がある場合は、`TECH_TERMS.md` ではなく該当する実装文書に反映する。
+
+## AWS Operation Rule
+
+- AWS CLI、CDK、ECR、ECS、CloudFormation、RDS、SSM、Secrets Manager など AWS に接続する操作では、実行前に AWS profile と region を明示する。
+- AWS 操作前に `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN` を削除してから profile を使う。
+- AWS 実操作の前には `aws sts get-caller-identity --region $env:AWS_REGION` で認証先を確認する。
+- AWS CLI コマンドには原則として `--region $env:AWS_REGION` を付ける。
+- 実 account ID、SSO role ARN、SSO ユーザー名、credential 値は git 管理文書に記録しない。
+- 確認結果を記録する場合は、実値を書かず「AWS account は手元の AWS 認証で確認済み」と書く。
+
+## CDK Operation Rule
+
+- CDK 実行時は `WORKOPS_STAGE` を明示する。
+- `CDK_DEFAULT_ACCOUNT` は実行時に `aws sts get-caller-identity` から設定し、git 管理文書に実 account ID を書かない。
+- `cdk deploy`、`cdk destroy`、ECR push、課金対象リソース作成、課金対象リソース削除は、ユーザーから明示的な実行指示が出た場合だけ行う。
+- `cdk deploy` 前に AWS account、region、既存 Stack 状態、`cdk diff` を確認する。
+- `cdk deploy` では原則として `--require-approval never` を使わない。ユーザーがその option まで明示した場合だけ例外とする。
+
+## AWS dev RDS / MySQL Rule
+
+- AWS dev RDS に対する MySQL / SQL 実行は、ユーザーが実施するか、ユーザーから明示的な実行指示が出た場合だけ行う。
+- AWS dev RDS への MySQL / SQL 実行は、RDS Console integrated CloudShell VPC から実施する。
+- 一時 ECS task、Lambda、踏み台、ローカル直結、SSM port forwarding、Session Manager Plugin など、別経路での MySQL / SQL 実行へ勝手に切り替えない。
+- CloudShell VPC environment は確認後に削除する。
+
+## Verification Responsibility Rule
+
+- コーディングエージェントは、`mvnw test`、CDK build / test / synth、生成 template 確認などの機械的検証を担当する。
+- UI の最終操作確認、実 Cognito ログイン、実 AWS 確認はユーザー確認として扱い、コーディングエージェントが勝手に完了扱いにしない。
+
+## Sensitive Output Rule
+
+- CloudFormation Output や git 管理文書に password、secret value、credential 値、実 Cognito `sub`、RDS の実更新値、public IP、EC2 instance id を残さない。
+
+## Requirements Change Rule
+
+- Notion 側の要件、スコープ、ADR を変更する必要がある場合は、リポジトリ側で確定せず、ユーザー確認を挟む。

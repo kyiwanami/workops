@@ -13,7 +13,6 @@ Notion 側で拡張された M9 の会社管理スコープが、M9-06 と M9-07
 - 配下データが存在していても、警告表示したうえで会社の論理削除は可能とする
 - 削除済み会社は通常の新規作成・選択導線には出さず、管理画面では削除済みであることを区別して表示する
 - 初期 TENANT_MANAGER 作成、ユーザー作成、権限割当・変更、local Cognito Fake Bean、疑似 `cognito_sub` 発行は M10 で扱う
-- Git commit は実行しない
 
 ## 対応範囲
 
@@ -53,7 +52,6 @@ Notion 側で拡張された M9 の会社管理スコープが、M9-06 と M9-07
 - 権限割当・変更の仕様変更
 - 実 Cognito E2E
 - Phase 2 設計変更
-- git commit
 
 ## 完了条件
 
@@ -91,7 +89,6 @@ README、DB 定義書、MVP phases、M9 agent task が現行実装と矛盾し�
 - README、MVP phases、DB schema、M9 agent task が現行実装と矛盾しないことを確認する
 - README は利用者が確認する主要導線だけを現行実装に合わせて更新する
 - 実 Cognito E2E は行わない
-- Git commit は実行しない
 
 ### 変更ファイル
 

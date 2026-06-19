@@ -36,7 +36,6 @@
 - CDK assertions 用に Jest を使う
 - Jest snapshot test は使わない
 - alpha construct は使わない
-- Git commit は実行しない
 
 ## 案
 
@@ -101,7 +100,6 @@
 - GitHub Actions workflow
 - AWS deploy
 - CDK bootstrap 実行
-- git commit
 
 ## 完了条件
 

@@ -65,7 +65,6 @@ P2-3 では業務画面ログインや Cognito Hosted UI を確認せず、ECS t
 - Cognito Hosted UI
 - users 突合
 - DB 由来権限での画面操作
-- git commit
 
 ## 完了条件
 
