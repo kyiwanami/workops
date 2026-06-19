@@ -1,4 +1,4 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { ArnFormat, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import { CfnSecurityGroupIngress, ISubnet, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
 import { IRepository } from 'aws-cdk-lib/aws-ecr';
 import {
@@ -13,6 +13,7 @@ import {
   Secret as EcsSecret,
 } from 'aws-cdk-lib/aws-ecs';
 import { ApplicationTargetGroup } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
@@ -80,6 +81,20 @@ export class AppRuntimeStack extends Stack {
     dbUrlParameter.grantRead(executionRole);
     springProfileParameter.grantRead(executionRole);
     dbMasterSecret.grantRead(executionRole);
+    // WorkOps user creation can create Cognito users, but cannot read, update, disable, or delete them.
+    this.taskDefinition.addToTaskRolePolicy(new PolicyStatement({
+      actions: [
+        'cognito-idp:AdminCreateUser',
+      ],
+      resources: [
+        this.formatArn({
+          service: 'cognito-idp',
+          resource: 'userpool',
+          resourceName: props.cognitoUserPoolId,
+          arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
+        }),
+      ],
+    }));
 
     // The dev ECS task runs the non-local Spring security profile and reads Cognito settings from CDK wiring.
     this.taskDefinition.addContainer('WebContainer', {

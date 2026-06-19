@@ -505,6 +505,10 @@ describe('WorkOps CDK app', () => {
       },
       AdminCreateUserConfig: {
         AllowAdminCreateUserOnly: true,
+        InviteMessageTemplate: {
+          EmailSubject: 'WorkOps アカウント作成のお知らせ',
+          EmailMessage: Match.anyValue(),
+        },
       },
       AccountRecoverySetting: {
         RecoveryMechanisms: [
@@ -591,6 +595,10 @@ describe('WorkOps CDK app', () => {
       }),
     });
     const brandingTemplateText = JSON.stringify(template.findResources('AWS::Cognito::ManagedLoginBranding'));
+    expect(templateText).toContain('WorkOps アカウント作成のお知らせ');
+    expect(templateText).toContain('WorkOps アカウントを作成しました。');
+    expect(templateText).toContain('{username}');
+    expect(templateText).toContain('{####}');
     expect(brandingTemplateText).not.toContain('"Settings"');
     expect(brandingTemplateText).not.toContain('"Assets"');
     template.hasOutput('userPoolId', {});
@@ -791,6 +799,22 @@ describe('WorkOps CDK app', () => {
         ]),
       },
     });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'cognito-idp:AdminCreateUser',
+            Effect: 'Allow',
+            Resource: Match.anyValue(),
+          }),
+        ]),
+      },
+    });
+    expect(templateText).toContain(`userpool/${testCognitoUserPoolId}`);
+    expect(templateText).not.toContain('cognito-idp:AdminDeleteUser');
+    expect(templateText).not.toContain('cognito-idp:AdminGetUser');
+    expect(templateText).not.toContain('cognito-idp:AdminUpdateUserAttributes');
+    expect(templateText).not.toContain('cognito-idp:AdminDisableUser');
     expect(templateText).toContain('WebLogGroup');
     expect(templateText).not.toContain('/workops/dev/migration');
   });

@@ -33,6 +33,16 @@ export class IdentityStack extends Stack {
     this.userPool = new UserPool(this, 'UserPool', {
       userPoolName: `workops-${props.stage}-user-pool`,
       selfSignUpEnabled: false,
+      // AdminCreateUser sends this WorkOps invitation while Cognito owns the temporary password flow.
+      userInvitation: {
+        emailSubject: 'WorkOps アカウント作成のお知らせ',
+        emailBody: [
+          '<p>WorkOps アカウントを作成しました。</p>',
+          '<p>ユーザー名: <strong>{username}</strong></p>',
+          '<p>一時パスワード: <strong>{####}</strong></p>',
+          '<p>初回ログイン時に新しいパスワードを設定してください。</p>',
+        ].join(''),
+      },
       signInAliases: {
         username: true,
       },

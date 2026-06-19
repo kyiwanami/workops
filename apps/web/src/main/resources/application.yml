@@ -43,6 +43,7 @@ spring:
       client:
         registration:
           platform:
+            provider: cognito
             client-id: ${WORKOPS_COGNITO_PLATFORM_CLIENT_ID:}
             client-authentication-method: none
             authorization-grant-type: authorization_code
@@ -51,6 +52,7 @@ spring:
               - openid
               - email
           tenant:
+            provider: cognito
             client-id: ${WORKOPS_COGNITO_TENANT_CLIENT_ID:}
             client-authentication-method: none
             authorization-grant-type: authorization_code
