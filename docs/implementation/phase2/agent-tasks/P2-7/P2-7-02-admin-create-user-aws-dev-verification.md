@@ -136,6 +136,12 @@ npm run cdk -- deploy AppRuntimeStack
 
 `platform-admin` bootstrap は P2-5-04 の一時 SQL 手順を使う。
 
+接続後に DB が未選択の状態になり得るため、SQL 実行前に対象 database を選択する。
+
+```sql
+USE workops;
+```
+
 更新前確認:
 
 ```sql
@@ -191,6 +197,47 @@ WHERE u.username = :tenant_manager_username
   AND u.actor_type = 'TENANT'
   AND u.is_deleted = FALSE;
 ```
+
+## 実施結果
+
+2026-06-19 の AWS dev 検証で、P2-7-02 の必須経路を確認した。
+
+- `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の作成が完了した。
+- CloudFront 経由の `/actuator/health` が 200 / `UP` を返すことを確認した。
+- Cognito App Client の platform / tenant callback URL が CloudFront default domain に更新されていることを確認した。
+- RDS Console integrated CloudShell VPC から `platform-admin` の `users.cognito_sub` bootstrap を実施した。
+- `/login/platform` から platform login し、DB 由来 `PLATFORM_ADMIN` 権限で claims を確認した。
+- 会社作成画面から初期 TENANT_MANAGER を作成した。
+- 初期 TENANT_MANAGER の Cognito 招待メールを実受信した。
+- 招待メールの一時パスワードで Hosted UI にログインし、初回パスワード変更を完了した。
+- `/login/tenant` 導線で TENANT session が作成され、DB 由来 `TENANT_MANAGER` 権限が付与されていることを確認した。
+
+実 Cognito `sub`、実メールアドレス、credential 値は記録しない。
+
+## 実施中トラブル報告
+
+2026-06-19 の AWS dev 検証中に、次のトラブルが発生した。
+
+### EdgeStack の LogGroup 名衝突
+
+- 事象: `EdgeStack` deploy が `AWS::Logs::LogGroup` `/workops/dev/custom-resources/cognito-client-url-updater-provider` の既存リソース衝突で停止した。
+- 原因: 同名 LogGroup が CloudFormation 管理外に残っていた。確認時点の stored bytes は 0 で、EdgeStack が同名 LogGroup を新規作成できなかった。
+- 対応: 孤立していた同名 LogGroup を削除し、`EdgeStack` を再 deploy した。
+- 分類: 暫定対応。既存孤立リソースの運用 cleanup であり、CDK 側の恒久修正は行っていない。
+
+### AppRuntimeStack の ECS task 起動失敗
+
+- 事象: `AppRuntimeStack` deploy が timeout 後に rollback へ入り、ECS service は `tasks failed to start` になった。
+- 原因: ECR の `p2-3-manual` image が古く、Spring Boot 起動時に旧 OAuth2 registration `cognito` を読んでいた。CloudWatch Logs で `Client id of registration 'cognito' must not be empty.` を確認した。
+- 対応: P2-7-01 後の `apps/web` で Docker image を build し、ECR `workops-dev-web:p2-3-manual` へ push した後、`AppRuntimeStack` を再 deploy した。
+- 分類: 暫定対応。手動 deploy 用 tag を上書きした運用対応であり、恒久対応は app deploy pipeline で current code の image build / push / deploy 順序を固定すること。
+
+### DB bootstrap 経路の誤提案
+
+- 事象: `platform-admin` の `cognito_sub` bootstrap に進む前に、一回限りの Fargate task で SQL を実行する案を提示した。
+- 原因: `docs/implementation/README.md` の AWS dev RDS / MySQL 操作ルールと、この task の「RDS Console integrated CloudShell VPC から行う」前提を確認せず、private RDS への到達性だけで代替経路を提案した。
+- 対応: ユーザー指摘で停止した。Fargate task による SQL 実行、task definition 登録、DB bootstrap は実行していない。
+- 分類: 作業ミス。暫定対応ではなく、ルール違反の誤提案として扱う。DB bootstrap は RDS Console integrated CloudShell VPC のみで実施する。
 
 補助確認:
 

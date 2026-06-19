@@ -36,11 +36,17 @@
 - `cdk deploy` 前に AWS account、region、既存 Stack 状態、`cdk diff` を確認する。
 - `cdk deploy` では原則として `--require-approval never` を使わない。ユーザーがその option まで明示した場合だけ例外とする。
 
+## AWS dev App Image Rule
+
+- Spring Boot 側の変更を AWS dev の `AppRuntimeStack` で確認する前に、必ず現在の `apps/web` から Docker image を build し、ECR へ push する。
+- `AppRuntimeStack` deploy 前に、ECR の対象 image tag / digest / pushedAt を確認し、古い image で ECS を起動しない。
+
 ## AWS dev RDS / MySQL Rule
 
 - AWS dev RDS に対する MySQL / SQL 実行は、ユーザーが実施するか、ユーザーから明示的な実行指示が出た場合だけ行う。
 - AWS dev RDS への MySQL / SQL 実行は、RDS Console integrated CloudShell VPC から実施する。
 - 一時 ECS task、Lambda、踏み台、ローカル直結、SSM port forwarding、Session Manager Plugin など、別経路での MySQL / SQL 実行へ勝手に切り替えない。
+- MySQL / SQL の実行手順を案内するときは、接続後の prompt が `MySQL [(none)]>` になり得るため、必ず対象 database を `USE workops;` で選択するか、接続時に database 名を指定する手順を含める。
 - CloudShell VPC environment は確認後に削除する。
 
 ## Verification Responsibility Rule
