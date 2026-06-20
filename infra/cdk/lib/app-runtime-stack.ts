@@ -31,6 +31,7 @@ export interface AppRuntimeStackProps extends StackProps {
   cognitoUserPoolId: string;
   cognitoPlatformUserPoolClientId: string;
   cognitoTenantUserPoolClientId: string;
+  cognitoHostedUiDomainBaseUrl: string;
   cloudFrontHttpsUrl: string;
 }
 
@@ -105,6 +106,8 @@ export class AppRuntimeStack extends Stack {
         WORKOPS_COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
         WORKOPS_COGNITO_PLATFORM_CLIENT_ID: props.cognitoPlatformUserPoolClientId,
         WORKOPS_COGNITO_TENANT_CLIENT_ID: props.cognitoTenantUserPoolClientId,
+        WORKOPS_COGNITO_HOSTED_UI_DOMAIN_BASE_URL: props.cognitoHostedUiDomainBaseUrl,
+        WORKOPS_COGNITO_LOGOUT_URI: `${props.cloudFrontHttpsUrl}/login`,
         WORKOPS_COGNITO_PLATFORM_REDIRECT_URI: `${props.cloudFrontHttpsUrl}/login/oauth2/code/platform`,
         WORKOPS_COGNITO_TENANT_REDIRECT_URI: `${props.cloudFrontHttpsUrl}/login/oauth2/code/tenant`,
       },

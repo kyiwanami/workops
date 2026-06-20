@@ -19,7 +19,8 @@ public class SecurityConfig {
     @Profile("!local")
     public SecurityFilterChain cognitoSecurityFilterChain(
             HttpSecurity http,
-            CognitoAuthenticationSuccessHandler cognitoAuthenticationSuccessHandler) throws Exception {
+            CognitoAuthenticationSuccessHandler cognitoAuthenticationSuccessHandler,
+            CognitoLogoutSuccessHandler cognitoLogoutSuccessHandler) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
                         // ALB health checks cannot pass through Cognito login.
@@ -35,7 +36,7 @@ public class SecurityConfig {
                         // CloudFront is the public host; route unauthenticated users to the tenant-facing login page.
                         .loginPage("/login")
                         .successHandler(cognitoAuthenticationSuccessHandler))
-                .logout(logout -> logout.logoutSuccessUrl("/"));
+                .logout(logout -> logout.logoutSuccessHandler(cognitoLogoutSuccessHandler));
 
         return http.build();
     }

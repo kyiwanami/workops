@@ -16,6 +16,52 @@ export interface IdentityStackProps extends StackProps {
   stage: string;
 }
 
+function managedLoginSettings(
+  primaryColor: string,
+  primaryHoverColor: string,
+  pageColor: string,
+  formBorderColor: string,
+) {
+  return {
+    components: {
+      form: {
+        lightMode: {
+          backgroundColor: 'ffffffff',
+          borderColor: formBorderColor,
+        },
+      },
+      pageBackground: {
+        image: {
+          enabled: false,
+        },
+        lightMode: {
+          color: pageColor,
+        },
+      },
+      primaryButton: {
+        lightMode: {
+          active: {
+            backgroundColor: primaryHoverColor,
+            textColor: 'ffffffff',
+          },
+          defaults: {
+            backgroundColor: primaryColor,
+            textColor: 'ffffffff',
+          },
+          disabled: {
+            backgroundColor: 'ffffffff',
+            borderColor: 'ffffffff',
+          },
+          hover: {
+            backgroundColor: primaryHoverColor,
+            textColor: 'ffffffff',
+          },
+        },
+      },
+    },
+  };
+}
+
 export class IdentityStack extends Stack {
   public readonly userPool: UserPool;
   public readonly platformUserPoolClient: UserPoolClient;
@@ -116,16 +162,20 @@ export class IdentityStack extends Stack {
       },
     });
 
-    // Keep hosted auth pages on Managed Login v2 with Cognito's default branding.
+    // Managed Login branding differs by App Client so users can identify the active route inside Cognito.
     new CfnManagedLoginBranding(this, 'PlatformManagedLoginBranding', {
       userPoolId: this.userPool.userPoolId,
       clientId: this.platformUserPoolClient.userPoolClientId,
-      useCognitoProvidedValues: true,
+      returnMergedResources: false,
+      settings: managedLoginSettings('5f1b1bff', '7f2525ff', 'fff7f7ff', 'd84a4aff'),
+      useCognitoProvidedValues: false,
     });
     new CfnManagedLoginBranding(this, 'TenantManagedLoginBranding', {
       userPoolId: this.userPool.userPoolId,
       clientId: this.tenantUserPoolClient.userPoolClientId,
-      useCognitoProvidedValues: true,
+      returnMergedResources: false,
+      settings: managedLoginSettings('0972d3ff', '033160ff', 'f6f9fcff', '7ba7d9ff'),
+      useCognitoProvidedValues: false,
     });
 
     this.userPoolId = this.userPool.userPoolId;

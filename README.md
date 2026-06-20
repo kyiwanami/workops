@@ -209,9 +209,9 @@ cd C:\git\workops\apps\web
 .\mvnw.cmd test
 ```
 
-## Cognito 最小接続確認
+## Cognito Hosted UI 接続確認
 
-M3 では Cognito OAuth2 Login の最小接続を確認しています。
+Phase 2 では Cognito Hosted UI、PLATFORM / TENANT App Client 分離、WorkOps 画面からのログアウト導線を確認します。
 M10 ではユーザー作成用に AWS SDK for Java 2.x の Cognito `AdminCreateUser` 呼び出し境界を追加しています。
 通常の MVP ローカル再現では `local` profile を使うため、Cognito 接続値は不要です。
 
@@ -227,19 +227,27 @@ cd C:\git\workops\apps\web
 .\mvnw.cmd spring-boot:run
 ```
 
-`.env.local` に書くキーは次の4つです。
+`.env.local` に書く主なキーは次です。
 
 ```text
 AWS_REGION
 WORKOPS_COGNITO_USER_POOL_ID
-WORKOPS_COGNITO_CLIENT_ID
-WORKOPS_COGNITO_REDIRECT_URI
+WORKOPS_COGNITO_PLATFORM_CLIENT_ID
+WORKOPS_COGNITO_TENANT_CLIENT_ID
+WORKOPS_COGNITO_HOSTED_UI_DOMAIN_BASE_URL
+WORKOPS_COGNITO_LOGOUT_URI
+WORKOPS_COGNITO_PLATFORM_REDIRECT_URI
+WORKOPS_COGNITO_TENANT_REDIRECT_URI
 ```
 
 Cognito issuer URI は `AWS_REGION` と `WORKOPS_COGNITO_USER_POOL_ID` からアプリ側で構成します。
+PLATFORM / TENANT の redirect URI は、それぞれ `/login/oauth2/code/platform` と `/login/oauth2/code/tenant` を使います。
+logout URI は Cognito App Client の allowed sign-out URL と一致させ、AWS dev では CloudFront HTTPS URL の `/login` を使います。
 
 Cognito で実際に招待メールを送るユーザー作成 E2E は、実行者が AWS 認証情報と実メールアドレスを用意して手動確認します。
-`AdminCreateUser` 以外の Cognito API、Hosted UI 本格確認、PLATFORM / TENANT App Client 分離、Cognito Trigger、Pre Token Generation、CDK による Cognito 構築、AWS dev 環境デプロイは後続 Phase で扱います。
+Cognito Hosted UI のブラウザ操作、CloudFront 経由の login / logout、実 Cognito `sub` と `users` の突合確認はユーザー確認として扱います。
+実 account ID、credential、実 Cognito `sub`、public IP は README や git 管理文書へ記録しません。
+Cognito Trigger、Pre Token Generation、SSO、テナント別ログイン画面、本格ブランドデザインは Phase 2 では扱いません。
 
 ## 停止
 

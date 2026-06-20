@@ -96,6 +96,7 @@ const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
   appSubnets: foundationStack.appSubnets,
   cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
   cluster: foundationStack.ecsCluster,
+  cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
   cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
   cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
   cognitoUserPoolId: identityStack.userPoolId,

@@ -1,5 +1,8 @@
 package com.example.workops.common.security;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -45,5 +48,15 @@ class SecurityConfigTests {
                     assertThat(propertySource.getProperty("spring.security.oauth2.client.registration.tenant.redirect-uri"))
                             .isEqualTo("${WORKOPS_COGNITO_TENANT_REDIRECT_URI:http://localhost:8080/login/oauth2/code/tenant}");
                 });
+    }
+
+    @Test
+    void securityConfigUsesCognitoLogoutSuccessHandler() throws Exception {
+        String source = Files.readString(
+                Path.of("src/main/java/com/example/workops/common/security/SecurityConfig.java"),
+                StandardCharsets.UTF_8);
+
+        assertThat(source).contains("CognitoLogoutSuccessHandler");
+        assertThat(source).contains("logoutSuccessHandler");
     }
 }

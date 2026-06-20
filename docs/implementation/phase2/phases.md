@@ -805,6 +805,71 @@ README に、事象ごとの確認先と確認手順が記載されている。
 P2-8 着手前に、Spring Security イベントログ、Cognito / DB 突合ログ、CloudWatch 確認手順、失敗シナリオ確認の境界で agent task 分割案を提示します。
 監視、Alarm、Dashboard を task に含めません。
 
+## P2-8.5. ログイン・ログアウト導線補完
+
+### 目的
+
+P2-5 / P2-6 で成立した Cognito login と PLATFORM / TENANT App Client 分離について、利用者が迷わず login / logout できる最低限の認証 UX を補完します。
+
+### 前提フェーズ
+
+- P2-5 が完了している
+- P2-6 が完了している
+- P2-8 が完了している
+- Cognito Hosted UI、PLATFORM / TENANT App Client、CloudFront HTTPS URL が利用できる
+- App Client の allowed sign-out URL に CloudFront HTTPS URL の `/login` を使える
+
+### 成果物
+
+- ログアウト導線
+- Spring Security logout 設定
+- Cognito logout URL 連携
+- ログアウト後 redirect
+- Cognito Hosted UI 上の PLATFORM / TENANT login 入口の見た目差分
+- CloudFront 経由での login / logout 動作確認手順
+- Cognito logout 用 ECS container environment
+- README の Cognito 接続設定更新
+
+### 実装方針
+
+- 画面の logout は CSRF token 付き `POST /logout` に固定する
+- Spring Security の local logout 完了後、Cognito Hosted UI の `/logout` へ redirect する
+- Cognito logout request には `client_id` と `logout_uri` のみを渡す
+- `logout_uri` は CloudFront HTTPS URL の `/login` に固定する
+- `LoginUserContext.actorType()` から PLATFORM / TENANT の App Client ID を選ぶ
+- `Authentication.principal` が `LoginUserContext` でない場合、actor type が不明な場合、Cognito logout 設定が空の場合は `/login` へ戻す
+- `/login` は通常利用者向けの TENANT login 開始画面として維持する
+- PLATFORM / TENANT の見た目差分は Cognito Managed Login Branding を App Client ごとに分けて作る
+- `/login/platform` と `/login/tenant` は OAuth2 login 開始 endpoint として維持する
+
+### 除外範囲
+
+- 本格的なブランドデザイン
+- テナント別ログイン画面
+- SSO 前提のログイン導線
+- Cognito Trigger
+- Pre Token Generation
+- Cognito group / scope による業務認可
+- ユーザー作成、権限割当、ユーザー無効化の新規拡張
+
+### 完了条件
+
+PLATFORM / TENANT の login 入口を Cognito Hosted UI 上で判別できる。
+ログイン済みユーザーが画面から logout できる。
+logout 後に Cognito `/logout` 経由で CloudFront HTTPS URL の `/login` へ戻れる。
+README に platform / tenant / logout 用の Cognito 設定が記載されている。
+
+### 確認方針
+
+エージェントは、Spring Security logout handler、Thymeleaf template、CDK environment、README、自動テスト、CDK build / test を確認します。
+ユーザーは、AWS dev の CloudFront HTTPS URL で PLATFORM / TENANT login 入口、Hosted UI login、画面 logout、logout 後 `/login` redirect を確認します。
+AWS dev のブラウザ login / logout はユーザー確認として扱い、エージェント確認だけでは P2-8.5 完了扱いにしません。
+
+### agent task 分割方針
+
+P2-8.5 は、login / logout UX、Cognito logout handler、CDK environment、README と確認記録の境界で agent task を作成します。
+SSO、Trigger、Pre Token Generation、本格ブランドデザインを task に含めません。
+
 ## P2-9. GitHub Actions OIDC deploy
 
 ### 目的

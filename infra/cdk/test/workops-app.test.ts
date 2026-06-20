@@ -27,6 +27,7 @@ class TaggedResourceStack extends Stack {
 const testCognitoUserPoolId = 'ap-northeast-1_test';
 const testCognitoPlatformUserPoolClientId = 'platformclientid';
 const testCognitoTenantUserPoolClientId = 'tenantclientid';
+const testCognitoHostedUiDomainBaseUrl = 'https://workops-dev.auth.ap-northeast-1.amazoncognito.com';
 const testEnv = {
   account: '123456789012',
   region: 'ap-northeast-1',
@@ -99,6 +100,7 @@ describe('WorkOps CDK app', () => {
       appSubnets: foundationStack.appSubnets,
       cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
       cluster: foundationStack.ecsCluster,
+      cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
       cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
       cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
       cognitoUserPoolId: identityStack.userPoolId,
@@ -578,7 +580,14 @@ describe('WorkOps CDK app', () => {
     template.hasResourceProperties('AWS::Cognito::ManagedLoginBranding', {
       UserPoolId: Match.anyValue(),
       ClientId: Match.anyValue(),
-      UseCognitoProvidedValues: true,
+      ReturnMergedResources: false,
+      UseCognitoProvidedValues: false,
+      Settings: Match.objectLike({
+        components: Match.objectLike({
+          pageBackground: Match.anyValue(),
+          primaryButton: Match.anyValue(),
+        }),
+      }),
     });
     template.hasResource('AWS::Cognito::UserPoolClient', {
       Properties: Match.objectLike({
@@ -599,8 +608,9 @@ describe('WorkOps CDK app', () => {
     expect(templateText).toContain('WorkOps アカウントを作成しました。');
     expect(templateText).toContain('{username}');
     expect(templateText).toContain('{####}');
-    expect(brandingTemplateText).not.toContain('"Settings"');
     expect(brandingTemplateText).not.toContain('"Assets"');
+    expect(brandingTemplateText).toContain('5f1b1bff');
+    expect(brandingTemplateText).toContain('0972d3ff');
     template.hasOutput('userPoolId', {});
     template.hasOutput('platformUserPoolClientId', {});
     template.hasOutput('tenantUserPoolClientId', {});
@@ -652,6 +662,7 @@ describe('WorkOps CDK app', () => {
       appSubnets: foundationStack.appSubnets,
       cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
       cluster: foundationStack.ecsCluster,
+      cognitoHostedUiDomainBaseUrl: testCognitoHostedUiDomainBaseUrl,
       cognitoPlatformUserPoolClientId: testCognitoPlatformUserPoolClientId,
       cognitoTenantUserPoolClientId: testCognitoTenantUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
@@ -699,6 +710,19 @@ describe('WorkOps CDK app', () => {
             {
               Name: 'WORKOPS_COGNITO_TENANT_CLIENT_ID',
               Value: testCognitoTenantUserPoolClientId,
+            },
+            {
+              Name: 'WORKOPS_COGNITO_HOSTED_UI_DOMAIN_BASE_URL',
+              Value: testCognitoHostedUiDomainBaseUrl,
+            },
+            {
+              Name: 'WORKOPS_COGNITO_LOGOUT_URI',
+              Value: {
+                'Fn::Join': [
+                  '',
+                  Match.arrayWith(['/login']),
+                ],
+              },
             },
             {
               Name: 'WORKOPS_COGNITO_PLATFORM_REDIRECT_URI',
@@ -750,6 +774,8 @@ describe('WorkOps CDK app', () => {
     });
     expect(templateText).not.toContain('"Name":"SPRING_PROFILES_ACTIVE","Value":"local"');
     expect(templateText).toContain('p2-3-manual');
+    expect(templateText).toContain(testCognitoHostedUiDomainBaseUrl);
+    expect(templateText).toContain('/login');
     expect(templateText).toContain('/login/oauth2/code/platform');
     expect(templateText).toContain('/login/oauth2/code/tenant');
     expect(templateText).not.toContain('WORKOPS_COGNITO_CLIENT_ID');
