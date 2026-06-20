@@ -33,6 +33,7 @@ export interface AppRuntimeStackProps extends StackProps {
   cognitoTenantUserPoolClientId: string;
   cognitoHostedUiDomainBaseUrl: string;
   cloudFrontHttpsUrl: string;
+  webImageTag: string;
 }
 
 export class AppRuntimeStack extends Stack {
@@ -100,7 +101,7 @@ export class AppRuntimeStack extends Stack {
     // The dev ECS task runs the non-local Spring security profile and reads Cognito settings from CDK wiring.
     this.taskDefinition.addContainer('WebContainer', {
       containerName: 'web',
-      image: ContainerImage.fromEcrRepository(props.repository, 'p2-3-manual'),
+      image: ContainerImage.fromEcrRepository(props.repository, props.webImageTag),
       environment: {
         AWS_REGION: Stack.of(this).region,
         WORKOPS_COGNITO_USER_POOL_ID: props.cognitoUserPoolId,

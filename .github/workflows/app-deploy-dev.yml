@@ -1,0 +1,107 @@
+name: App Deploy Dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_runtime_deploy:
+        description: Deploy paid AWS dev runtime stacks
+        required: true
+        type: boolean
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && inputs.confirm_runtime_deploy == true
+    runs-on: ubuntu-latest
+    environment: dev
+    concurrency:
+      group: workops-dev-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      WORKOPS_STAGE: dev
+      WORKOPS_WEB_IMAGE_TAG: ${{ github.sha }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+    steps:
+      # Actions are pinned to public Git commit SHAs, not secrets.
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: infra/cdk/package-lock.json
+
+      - name: Restore CDK dependencies
+        working-directory: infra/cdk
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Confirm AWS identity
+        run: aws sts get-caller-identity --region "$AWS_REGION"
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64
+
+      - name: Build and push web image
+        working-directory: apps/web
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          IMAGE_URI="$ECR_REGISTRY/workops-dev-web:${GITHUB_SHA}"
+          docker build -t "$IMAGE_URI" .
+          docker push "$IMAGE_URI"
+
+      - name: Diff runtime stacks
+        working-directory: infra/cdk
+        run: |
+          npm run cdk -- diff DataStack
+          npm run cdk -- diff EgressStack
+          npm run cdk -- diff EdgeStack
+          npm run cdk -- diff AppRuntimeStack
+
+      - name: Deploy runtime stacks
+        working-directory: infra/cdk
+        run: |
+          npm run cdk -- deploy DataStack --require-approval never
+          npm run cdk -- deploy EgressStack --require-approval never
+          npm run cdk -- deploy EdgeStack --require-approval never
+          npm run cdk -- deploy AppRuntimeStack --require-approval never
+
+      - name: Wait for ECS service stable
+        run: |
+          aws ecs wait services-stable \
+            --cluster workops-dev-cluster \
+            --services workops-dev-web \
+            --region "$AWS_REGION"
+
+      - name: Check CloudFront health
+        run: |
+          cloud_front_https_url="$(aws cloudformation describe-stacks \
+            --stack-name workops-dev-edge \
+            --query "Stacks[0].Outputs[?OutputKey=='cloudFrontHttpsUrl'].OutputValue | [0]" \
+            --output text \
+            --region "$AWS_REGION")"
+
+          for attempt in {1..10}; do
+            status="$(curl -sS -o /dev/null -w '%{http_code}' "${cloud_front_https_url}/actuator/health" || true)"
+            if [ "$status" = "200" ]; then
+              exit 0
+            fi
+            echo "CloudFront health check attempt ${attempt} returned ${status}"
+            sleep 30
+          done
+
+          echo "CloudFront health check did not return HTTP 200"
+          exit 1

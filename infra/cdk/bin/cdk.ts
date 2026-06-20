@@ -17,6 +17,7 @@ declare global {
     interface ProcessEnv {
       WORKOPS_STAGE: string;
       GITHUB_REPOSITORY: string;
+      WORKOPS_WEB_IMAGE_TAG: string;
     }
   }
 }
@@ -31,6 +32,7 @@ const env: Environment = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION,
 };
+const webImageTag = process.env.WORKOPS_WEB_IMAGE_TAG;
 
 // WorkOps Phase 2 resources share non-secret tags across local and CI deploys.
 Tags.of(app).add('Project', 'WorkOps');
@@ -102,27 +104,34 @@ const edgeStack = new EdgeStack(app, 'EdgeStack', {
   stackName: `workops-${stage}-edge`,
   vpc: foundationStack.vpc,
 });
-const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
-  albSecurityGroup: foundationStack.albSecurityGroup,
-  appSecurityGroup: foundationStack.appSecurityGroup,
-  appSubnets: foundationStack.appSubnets,
-  cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
-  cluster: foundationStack.ecsCluster,
-  cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
-  cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
-  cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
-  cognitoUserPoolId: identityStack.userPoolId,
-  env,
-  repository: registryStack.repository,
-  stage,
-  stackName: `workops-${stage}-app-runtime`,
-  targetGroup: edgeStack.targetGroup,
-  webLogGroup: logsStack.webLogGroup,
-});
+if (webImageTag) {
+  // Runtime deploys must choose the immutable web image tag explicitly.
+  const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
+    albSecurityGroup: foundationStack.albSecurityGroup,
+    appSecurityGroup: foundationStack.appSecurityGroup,
+    appSubnets: foundationStack.appSubnets,
+    cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
+    cluster: foundationStack.ecsCluster,
+    cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
+    cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
+    cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
+    cognitoUserPoolId: identityStack.userPoolId,
+    env,
+    repository: registryStack.repository,
+    stage,
+    stackName: `workops-${stage}-app-runtime`,
+    targetGroup: edgeStack.targetGroup,
+    webImageTag,
+    webLogGroup: logsStack.webLogGroup,
+  });
+
+  appRuntimeStack.addDependency(egressStack);
+  appRuntimeStack.addDependency(edgeStack);
+  appRuntimeStack.addDependency(identityStack);
+  appRuntimeStack.addDependency(configStack);
+} else {
+  console.warn('WORKOPS_WEB_IMAGE_TAG is not set; AppRuntimeStack is not defined.');
+}
 
 edgeStack.addDependency(egressStack);
 edgeStack.addDependency(identityStack);
-appRuntimeStack.addDependency(egressStack);
-appRuntimeStack.addDependency(edgeStack);
-appRuntimeStack.addDependency(identityStack);
-appRuntimeStack.addDependency(configStack);

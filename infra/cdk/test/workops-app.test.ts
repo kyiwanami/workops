@@ -30,6 +30,7 @@ const testCognitoPlatformUserPoolClientId = 'platformclientid';
 const testCognitoTenantUserPoolClientId = 'tenantclientid';
 const testCognitoHostedUiDomainBaseUrl = 'https://workops-dev.auth.ap-northeast-1.amazoncognito.com';
 const testGitHubRepository = 'owner/repo';
+const testWebImageTag = 'test-sha';
 const testEnv = {
   account: '123456789012',
   region: 'ap-northeast-1',
@@ -117,6 +118,7 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-app-runtime`,
       targetGroup: edgeStack.targetGroup,
+      webImageTag: testWebImageTag,
       webLogGroup: logsStack.webLogGroup,
     });
 
@@ -733,6 +735,7 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-app-runtime`,
       targetGroup: edgeStack.targetGroup,
+      webImageTag: testWebImageTag,
       webLogGroup: logsStack.webLogGroup,
     });
     const template = Template.fromStack(appRuntimeStack);
@@ -835,7 +838,8 @@ describe('WorkOps CDK app', () => {
       ]),
     });
     expect(templateText).not.toContain('"Name":"SPRING_PROFILES_ACTIVE","Value":"local"');
-    expect(templateText).toContain('p2-3-manual');
+    expect(templateText).toContain(testWebImageTag);
+    expect(templateText).not.toContain('p2-3-manual');
     expect(templateText).toContain(testCognitoHostedUiDomainBaseUrl);
     expect(templateText).toContain('/login');
     expect(templateText).toContain('/login/oauth2/code/platform');
@@ -1086,6 +1090,8 @@ describe('WorkOps CDK app', () => {
     expect(packageJsonText).toContain('"watch": "tsc -w"');
     expect(packageJsonText).toContain('"test": "jest"');
     expect(packageJsonText).toContain('"cdk": "cdk"');
+    expect(entrypointText).toContain('WORKOPS_WEB_IMAGE_TAG');
+    expect(entrypointText).toContain('AppRuntimeStack is not defined');
     expect(packageJsonText).not.toContain('synth:dev');
     expect(packageJsonText).not.toContain('diff:dev');
     expect(packageJsonText).not.toContain('deploy:dev');
@@ -1099,8 +1105,10 @@ describe('WorkOps CDK app', () => {
   test('defines the P2-9 GitHub Actions CI and infra deploy workflows', () => {
     const ciWorkflowPath = join(__dirname, '..', '..', '..', '.github', 'workflows', 'ci.yml');
     const infraWorkflowPath = join(__dirname, '..', '..', '..', '.github', 'workflows', 'infra-dev.yml');
+    const appWorkflowPath = join(__dirname, '..', '..', '..', '.github', 'workflows', 'app-deploy-dev.yml');
     const ciWorkflowText = readFileSync(ciWorkflowPath, 'utf8');
     const infraWorkflowText = readFileSync(infraWorkflowPath, 'utf8');
+    const appWorkflowText = readFileSync(appWorkflowPath, 'utf8');
 
     expect(ciWorkflowText).toContain('name: CI');
     expect(ciWorkflowText).toContain('pull_request:');
@@ -1133,5 +1141,29 @@ describe('WorkOps CDK app', () => {
     expect(infraWorkflowText).toContain('npm run cdk -- deploy LogsStack --require-approval never');
     expect(infraWorkflowText).not.toContain('deploy DeployStack');
     expect(infraWorkflowText).not.toContain('AppRuntimeStack');
+
+    expect(appWorkflowText).toContain('name: App Deploy Dev');
+    expect(appWorkflowText).toContain('workflow_dispatch:');
+    expect(appWorkflowText).toContain('confirm_runtime_deploy:');
+    expect(appWorkflowText).toContain('github.ref == \'refs/heads/main\'');
+    expect(appWorkflowText).toContain('inputs.confirm_runtime_deploy == true');
+    expect(appWorkflowText).toContain('environment: dev');
+    expect(appWorkflowText).toContain('id-token: write');
+    expect(appWorkflowText).toContain('group: workops-dev-deploy');
+    expect(appWorkflowText).toContain('WORKOPS_WEB_IMAGE_TAG: ${{ github.sha }}');
+    expect(appWorkflowText).toContain('aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64');
+    expect(appWorkflowText).toContain('docker build -t "$IMAGE_URI" .');
+    expect(appWorkflowText).toContain('docker push "$IMAGE_URI"');
+    expect(appWorkflowText).toContain('npm run cdk -- diff DataStack');
+    expect(appWorkflowText).toContain('npm run cdk -- deploy DataStack --require-approval never');
+    expect(appWorkflowText).toContain('npm run cdk -- deploy AppRuntimeStack --require-approval never');
+    expect(appWorkflowText).toContain('aws ecs wait services-stable');
+    expect(appWorkflowText).toContain('/actuator/health');
+    expect(appWorkflowText).not.toContain(':dev');
+    expect(appWorkflowText).not.toContain(':latest');
+    expect(appWorkflowText).not.toContain('mvnw test');
+    expect(appWorkflowText).not.toContain('npm run build');
+    expect(appWorkflowText).not.toContain('npm test');
+    expect(appWorkflowText).not.toContain('cdk -- synth');
   });
 });

@@ -87,7 +87,7 @@ deploy workflow では CI 検証を再実行しない。`ci.yml` 成功後に手
 
 `dev` tag と `latest` tag は作らない。
 
-ECR login は `aws-actions/amazon-ecr-login` を使う。action は commit SHA 固定にする。
+ECR login は `aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64` を使う。action は commit SHA 固定にする。
 
 ### CDK deploy
 
@@ -113,7 +113,7 @@ AppRuntimeStack
 
 各 deploy には `--require-approval never` を付ける。
 
-`AppRuntimeStack` は `WORKOPS_WEB_IMAGE_TAG` の値を使って ECR image tag を参照する。環境変数が空の場合は CDK synth / deploy を失敗させる。
+`AppRuntimeStack` は `WORKOPS_WEB_IMAGE_TAG` の値を使って ECR image tag を参照する。環境変数が空の場合は warning を出し、`AppRuntimeStack` を CDK app に定義せず、`AppRuntimeStack` を指定した CDK synth / deploy を失敗させる。
 
 ### ECS stable / CloudFront health
 
@@ -209,7 +209,7 @@ Flyway は WorkOps Spring Boot 起動時に実行される。起動時 Flyway �
 - deploy job が ECR repository `workops-dev-web` に `${{ github.sha }}` tag を push する
 - `dev` tag と `latest` tag を push しない
 - `AppRuntimeStack` が `WORKOPS_WEB_IMAGE_TAG` の image tag を参照する
-- `WORKOPS_WEB_IMAGE_TAG` が空の場合、CDK 実行が失敗する
+- `WORKOPS_WEB_IMAGE_TAG` が空の場合、`AppRuntimeStack` 指定の CDK 実行が失敗する
 - `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の `cdk diff` が deploy 前に実行される
 - `DataStack → EgressStack → EdgeStack → AppRuntimeStack` の順に deploy される
 - 各 `cdk deploy` に `--require-approval never` が付く

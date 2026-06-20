@@ -245,10 +245,20 @@ P2-9-01 の GitHub Actions は次の役割です。
 | --- | --- | --- |
 | `ci.yml` | PR / main push | Java test、Docker build、CDK build / test / synth |
 | `infra-dev.yml` | `ci.yml` 成功後 | 非 runtime / 維持対象 Stack の AWS dev deploy |
+| `app-deploy-dev.yml` | 手動実行 | Docker image push と課金 runtime Stack の AWS dev deploy |
 
 `infra-dev.yml` は GitHub Environment `dev` を使い、`FoundationStack`、`SecretStack`、`ConfigStack`、`IdentityStack`、`RegistryStack`、`LogsStack` だけを deploy します。
 `DeployStack` は GitHub Actions から更新しません。
 `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の課金 runtime deploy は `app-deploy-dev.yml` の責務です。
+
+`app-deploy-dev.yml` は GitHub Actions の手動 workflow です。
+対象 commit の `ci.yml` が成功していることを確認してから、main branch で `confirm_runtime_deploy` を true にして実行します。
+この workflow は RDS、NAT Gateway、ECS、ALB、CloudFront を作成または更新する課金 runtime 操作です。
+docs のみの変更では `app-deploy-dev.yml` を実行しません。
+
+`app-deploy-dev.yml` は `apps/web` の Docker image を build し、ECR repository `workops-dev-web` に commit SHA tag だけを push します。
+`dev` tag と `latest` tag は使いません。
+その後、`DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の順に `cdk diff` と `cdk deploy --require-approval never` を実行し、ECS service stable と CloudFront HTTPS `/actuator/health` を確認します。
 
 Workflow の `uses: owner/action@<sha>` は、外部 action を公開 Git commit SHA で固定している指定です。
 この値は secret ではなく、GitHub 上の公開 commit ID です。
