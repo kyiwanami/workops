@@ -31,7 +31,7 @@ Phase 2 のスコープ、設計方針、実装順序、完了条件は、Notion
 - P2-4 は HTTPS 入口 / CloudFront default domain を扱い、Cognito callback URL と sign-out URL に使う HTTPS URL を確定する
 - P2-4-05 で CloudFront VPC origins を採用し、P2-4 の最終状態を内部 ALB + CloudFront VPC origin にする
 - P2-9 の GitHub Actions OIDC deploy は暫定 deploy 手段として扱う
-- P2-10 完了後、既存 Phase 3 の前に Phase 2α を置き、CI/CD を CodePipeline + CodeBuild へ AWS ネイティブ化する
+- P2-10 を実施し、完了記録を作成した後、既存 Phase 3 の前に Phase 2α を置き、CI/CD を CodePipeline + CodeBuild へ AWS ネイティブ化する
 - Phase 2 の migration は `apps/web` の Spring Boot 起動時 Flyway 実行を維持する
 - Phase 2α で migration 用 ECS Task へ分離する
 - MySQL はローカル、Testcontainers、RDS for MySQL のすべてで 8.4 LTS に固定する
@@ -109,14 +109,15 @@ agent task またはフェーズの完了条件にユーザー確認が含まれ
 ユーザー確認が未実施の場合は、報告文で `エージェント確認完了、ユーザー確認未実施のためフェーズ未完了` と明記します。
 実環境の期待結果がある task では、CDK synth、生成テンプレート確認、workflow 構文確認、単体テストの成功を、実環境確認の代替にしません。
 後続のREADME整理フェーズや横断確認フェーズは、前段 task の初回ユーザー確認を代替しません。
+現時点では Phase 2 の実環境確認はユーザー確認済みとして扱いますが、P2-10 の総合確認記録と Phase 2 完了判定記録は未作成として分けて管理します。
 
 ## Phase 2 共通実装方針
 
 - AWS リソースは `infra/cdk` の AWS CDK v2 で管理する
 - CDK の Stack クラス名に `dev` / `stg` / `prod` を固定しない
 - CloudFormation の物理スタック名は `stage` props から組み立てる
-- `FoundationStack`、`IdentityStack`、`ConfigStack`、`SecretStack`、`RegistryStack`、`LogsStack`、`DataStack` は Phase 2 期間中維持する
-- `EgressStack`、`EdgeStack`、`AppRuntimeStack` は実行確認セッション開始時に作成し、確認後に削除する
+- `FoundationStack`、`IdentityStack`、`ConfigStack`、`SecretStack`、`RegistryStack`、`LogsStack` は Phase 2 期間中維持する
+- `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` は実行確認セッション開始時に作成し、確認後に削除する
 - `AppRuntimeStack` を `desiredCount=0` で残さない
 - `EdgeStack` は CloudFront distribution、ALB、Target Group、HTTP listener を扱う
 - CloudFront default domain を Cognito callback URL と sign-out URL に使う HTTPS URL の正本として扱う
@@ -139,7 +140,7 @@ agent task またはフェーズの完了条件にユーザー確認が含まれ
 - DB 非依存の runtime config は `ConfigStack` で管理する
 - GitHub Actions は `workflow_dispatch` による暫定の手動 deploy から開始する
 - GitHub Actions 固有の処理を増やしすぎず、deploy 実体は CDK、リポジトリ内スクリプト、npm、Maven、Docker、AWS CLI の標準コマンドへ寄せる
-- P2-10 完了後、Phase 2α で CodePipeline + CodeBuild へ移行し、GitHub Actions workflow を撤去する
+- P2-10 を実施し、完了記録を作成した後、Phase 2α で CodePipeline + CodeBuild へ移行し、GitHub Actions workflow を撤去する
 - CodeDeploy、Blue/Green deploy、Canary deploy、PR レビューゲートは採用しない
 - 旧サービス単位の Stack 名は、ADR 内の却下案を除き、実装、README、agent task 名、基本設計寄りの説明に出さない
 
@@ -304,9 +305,9 @@ AWS dev 環境に WorkOps の業務 DB 正本を作り、P2-3 の `apps/web` 起
 - MySQL はローカル、Testcontainers、RDS for MySQL のすべてで 8.4 LTS に固定する
 - MySQL 8.0 と 9.x は採用しない
 - RDS は Single-AZ、最小クラス、20GB、backup retention 1日、deletion protection なしにする
-- RDS は private subnet に配置し、Phase 2 期間中維持する
+- RDS は private subnet に配置し、`DataStack` として実行確認セッション開始時に作成し、確認後に削除する
 - DB username と DB password は Secrets Manager で管理する
-- RDS master secret と DB endpoint 由来の SSM Parameter は `DataStack` で管理し、RDS と同じ lifecycle にする
+- RDS master secret と DB endpoint 由来の SSM Parameter は `DataStack` で管理し、RDS と同じ短命 runtime lifecycle にする
 - `/workops/{stage}/db/name`、`/workops/{stage}/db/port`、`/workops/{stage}/db/url` は `DataStack` が所有する
 - `/workops/{stage}/spring/profile` は `ConfigStack` が所有する
 - `ConfigStack` は `DataStack` を参照しない
@@ -949,17 +950,19 @@ GitHub Actions の `workflow_dispatch` から AWS dev へ接続できる。
 P2-9 着手前に、OIDC / IAM、`infra-dev`、`app-deploy-dev`、`apps/web` 起動時 migration 確認、README と失敗確認の境界で agent task 分割案を提示します。
 自動 deploy や本番 deploy を task に含めません。
 
-## P2-10. 総合確認・README 整理
+## P2-10. 総合確認・README 整理（未実施）
 
 ### 目的
 
 Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除、再デプロイの流れを再現できる状態にします。
+現時点では P2-10 は未実施であり、Phase 2 の実環境確認済み記録を P2-10 の総合確認完了として扱いません。
 
 ### 前提フェーズ
 
 - P2-1 から P2-9 が完了している
 - 各フェーズのエージェント確認とユーザー確認が記録されている
 - 未解消事項が Phase 2 完了条件へ影響するか判断できる
+- P2-10 の総合確認 agent task と完了記録は未作成である
 
 ### 成果物
 
@@ -980,6 +983,7 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 ### 実装方針
 
 - README を実装済みのコマンド、設定名、Stack 名、workflow 名に合わせる
+- `agent-tasks/P2-10` 配下の残課題メモは、P2-10 の総合確認完了記録として扱わない
 - 初回構築、通常 deploy、実行確認、削除、トラブル対応を分けて記載する
 - secret、token、password、実アカウント ID をリポジトリへ記載しない
 - P2-1 から P2-9 の重複手順を整理し、README を再現の入口にする
@@ -1003,7 +1007,7 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 
 ### 完了条件
 
-次の項目を実装結果と確認結果で説明できる。
+P2-10 の完了時には、次の項目を実装結果と確認結果で説明できる。
 
 - AWS dev 環境を CDK で構築できる
 - `apps/web` 起動時に RDS へ Flyway migration と AWS dev seed を適用できる
@@ -1026,6 +1030,7 @@ Phase 2 の完了条件を横断確認し、第三者が構築、実行、削除
 
 エージェントは、全自動テスト、Maven build、CDK build / synth、workflow 静的確認、ドキュメントと実装の整合、`git diff --check` を確認します。
 ユーザーは、README に従った AWS dev の構築、ログイン、主要業務操作、ユーザー管理、ログ調査、GitHub Actions deploy、実行セッション Stack の削除を確認します。
+ユーザーによる Phase 2 実環境確認済みの事実と、P2-10 の総合確認記録未作成の事実を分けて記録します。
 
 ### agent task 分割方針
 
@@ -1042,7 +1047,7 @@ P2-9 の暫定 GitHub Actions OIDC deploy を、AWS 側で完結する CodePipel
 
 ### 前提フェーズ
 
-- P2-10 が完了している
+- P2-10 の総合確認記録と完了記録が作成されている
 - GitHub Actions OIDC deploy で AWS dev への build、deploy、確認が再現できる
 - Phase 2 の Stack、ECR、ECS、RDS、Logs、Domain の構成が README から再現できる
 
