@@ -1119,11 +1119,11 @@ describe('WorkOps CDK app', () => {
     expect(ciWorkflowText).toContain('CDK_DEFAULT_ACCOUNT: \'000000000000\'');
     expect(ciWorkflowText).toContain('CDK_DEFAULT_REGION: ap-northeast-1');
     expect(ciWorkflowText).toContain('infra_changed=${{ steps.changes.outputs.infra }}');
-    expect(ciWorkflowText).toContain('actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5');
-    expect(ciWorkflowText).toContain('actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9');
-    expect(ciWorkflowText).toContain('actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020');
-    expect(ciWorkflowText).toContain('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02');
-    expect(ciWorkflowText).toContain('dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590');
+    expect(ciWorkflowText).toContain('actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0');
+    expect(ciWorkflowText).toContain('actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287');
+    expect(ciWorkflowText).toContain('actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e');
+    expect(ciWorkflowText).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
+    expect(ciWorkflowText).toContain('dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d');
     expect(ciWorkflowText).not.toContain('configure-aws-credentials');
     expect(ciWorkflowText).not.toContain('cdk -- deploy');
 
@@ -1134,8 +1134,10 @@ describe('WorkOps CDK app', () => {
     expect(infraWorkflowText).toContain('environment: dev');
     expect(infraWorkflowText).toContain('id-token: write');
     expect(infraWorkflowText).toContain('group: workops-dev-deploy');
-    expect(infraWorkflowText).toContain('actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093');
-    expect(infraWorkflowText).toContain('aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a');
+    expect(infraWorkflowText).toContain('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c');
+    expect(infraWorkflowText).toContain('actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0');
+    expect(infraWorkflowText).toContain('actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e');
+    expect(infraWorkflowText).toContain('aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b');
     expect(infraWorkflowText).toContain('needs.read-changes.outputs.infra_changed == \'true\'');
     expect(infraWorkflowText).toContain('npm run cdk -- deploy FoundationStack --require-approval never');
     expect(infraWorkflowText).toContain('npm run cdk -- deploy LogsStack --require-approval never');
@@ -1151,6 +1153,9 @@ describe('WorkOps CDK app', () => {
     expect(appWorkflowText).toContain('id-token: write');
     expect(appWorkflowText).toContain('group: workops-dev-deploy');
     expect(appWorkflowText).toContain('WORKOPS_WEB_IMAGE_TAG: ${{ github.sha }}');
+    expect(appWorkflowText).toContain('actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0');
+    expect(appWorkflowText).toContain('actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e');
+    expect(appWorkflowText).toContain('aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b');
     expect(appWorkflowText).toContain('aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64');
     expect(appWorkflowText).toContain('docker build -t "$IMAGE_URI" .');
     expect(appWorkflowText).toContain('docker push "$IMAGE_URI"');
