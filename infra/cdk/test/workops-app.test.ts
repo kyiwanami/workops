@@ -452,14 +452,12 @@ describe('WorkOps CDK app', () => {
     const templateText = JSON.stringify(template.toJSON());
     const edgeStackSource = readFileSync(join(__dirname, '..', 'lib', 'edge-stack.ts'), 'utf8');
 
-    template.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
-    foundationTemplate.resourceCountIs('AWS::EC2::SecurityGroupIngress', 1);
-    foundationTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
+    template.resourceCountIs('AWS::EC2::SecurityGroupIngress', 1);
+    foundationTemplate.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
+    template.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
       Description: 'Allow CloudFront VPC origin to reach WorkOps ALB',
       FromPort: 80,
-      GroupId: {
-        'Fn::GetAtt': [Match.stringLikeRegexp('AlbSecurityGroup'), 'GroupId'],
-      },
+      GroupId: Match.anyValue(),
       IpProtocol: 'tcp',
       SourcePrefixListId: Match.stringLikeRegexp('^pl-'),
       ToPort: 80,
@@ -1031,9 +1029,12 @@ describe('WorkOps CDK app', () => {
       IpProtocol: 'tcp',
       ToPort: 3306,
     });
-    foundationTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
+    foundationTemplate.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
+    dataTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
+      Description: 'Allow WorkOps app tasks to reach MySQL',
       FromPort: 3306,
       IpProtocol: 'tcp',
+      SourceSecurityGroupId: Match.anyValue(),
       ToPort: 3306,
     });
     dataTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
@@ -1117,27 +1118,49 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('Fn::GetStackOutput');
   });
 
-  test('keeps npm scripts minimal and independent from dotenv', () => {
+  test('keeps CDK entrypoints scoped and independent from dotenv', () => {
     const packageJsonPath = join(__dirname, '..', 'package.json');
-    const entrypointPath = join(__dirname, '..', 'bin', 'cdk.ts');
+    const cdkJsonPath = join(__dirname, '..', 'cdk.json');
+    const deployEntrypointPath = join(__dirname, '..', 'bin', 'cdk-deploy.ts');
+    const infraEntrypointPath = join(__dirname, '..', 'bin', 'cdk-infra.ts');
+    const runtimeEntrypointPath = join(__dirname, '..', 'bin', 'cdk-runtime.ts');
     const packageJsonText = readFileSync(packageJsonPath, 'utf8');
-    const entrypointText = readFileSync(entrypointPath, 'utf8');
+    const cdkJsonText = readFileSync(cdkJsonPath, 'utf8');
+    const deployEntrypointText = readFileSync(deployEntrypointPath, 'utf8');
+    const infraEntrypointText = readFileSync(infraEntrypointPath, 'utf8');
+    const runtimeEntrypointText = readFileSync(runtimeEntrypointPath, 'utf8');
+    const allEntrypointText = `${deployEntrypointText}\n${infraEntrypointText}\n${runtimeEntrypointText}`;
 
     expect(packageJsonText).toContain('"build": "tsc"');
     expect(packageJsonText).toContain('"watch": "tsc -w"');
     expect(packageJsonText).toContain('"test": "jest"');
-    expect(packageJsonText).toContain('"cdk": "cdk"');
-    expect(entrypointText).toContain('WORKOPS_WEB_IMAGE_TAG');
-    expect(entrypointText).toContain('AppRuntimeStack is not defined');
-    expect(entrypointText).toContain('edgeStack.addDependency(logsStack)');
+    expect(packageJsonText).toContain('"cdk:deploy-app": "cdk --app');
+    expect(packageJsonText).toContain('"cdk:infra": "cdk --app');
+    expect(packageJsonText).toContain('"cdk:runtime": "cdk --app');
+    expect(packageJsonText).not.toContain('"bin"');
+    expect(packageJsonText).not.toContain('"cdk": "cdk"');
+    expect(cdkJsonText).not.toContain('"app"');
+    expect(deployEntrypointText).toContain('DeployStack');
+    expect(deployEntrypointText).toContain('GITHUB_REPOSITORY');
+    expect(deployEntrypointText).not.toContain('AppRuntimeStack');
+    expect(infraEntrypointText).toContain('FoundationStack');
+    expect(infraEntrypointText).toContain('LogsStack');
+    expect(infraEntrypointText).not.toContain('DataStack');
+    expect(infraEntrypointText).not.toContain('EgressStack');
+    expect(infraEntrypointText).not.toContain('EdgeStack');
+    expect(infraEntrypointText).not.toContain('AppRuntimeStack');
+    expect(infraEntrypointText).not.toContain('WORKOPS_WEB_IMAGE_TAG');
+    expect(runtimeEntrypointText).toContain('WORKOPS_WEB_IMAGE_TAG');
+    expect(runtimeEntrypointText).toContain('AppRuntimeStack is not defined');
+    expect(runtimeEntrypointText).toContain('edgeStack.addDependency(logsStack)');
     expect(packageJsonText).not.toContain('synth:dev');
     expect(packageJsonText).not.toContain('diff:dev');
     expect(packageJsonText).not.toContain('deploy:dev');
     expect(packageJsonText).not.toContain('dotenv');
-    expect(entrypointText).toContain('WORKOPS_STAGE');
-    expect(entrypointText).not.toContain('tryGetContext');
-    expect(entrypointText).not.toContain('dotenv');
-    expect(entrypointText).not.toContain('.env.local');
+    expect(allEntrypointText).toContain('WORKOPS_STAGE');
+    expect(allEntrypointText).not.toContain('tryGetContext');
+    expect(allEntrypointText).not.toContain('dotenv');
+    expect(allEntrypointText).not.toContain('.env.local');
   });
 
   test('defines the P2-9 GitHub Actions CI and infra deploy workflows', () => {
@@ -1177,8 +1200,9 @@ describe('WorkOps CDK app', () => {
     expect(infraWorkflowText).toContain('actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e');
     expect(infraWorkflowText).toContain('aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b');
     expect(infraWorkflowText).toContain('needs.read-changes.outputs.infra_changed == \'true\'');
-    expect(infraWorkflowText).toContain('npm run cdk -- deploy FoundationStack --require-approval never');
-    expect(infraWorkflowText).toContain('npm run cdk -- deploy LogsStack --require-approval never');
+    expect(ciWorkflowText).toContain('npm run cdk:deploy-app -- synth DeployStack');
+    expect(infraWorkflowText).toContain('npm run cdk:infra -- deploy FoundationStack --require-approval never');
+    expect(infraWorkflowText).toContain('npm run cdk:infra -- deploy LogsStack --require-approval never');
     expect(infraWorkflowText).not.toContain('deploy DeployStack');
     expect(infraWorkflowText).not.toContain('AppRuntimeStack');
 
@@ -1201,12 +1225,12 @@ describe('WorkOps CDK app', () => {
     expect(appWorkflowText).toContain('workops-dev-foundation');
     expect(appWorkflowText).toContain('workops-dev-logs');
     expect(appWorkflowText).toContain('cleanup is required before runtime deploy');
-    expect(appWorkflowText).toContain('npm run cdk -- diff DataStack --method=template');
-    expect(appWorkflowText).toContain('npm run cdk -- diff EgressStack --method=template');
-    expect(appWorkflowText).toContain('npm run cdk -- diff EdgeStack --method=template');
-    expect(appWorkflowText).toContain('npm run cdk -- diff AppRuntimeStack --method=template');
-    expect(appWorkflowText).toContain('npm run cdk -- deploy DataStack --require-approval never');
-    expect(appWorkflowText).toContain('npm run cdk -- deploy AppRuntimeStack --require-approval never');
+    expect(appWorkflowText).toContain('npm run cdk:runtime -- diff DataStack --method=template');
+    expect(appWorkflowText).toContain('npm run cdk:runtime -- diff EgressStack --method=template');
+    expect(appWorkflowText).toContain('npm run cdk:runtime -- diff EdgeStack --method=template');
+    expect(appWorkflowText).toContain('npm run cdk:runtime -- diff AppRuntimeStack --method=template');
+    expect(appWorkflowText).toContain('npm run cdk:runtime -- deploy DataStack --require-approval never');
+    expect(appWorkflowText).toContain('npm run cdk:runtime -- deploy AppRuntimeStack --require-approval never');
     expect(appWorkflowText).not.toContain('deploy LogsStack');
     expect(appWorkflowText).toContain('aws ecs wait services-stable');
     expect(appWorkflowText).toContain('/actuator/health');
@@ -1216,5 +1240,6 @@ describe('WorkOps CDK app', () => {
     expect(appWorkflowText).not.toContain('npm run build');
     expect(appWorkflowText).not.toContain('npm test');
     expect(appWorkflowText).not.toContain('cdk -- synth');
+    expect(`${ciWorkflowText}\n${infraWorkflowText}\n${appWorkflowText}`).not.toContain('npm run cdk --');
   });
 });

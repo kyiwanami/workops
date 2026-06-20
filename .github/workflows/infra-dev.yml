@@ -83,19 +83,19 @@ jobs:
       - name: Diff infra stacks
         working-directory: infra/cdk
         run: |
-          npm run cdk -- diff FoundationStack
-          npm run cdk -- diff SecretStack
-          npm run cdk -- diff ConfigStack
-          npm run cdk -- diff IdentityStack
-          npm run cdk -- diff RegistryStack
-          npm run cdk -- diff LogsStack
+          npm run cdk:infra -- diff FoundationStack
+          npm run cdk:infra -- diff SecretStack
+          npm run cdk:infra -- diff ConfigStack
+          npm run cdk:infra -- diff IdentityStack
+          npm run cdk:infra -- diff RegistryStack
+          npm run cdk:infra -- diff LogsStack
 
       - name: Deploy infra stacks
         working-directory: infra/cdk
         run: |
-          npm run cdk -- deploy FoundationStack --require-approval never
-          npm run cdk -- deploy SecretStack --require-approval never
-          npm run cdk -- deploy ConfigStack --require-approval never
-          npm run cdk -- deploy IdentityStack --require-approval never
-          npm run cdk -- deploy RegistryStack --require-approval never
-          npm run cdk -- deploy LogsStack --require-approval never
+          npm run cdk:infra -- deploy FoundationStack --require-approval never
+          npm run cdk:infra -- deploy SecretStack --require-approval never
+          npm run cdk:infra -- deploy ConfigStack --require-approval never
+          npm run cdk:infra -- deploy IdentityStack --require-approval never
+          npm run cdk:infra -- deploy RegistryStack --require-approval never
+          npm run cdk:infra -- deploy LogsStack --require-approval never

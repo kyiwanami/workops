@@ -11,7 +11,7 @@ import {
 } from 'aws-cdk-lib/aws-cloudfront';
 import { VpcOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Provider } from 'aws-cdk-lib/custom-resources';
-import { ISubnet, Peer, Port, PrefixList, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { CfnSecurityGroupIngress, ISubnet, PrefixList, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import {
   ApplicationLoadBalancer,
   ApplicationListener,
@@ -88,11 +88,14 @@ export class EdgeStack extends Stack {
       prefixListName: 'com.amazonaws.global.cloudfront.origin-facing',
     });
     // CloudFront VPC Origin still needs ALB inbound permission; use the AWS managed list without static pl-* IDs.
-    props.albSecurityGroup.addIngressRule(
-      Peer.prefixList(cloudFrontOriginPrefixList.prefixListId),
-      Port.tcp(80),
-      'Allow CloudFront VPC origin to reach WorkOps ALB',
-    );
+    new CfnSecurityGroupIngress(this, 'AlbHttpIngressFromCloudFront', {
+      groupId: props.albSecurityGroup.securityGroupId,
+      ipProtocol: 'tcp',
+      sourcePrefixListId: cloudFrontOriginPrefixList.prefixListId,
+      fromPort: 80,
+      toPort: 80,
+      description: 'Allow CloudFront VPC origin to reach WorkOps ALB',
+    });
 
     // CloudFront is the P2-4 HTTPS entrypoint; caching stays disabled for the dynamic web app.
     this.distribution = new Distribution(this, 'WebDistribution', {

@@ -93,4 +93,4 @@ jobs:
 
       - name: Synthesize CDK
         working-directory: infra/cdk
-        run: npm run cdk -- synth DeployStack
+        run: npm run cdk:deploy-app -- synth DeployStack

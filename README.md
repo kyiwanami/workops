@@ -214,7 +214,7 @@ cd C:\git\workops\apps\web
 Phase 2 P2-9 では、GitHub Actions から AWS dev へ接続するために OIDC を使います。
 長期 AWS credential は GitHub Secrets に置きません。
 
-初回だけ、ローカルの AWS profile から `DeployStack` を手動 deploy し、GitHub Actions 用 role を作成します。
+初回だけ、ローカルの AWS profile から `cdk:deploy-app` entrypoint で `DeployStack` を手動 deploy し、GitHub Actions 用 role を作成します。
 
 ```powershell
 cd C:\git\workops\infra\cdk
@@ -232,8 +232,8 @@ $env:CDK_DEFAULT_REGION = $env:AWS_REGION
 $env:GITHUB_REPOSITORY = "<owner>/<repo>"
 
 aws sts get-caller-identity --region $env:AWS_REGION
-npm run cdk -- diff DeployStack
-npm run cdk -- deploy DeployStack
+npm run cdk:deploy-app -- diff DeployStack
+npm run cdk:deploy-app -- deploy DeployStack
 ```
 
 `DeployStack` deploy 後、CloudFormation Output の `githubActionsDeployRoleArn` を GitHub Environment `dev` の variable `AWS_ROLE_ARN` に設定します。
@@ -258,7 +258,7 @@ docs のみの変更では `app-deploy-dev.yml` を実行しません。
 
 `app-deploy-dev.yml` は `apps/web` の Docker image を build し、ECR repository `workops-dev-web` に commit SHA tag だけを push します。
 `dev` tag と `latest` tag は使いません。
-その後、`DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の順に `cdk diff` と `cdk deploy --require-approval never` を実行し、ECS service stable と CloudFront HTTPS `/actuator/health` を確認します。
+その後、`cdk:runtime` entrypoint で `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の順に `cdk diff` と `cdk deploy --require-approval never` を実行し、ECS service stable と CloudFront HTTPS `/actuator/health` を確認します。
 
 Workflow の `uses: owner/action@<sha>` は、外部 action を公開 Git commit SHA で固定している指定です。
 この値は secret ではなく、GitHub 上の公開 commit ID です。

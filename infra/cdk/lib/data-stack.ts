@@ -1,5 +1,5 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
-import { InstanceClass, InstanceSize, InstanceType, ISubnet, Port, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { CfnSecurityGroupIngress, InstanceClass, InstanceSize, InstanceType, ISubnet, Port, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Credentials, DatabaseInstance, DatabaseInstanceEngine, MysqlEngineVersion, StorageType, SubnetGroup } from 'aws-cdk-lib/aws-rds';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
@@ -54,11 +54,14 @@ export class DataStack extends Stack {
       'Allow RDS Console CloudShell VPC environment to reach MySQL',
     );
 
-    props.dbSecurityGroup.addIngressRule(
-      props.appSecurityGroup,
-      Port.tcp(3306),
-      'Allow WorkOps app tasks to reach MySQL',
-    );
+    new CfnSecurityGroupIngress(this, 'DbIngressFromApp', {
+      groupId: props.dbSecurityGroup.securityGroupId,
+      ipProtocol: 'tcp',
+      sourceSecurityGroupId: props.appSecurityGroup.securityGroupId,
+      fromPort: 3306,
+      toPort: 3306,
+      description: 'Allow WorkOps app tasks to reach MySQL',
+    });
 
     // RDS is the Phase 2 source of truth for WorkOps business data.
     this.instance = new DatabaseInstance(this, 'Database', {

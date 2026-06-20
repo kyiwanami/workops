@@ -1,14 +1,13 @@
 {
   "name": "cdk",
   "version": "0.1.0",
-  "bin": {
-    "cdk": "bin/cdk.js"
-  },
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk:deploy-app": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-deploy.ts\"",
+    "cdk:infra": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-infra.ts\"",
+    "cdk:runtime": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-runtime.ts\""
   },
   "devDependencies": {
     "@types/jest": "^30",

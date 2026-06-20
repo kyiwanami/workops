@@ -111,18 +111,18 @@ jobs:
       - name: Diff runtime stacks
         working-directory: infra/cdk
         run: |
-          npm run cdk -- diff DataStack --method=template
-          npm run cdk -- diff EgressStack --method=template
-          npm run cdk -- diff EdgeStack --method=template
-          npm run cdk -- diff AppRuntimeStack --method=template
+          npm run cdk:runtime -- diff DataStack --method=template
+          npm run cdk:runtime -- diff EgressStack --method=template
+          npm run cdk:runtime -- diff EdgeStack --method=template
+          npm run cdk:runtime -- diff AppRuntimeStack --method=template
 
       - name: Deploy runtime stacks
         working-directory: infra/cdk
         run: |
-          npm run cdk -- deploy DataStack --require-approval never
-          npm run cdk -- deploy EgressStack --require-approval never
-          npm run cdk -- deploy EdgeStack --require-approval never
-          npm run cdk -- deploy AppRuntimeStack --require-approval never
+          npm run cdk:runtime -- deploy DataStack --require-approval never
+          npm run cdk:runtime -- deploy EgressStack --require-approval never
+          npm run cdk:runtime -- deploy EdgeStack --require-approval never
+          npm run cdk:runtime -- deploy AppRuntimeStack --require-approval never
 
       - name: Wait for ECS service stable
         run: |
