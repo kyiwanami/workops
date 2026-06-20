@@ -3,6 +3,7 @@ import { App, Environment, Tags } from 'aws-cdk-lib';
 import { AppRuntimeStack } from '../lib/app-runtime-stack';
 import { ConfigStack } from '../lib/config-stack';
 import { DataStack } from '../lib/data-stack';
+import { DeployStack } from '../lib/deploy-stack';
 import { EdgeStack } from '../lib/edge-stack';
 import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
@@ -15,12 +16,17 @@ declare global {
   namespace NodeJS {
     interface ProcessEnv {
       WORKOPS_STAGE: string;
+      GITHUB_REPOSITORY: string;
     }
   }
 }
 
 const app = new App();
 const stage = process.env.WORKOPS_STAGE;
+const githubRepository = process.env.GITHUB_REPOSITORY;
+if (!githubRepository) {
+  throw new Error('GITHUB_REPOSITORY environment variable is required');
+}
 const env: Environment = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION,
@@ -31,6 +37,12 @@ Tags.of(app).add('Project', 'WorkOps');
 Tags.of(app).add('Environment', stage);
 Tags.of(app).add('ManagedBy', 'CDK');
 
+new DeployStack(app, 'DeployStack', {
+  env,
+  githubRepository,
+  stage,
+  stackName: `workops-${stage}-deploy`,
+});
 const foundationStack = new FoundationStack(app, 'FoundationStack', {
   env,
   stage,

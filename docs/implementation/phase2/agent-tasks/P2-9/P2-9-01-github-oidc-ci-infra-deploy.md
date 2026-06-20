@@ -18,6 +18,7 @@ P2-9 では GitHub Actions を暫定 deploy 手段として使う。Phase 2α �
 - `ci.yml` は PR と main push で動かす
 - docs のみの変更では CI / deploy を動かさない
 - `infra-dev.yml` は `ci.yml` 成功後に起動する
+- `infra-dev.yml` には CI 側で判定した infra 変更有無を artifact で渡す
 - 非 runtime / 維持対象 Stack は自動 deploy する
 - 課金 runtime Stack はこの task では deploy しない
 - 外部 GitHub Actions は commit SHA 固定にする
@@ -117,11 +118,16 @@ CI では次を実行する。
 | CDK dependency | `npm ci` in `infra/cdk` |
 | CDK build | `npm run build` |
 | CDK test | `npm test -- --runInBand` |
-| CDK synth | `WORKOPS_STAGE=dev npm run cdk -- synth` |
+| CDK synth | `WORKOPS_STAGE=dev npm run cdk -- synth DeployStack` |
 
 CI では AWS OIDC を使わない。ECR push と CDK deploy もしない。
+既存 `EdgeStack` は CloudFront origin-facing prefix list の context lookup を使うため、AWS credential なしの CI では全 Stack synth を実行しない。
+`DeployStack` synth では CDK entrypoint が全 Stack を構築するため、CI では synth 用の dummy `CDK_DEFAULT_ACCOUNT=000000000000` と `CDK_DEFAULT_REGION=ap-northeast-1` を設定する。この値は AWS 実操作に使わない。
 
 Java は `actions/setup-java` で Java 25 を使う。Node.js は `actions/setup-node` で Node 24 を使う。Maven cache と npm cache を使う。
+
+CI では `dorny/paths-filter` で `infra/cdk/**` または `.github/workflows/infra-dev.yml` の変更有無を判定する。
+判定結果は `infra_changed=true|false` として `p2-9-ci-changes` artifact に保存する。
 
 ### infra-dev.yml
 
@@ -134,9 +140,9 @@ deploy job は次の条件をすべて満たす場合だけ実行する。
 - `github.event.workflow_run.conclusion == 'success'`
 - `github.event.workflow_run.event == 'push'`
 - `github.event.workflow_run.head_branch == 'main'`
-- changed files に `infra/cdk/**` または `.github/workflows/infra-dev.yml` が含まれる
+- `p2-9-ci-changes` artifact の `infra_changed` が `true`
 
-changed files 判定には `dorny/paths-filter` を使い、action は commit SHA 固定にする。
+`workflow_run` 後の changed files 直接判定は使わない。`workflow_run` payload には push event の `before` がない場合があり、差分判定が不安定になるため、CI 側で判定済みの artifact を受け渡す。
 
 deploy job には `environment: dev` を付ける。OIDC trust policy は GitHub Environment `dev` を前提にする。
 
@@ -183,6 +189,7 @@ permissions:
 CI job は `contents: read` のみにする。
 
 外部 action はすべて commit SHA 固定にする。実装時は各 action の公式 repository / release tag から対応 commit を確認し、workflow に SHA で記録する。
+Workflow の `uses: owner/action@<sha>` に書く SHA は、公開 Git commit ID であり secret ではない。secret と誤認しないよう、workflow と README に明記する。
 
 ## ADR
 
@@ -194,6 +201,7 @@ CI job は `contents: read` のみにする。
 - branch 制御は workflow 側で行う。GitHub OIDC の subject を `environment:dev` にすると、AWS trust policy だけで branch と environment の両方を単純に固定しにくいため。
 - `ci.yml` は PR と main push の両方で実行する。PR で壊れを検出し、main push の成功を `infra-dev.yml` の起点にするため。
 - `infra-dev.yml` は main push 直接起動ではなく `workflow_run` を採用する。CI 検証を重複実行せず、CI 成功後に非 runtime Stack を deploy するため。
+- infra 変更有無は CI 側で判定し、`p2-9-ci-changes` artifact で `infra-dev.yml` に渡す。`workflow_run` 後に changed files を直接判定すると差分境界が不安定になり得るため。
 - `infra-dev.yml` は `infra/cdk/**` または `infra-dev.yml` 変更時だけ deploy する。`apps/web` だけの変更で維持対象 Stack を deploy しないため。
 - 非 runtime / 維持対象 Stack は自動 deploy する。RDS / NAT / ECS / ALB / CloudFront のような課金 runtime を含まず、main に入った infrastructure 変更を AWS dev に反映しやすくするため。
 - `DeployStack` は `infra-dev.yml` の deploy 対象に含めない。GitHub Actions が自分の OIDC role を更新する自己更新構造を避けるため。
@@ -212,6 +220,7 @@ CI job は `contents: read` のみにする。
 - GitHub Environment `dev` の設定手順
 - GitHub Environment variables `AWS_REGION` / `AWS_ROLE_ARN` の設定手順
 - commit SHA 固定 action の更新手順
+- CI から infra deploy へ変更判定を渡す artifact
 - README の P2-9 CI / infra deploy 手順
 - CDK tests
 
@@ -241,9 +250,10 @@ CI job は `contents: read` のみにする。
 - `ci.yml` が PR と main push で `apps/web/**`、`infra/cdk/**`、P2-9 workflow 変更時だけ起動する
 - `ci.yml` が Java test、Docker build、CDK build / test / synth を実行する
 - `ci.yml` が AWS OIDC、ECR push、CDK deploy を実行しない
+- `ci.yml` が `p2-9-ci-changes` artifact に `infra_changed=true|false` を保存する
 - `infra-dev.yml` が `ci.yml` 成功後に起動する
 - `infra-dev.yml` が main push 成功時だけ deploy する
-- `infra-dev.yml` が `infra/cdk/**` または `.github/workflows/infra-dev.yml` 変更時だけ deploy する
+- `infra-dev.yml` が `p2-9-ci-changes` artifact を読み、`infra_changed=true` の場合だけ deploy する
 - `infra-dev.yml` が `FoundationStack`、`SecretStack`、`ConfigStack`、`IdentityStack`、`RegistryStack`、`LogsStack` を deploy する
 - `infra-dev.yml` が `DeployStack` を deploy しない
 - deploy job が GitHub Environment `dev` を使う
@@ -269,9 +279,11 @@ GitHub Actions YAML 確認:
 
 - `ci.yml` に PR と main push の trigger がある
 - `ci.yml` の paths に P2-9 workflow 3種が含まれる
+- `ci.yml` が `p2-9-ci-changes` artifact を upload する
 - `infra-dev.yml` が `workflow_run` を使う
 - `infra-dev.yml` が `workflow_run.conclusion`、`workflow_run.event`、`workflow_run.head_branch` を確認する
-- `infra-dev.yml` が changed files を見て `infra/cdk/**` と `infra-dev.yml` のみ deploy 対象にする
+- `infra-dev.yml` が `p2-9-ci-changes` artifact を download する
+- `infra-dev.yml` が `infra_changed=true` の場合だけ deploy する
 - deploy job に `environment: dev` がある
 - AWS OIDC job だけに `id-token: write` がある
 - action が commit SHA 固定になっている

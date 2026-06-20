@@ -209,6 +209,52 @@ cd C:\git\workops\apps\web
 .\mvnw.cmd test
 ```
 
+## GitHub Actions OIDC deploy
+
+Phase 2 P2-9 では、GitHub Actions から AWS dev へ接続するために OIDC を使います。
+長期 AWS credential は GitHub Secrets に置きません。
+
+初回だけ、ローカルの AWS profile から `DeployStack` を手動 deploy し、GitHub Actions 用 role を作成します。
+
+```powershell
+cd C:\git\workops\infra\cdk
+Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
+
+$env:WORKOPS_STAGE = "dev"
+$env:AWS_PROFILE = "<aws-profile>"
+$env:AWS_SDK_LOAD_CONFIG = "1"
+$env:AWS_REGION = "<aws-region>"
+$env:AWS_DEFAULT_REGION = $env:AWS_REGION
+$env:CDK_DEFAULT_ACCOUNT = (aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
+$env:CDK_DEFAULT_REGION = $env:AWS_REGION
+$env:GITHUB_REPOSITORY = "<owner>/<repo>"
+
+aws sts get-caller-identity --region $env:AWS_REGION
+npm run cdk -- diff DeployStack
+npm run cdk -- deploy DeployStack
+```
+
+`DeployStack` deploy 後、CloudFormation Output の `githubActionsDeployRoleArn` を GitHub Environment `dev` の variable `AWS_ROLE_ARN` に設定します。
+同じ GitHub Environment `dev` に `AWS_REGION` も設定します。
+
+P2-9-01 の GitHub Actions は次の役割です。
+
+| workflow | trigger | 内容 |
+| --- | --- | --- |
+| `ci.yml` | PR / main push | Java test、Docker build、CDK build / test / synth |
+| `infra-dev.yml` | `ci.yml` 成功後 | 非 runtime / 維持対象 Stack の AWS dev deploy |
+
+`infra-dev.yml` は GitHub Environment `dev` を使い、`FoundationStack`、`SecretStack`、`ConfigStack`、`IdentityStack`、`RegistryStack`、`LogsStack` だけを deploy します。
+`DeployStack` は GitHub Actions から更新しません。
+`DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の課金 runtime deploy は `app-deploy-dev.yml` の責務です。
+
+Workflow の `uses: owner/action@<sha>` は、外部 action を公開 Git commit SHA で固定している指定です。
+この値は secret ではなく、GitHub 上の公開 commit ID です。
+
+実 account ID、role ARN、SSO role ARN、SSO user、credential、public IP、実 Cognito `sub` は git 管理文書へ記録しません。
+
 ## Cognito Hosted UI 接続確認
 
 Phase 2 では Cognito Hosted UI、PLATFORM / TENANT App Client 分離、WorkOps 画面からのログアウト導線を確認します。

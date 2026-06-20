@@ -7,6 +7,7 @@ import { Construct } from 'constructs';
 import { AppRuntimeStack } from '../lib/app-runtime-stack';
 import { ConfigStack } from '../lib/config-stack';
 import { DataStack } from '../lib/data-stack';
+import { DeployStack } from '../lib/deploy-stack';
 import { EdgeStack } from '../lib/edge-stack';
 import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
@@ -28,6 +29,7 @@ const testCognitoUserPoolId = 'ap-northeast-1_test';
 const testCognitoPlatformUserPoolClientId = 'platformclientid';
 const testCognitoTenantUserPoolClientId = 'tenantclientid';
 const testCognitoHostedUiDomainBaseUrl = 'https://workops-dev.auth.ap-northeast-1.amazoncognito.com';
+const testGitHubRepository = 'owner/repo';
 const testEnv = {
   account: '123456789012',
   region: 'ap-northeast-1',
@@ -41,6 +43,12 @@ describe('WorkOps CDK app', () => {
       env: testEnv,
       stage,
       stackName: `workops-${stage}-foundation`,
+    });
+    const deployStack = new DeployStack(app, 'DeployStack', {
+      env: testEnv,
+      githubRepository: testGitHubRepository,
+      stage,
+      stackName: `workops-${stage}-deploy`,
     });
     const secretStack = new SecretStack(app, 'SecretStack', {
       env: testEnv,
@@ -113,6 +121,7 @@ describe('WorkOps CDK app', () => {
     });
 
     expect(foundationStack.stackName).toBe('workops-dev-foundation');
+    expect(deployStack.stackName).toBe('workops-dev-deploy');
     expect(secretStack.stackName).toBe('workops-dev-secret');
     expect(dataStack.stackName).toBe('workops-dev-data');
     expect(configStack.stackName).toBe('workops-dev-config');
@@ -122,6 +131,59 @@ describe('WorkOps CDK app', () => {
     expect(egressStack.stackName).toBe('workops-dev-egress');
     expect(edgeStack.stackName).toBe('workops-dev-edge');
     expect(appRuntimeStack.stackName).toBe('workops-dev-app-runtime');
+  });
+
+  test('creates the P2-9 DeployStack GitHub Actions OIDC role', () => {
+    const app = new App();
+    const stage = 'dev';
+    const deployStack = new DeployStack(app, 'DeployStack', {
+      env: testEnv,
+      githubRepository: testGitHubRepository,
+      stage,
+      stackName: `workops-${stage}-deploy`,
+    });
+    const template = Template.fromStack(deployStack);
+    const templateText = JSON.stringify(template.toJSON());
+
+    template.resourceCountIs('Custom::AWSCDKOpenIdConnectProvider', 1);
+    template.hasResourceProperties('Custom::AWSCDKOpenIdConnectProvider', {
+      Url: 'https://token.actions.githubusercontent.com',
+      ClientIDList: ['sts.amazonaws.com'],
+    });
+    template.hasResourceProperties('AWS::IAM::Role', {
+      RoleName: 'workops-dev-github-actions-deploy',
+      AssumeRolePolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'sts:AssumeRoleWithWebIdentity',
+            Effect: 'Allow',
+            Condition: {
+              StringEquals: {
+                'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+                'token.actions.githubusercontent.com:sub': 'repo:owner/repo:environment:dev',
+              },
+            },
+          }),
+        ]),
+      },
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith([
+              'cloudformation:*',
+              'iam:*',
+              'sts:AssumeRole',
+            ]),
+            Effect: 'Allow',
+            Resource: '*',
+          }),
+        ]),
+      },
+    });
+    template.hasOutput('githubActionsDeployRoleArn', {});
+    expect(templateText).not.toContain('AdministratorAccess');
   });
 
   test('creates the FoundationStack network and cluster resources', () => {
@@ -1032,5 +1094,44 @@ describe('WorkOps CDK app', () => {
     expect(entrypointText).not.toContain('tryGetContext');
     expect(entrypointText).not.toContain('dotenv');
     expect(entrypointText).not.toContain('.env.local');
+  });
+
+  test('defines the P2-9 GitHub Actions CI and infra deploy workflows', () => {
+    const ciWorkflowPath = join(__dirname, '..', '..', '..', '.github', 'workflows', 'ci.yml');
+    const infraWorkflowPath = join(__dirname, '..', '..', '..', '.github', 'workflows', 'infra-dev.yml');
+    const ciWorkflowText = readFileSync(ciWorkflowPath, 'utf8');
+    const infraWorkflowText = readFileSync(infraWorkflowPath, 'utf8');
+
+    expect(ciWorkflowText).toContain('name: CI');
+    expect(ciWorkflowText).toContain('pull_request:');
+    expect(ciWorkflowText).toContain('apps/web/**');
+    expect(ciWorkflowText).toContain('infra/cdk/**');
+    expect(ciWorkflowText).toContain('.github/workflows/app-deploy-dev.yml');
+    expect(ciWorkflowText).toContain('p2-9-ci-changes');
+    expect(ciWorkflowText).toContain('CDK_DEFAULT_ACCOUNT: \'000000000000\'');
+    expect(ciWorkflowText).toContain('CDK_DEFAULT_REGION: ap-northeast-1');
+    expect(ciWorkflowText).toContain('infra_changed=${{ steps.changes.outputs.infra }}');
+    expect(ciWorkflowText).toContain('actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5');
+    expect(ciWorkflowText).toContain('actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9');
+    expect(ciWorkflowText).toContain('actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020');
+    expect(ciWorkflowText).toContain('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02');
+    expect(ciWorkflowText).toContain('dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590');
+    expect(ciWorkflowText).not.toContain('configure-aws-credentials');
+    expect(ciWorkflowText).not.toContain('cdk -- deploy');
+
+    expect(infraWorkflowText).toContain('workflow_run:');
+    expect(infraWorkflowText).toContain('github.event.workflow_run.conclusion == \'success\'');
+    expect(infraWorkflowText).toContain('github.event.workflow_run.event == \'push\'');
+    expect(infraWorkflowText).toContain('github.event.workflow_run.head_branch == \'main\'');
+    expect(infraWorkflowText).toContain('environment: dev');
+    expect(infraWorkflowText).toContain('id-token: write');
+    expect(infraWorkflowText).toContain('group: workops-dev-deploy');
+    expect(infraWorkflowText).toContain('actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093');
+    expect(infraWorkflowText).toContain('aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a');
+    expect(infraWorkflowText).toContain('needs.read-changes.outputs.infra_changed == \'true\'');
+    expect(infraWorkflowText).toContain('npm run cdk -- deploy FoundationStack --require-approval never');
+    expect(infraWorkflowText).toContain('npm run cdk -- deploy LogsStack --require-approval never');
+    expect(infraWorkflowText).not.toContain('deploy DeployStack');
+    expect(infraWorkflowText).not.toContain('AppRuntimeStack');
   });
 });

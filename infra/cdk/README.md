@@ -78,6 +78,7 @@ npm run cdk -- synth
 
 CDK app は次の Stack を管理します。
 
+- `workops-{stage}-deploy`
 - `workops-{stage}-foundation`
 - `workops-{stage}-secret`
 - `workops-{stage}-data`
@@ -89,6 +90,8 @@ CDK app は次の Stack を管理します。
 `stage` は `WORKOPS_STAGE` の値です。
 
 `workops-{stage}-identity` は Cognito User Pool、Hosted UI domain、App Client を所有する維持対象 Stack です。CloudFront / ALB / ECS / NAT Gateway の実行確認セッション Stack とは lifecycle を分けます。
+
+`workops-{stage}-deploy` は GitHub Actions OIDC provider と deploy role を所有します。初回はローカルの AWS profile から手動 deploy し、GitHub Actions からは更新しません。
 
 ## Bootstrap
 

@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - apps/web/**
+      - infra/cdk/**
+      - .github/workflows/ci.yml
+      - .github/workflows/infra-dev.yml
+      - .github/workflows/app-deploy-dev.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - apps/web/**
+      - infra/cdk/**
+      - .github/workflows/ci.yml
+      - .github/workflows/infra-dev.yml
+      - .github/workflows/app-deploy-dev.yml
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      WORKOPS_STAGE: dev
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      CDK_DEFAULT_ACCOUNT: '000000000000'
+      CDK_DEFAULT_REGION: ap-northeast-1
+    steps:
+      # Actions are pinned to public Git commit SHAs, not secrets.
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Detect infra deploy changes
+        id: changes
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
+        with:
+          filters: |
+            infra:
+              - 'infra/cdk/**'
+              - '.github/workflows/infra-dev.yml'
+
+      - name: Save infra deploy change result
+        run: |
+          mkdir -p .p2-9-ci-changes
+          echo "infra_changed=${{ steps.changes.outputs.infra }}" > .p2-9-ci-changes/changes.env
+
+      - name: Upload infra deploy change result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p2-9-ci-changes
+          path: .p2-9-ci-changes/changes.env
+          if-no-files-found: error
+
+      - name: Set up Java
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Run web tests
+        working-directory: apps/web
+        run: ./mvnw test
+
+      - name: Build web image
+        working-directory: apps/web
+        run: docker build -t workops-web:ci .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: infra/cdk/package-lock.json
+
+      - name: Restore CDK dependencies
+        working-directory: infra/cdk
+        run: npm ci
+
+      - name: Build CDK
+        working-directory: infra/cdk
+        run: npm run build
+
+      - name: Test CDK
+        working-directory: infra/cdk
+        run: npm test -- --runInBand
+
+      - name: Synthesize CDK
+        working-directory: infra/cdk
+        run: npm run cdk -- synth DeployStack

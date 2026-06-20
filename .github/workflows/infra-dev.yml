@@ -1,0 +1,101 @@
+name: Infra Dev
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+jobs:
+  read-changes:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      infra_changed: ${{ steps.read.outputs.infra_changed }}
+    steps:
+      # Actions are pinned to public Git commit SHAs, not secrets.
+      - name: Download CI change result
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: p2-9-ci-changes
+          path: .p2-9-ci-changes
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Read CI change result
+        id: read
+        shell: bash
+        run: |
+          source .p2-9-ci-changes/changes.env
+          echo "infra_changed=${infra_changed}" >> "${GITHUB_OUTPUT}"
+
+  deploy:
+    needs:
+      - read-changes
+    if: needs.read-changes.outputs.infra_changed == 'true'
+    runs-on: ubuntu-latest
+    environment: dev
+    concurrency:
+      group: workops-dev-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      WORKOPS_STAGE: dev
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+    steps:
+      # Actions are pinned to public Git commit SHAs, not secrets.
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: infra/cdk/package-lock.json
+
+      - name: Restore CDK dependencies
+        working-directory: infra/cdk
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Confirm AWS identity
+        run: aws sts get-caller-identity --region "$AWS_REGION"
+
+      - name: Diff infra stacks
+        working-directory: infra/cdk
+        run: |
+          npm run cdk -- diff FoundationStack
+          npm run cdk -- diff SecretStack
+          npm run cdk -- diff ConfigStack
+          npm run cdk -- diff IdentityStack
+          npm run cdk -- diff RegistryStack
+          npm run cdk -- diff LogsStack
+
+      - name: Deploy infra stacks
+        working-directory: infra/cdk
+        run: |
+          npm run cdk -- deploy FoundationStack --require-approval never
+          npm run cdk -- deploy SecretStack --require-approval never
+          npm run cdk -- deploy ConfigStack --require-approval never
+          npm run cdk -- deploy IdentityStack --require-approval never
+          npm run cdk -- deploy RegistryStack --require-approval never
+          npm run cdk -- deploy LogsStack --require-approval never
