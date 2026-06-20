@@ -100,6 +100,8 @@ const edgeStack = new EdgeStack(app, 'EdgeStack', {
   cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
   cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
   cognitoUserPoolId: identityStack.userPoolId,
+  cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
+  cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
   stage,
   stackName: `workops-${stage}-edge`,
   vpc: foundationStack.vpc,
@@ -135,3 +137,4 @@ if (webImageTag) {
 
 edgeStack.addDependency(egressStack);
 edgeStack.addDependency(identityStack);
+edgeStack.addDependency(logsStack);

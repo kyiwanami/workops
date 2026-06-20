@@ -98,6 +98,8 @@ describe('WorkOps CDK app', () => {
       cognitoPlatformUserPoolClientId: testCognitoPlatformUserPoolClientId,
       cognitoTenantUserPoolClientId: testCognitoTenantUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
+      cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
+      cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
       env: testEnv,
       stage,
       stackName: `workops-${stage}-edge`,
@@ -331,13 +333,21 @@ describe('WorkOps CDK app', () => {
     });
     const template = Template.fromStack(logsStack);
 
-    template.resourceCountIs('AWS::Logs::LogGroup', 2);
+    template.resourceCountIs('AWS::Logs::LogGroup', 4);
     template.hasResourceProperties('AWS::Logs::LogGroup', {
       LogGroupName: '/workops/dev/web',
       RetentionInDays: 7,
     });
     template.hasResourceProperties('AWS::Logs::LogGroup', {
       LogGroupName: '/workops/dev/migration',
+      RetentionInDays: 7,
+    });
+    template.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater',
+      RetentionInDays: 7,
+    });
+    template.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater-provider',
       RetentionInDays: 7,
     });
     template.hasResource('AWS::Logs::LogGroup', {
@@ -354,8 +364,24 @@ describe('WorkOps CDK app', () => {
       DeletionPolicy: 'Delete',
       UpdateReplacePolicy: 'Delete',
     });
+    template.hasResource('AWS::Logs::LogGroup', {
+      Properties: {
+        LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater',
+      },
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    template.hasResource('AWS::Logs::LogGroup', {
+      Properties: {
+        LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater-provider',
+      },
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
     template.hasOutput('webLogGroupName', {});
     template.hasOutput('migrationLogGroupName', {});
+    template.hasOutput('cognitoClientUrlUpdaterLogGroupName', {});
+    template.hasOutput('cognitoClientUrlUpdaterProviderLogGroupName', {});
   });
 
   test('creates the P2-3 EgressStack NAT route for app subnets', () => {
@@ -403,12 +429,19 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-foundation`,
     });
+    const logsStack = new LogsStack(app, 'LogsStack', {
+      env: testEnv,
+      stage,
+      stackName: `workops-${stage}-logs`,
+    });
     const edgeStack = new EdgeStack(app, 'EdgeStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
       cognitoPlatformUserPoolClientId: testCognitoPlatformUserPoolClientId,
       cognitoTenantUserPoolClientId: testCognitoTenantUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
+      cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
+      cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
       env: testEnv,
       stage,
       stackName: `workops-${stage}-edge`,
@@ -512,14 +545,16 @@ describe('WorkOps CDK app', () => {
       Runtime: 'nodejs22.x',
       Timeout: 60,
     });
-    template.hasResourceProperties('AWS::Logs::LogGroup', {
-      LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater',
-      RetentionInDays: 7,
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      LoggingConfig: {
+        LogGroup: Match.anyValue(),
+      },
     });
-    template.hasResourceProperties('AWS::Logs::LogGroup', {
-      LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater-provider',
-      RetentionInDays: 7,
-    });
+    template.resourceCountIs('AWS::Logs::LogGroup', 0);
+    expect(templateText).toContain('CognitoClientUrlUpdaterLogGroup');
+    expect(templateText).toContain('CognitoClientUrlUpdaterProviderLogGroup');
+    expect(templateText).not.toContain('/workops/dev/custom-resources/cognito-client-url-updater');
+    expect(templateText).not.toContain('/workops/dev/custom-resources/cognito-client-url-updater-provider');
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
         Statement: Match.arrayWith([
@@ -715,6 +750,8 @@ describe('WorkOps CDK app', () => {
       cognitoPlatformUserPoolClientId: testCognitoPlatformUserPoolClientId,
       cognitoTenantUserPoolClientId: testCognitoTenantUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
+      cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
+      cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
       env: testEnv,
       stage,
       stackName: `workops-${stage}-edge`,
@@ -1092,6 +1129,7 @@ describe('WorkOps CDK app', () => {
     expect(packageJsonText).toContain('"cdk": "cdk"');
     expect(entrypointText).toContain('WORKOPS_WEB_IMAGE_TAG');
     expect(entrypointText).toContain('AppRuntimeStack is not defined');
+    expect(entrypointText).toContain('edgeStack.addDependency(logsStack)');
     expect(packageJsonText).not.toContain('synth:dev');
     expect(packageJsonText).not.toContain('diff:dev');
     expect(packageJsonText).not.toContain('deploy:dev');
@@ -1159,9 +1197,17 @@ describe('WorkOps CDK app', () => {
     expect(appWorkflowText).toContain('aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64');
     expect(appWorkflowText).toContain('docker build -t "$IMAGE_URI" .');
     expect(appWorkflowText).toContain('docker push "$IMAGE_URI"');
-    expect(appWorkflowText).toContain('npm run cdk -- diff DataStack');
+    expect(appWorkflowText).toContain('Preflight runtime stack state');
+    expect(appWorkflowText).toContain('workops-dev-foundation');
+    expect(appWorkflowText).toContain('workops-dev-logs');
+    expect(appWorkflowText).toContain('cleanup is required before runtime deploy');
+    expect(appWorkflowText).toContain('npm run cdk -- diff DataStack --method=template');
+    expect(appWorkflowText).toContain('npm run cdk -- diff EgressStack --method=template');
+    expect(appWorkflowText).toContain('npm run cdk -- diff EdgeStack --method=template');
+    expect(appWorkflowText).toContain('npm run cdk -- diff AppRuntimeStack --method=template');
     expect(appWorkflowText).toContain('npm run cdk -- deploy DataStack --require-approval never');
     expect(appWorkflowText).toContain('npm run cdk -- deploy AppRuntimeStack --require-approval never');
+    expect(appWorkflowText).not.toContain('deploy LogsStack');
     expect(appWorkflowText).toContain('aws ecs wait services-stable');
     expect(appWorkflowText).toContain('/actuator/health');
     expect(appWorkflowText).not.toContain(':dev');

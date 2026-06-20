@@ -1,4 +1,4 @@
-import { ArnFormat, CfnOutput, CustomResource, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { ArnFormat, CfnOutput, CustomResource, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import {
   AllowedMethods,
   CachePolicy,
@@ -22,7 +22,7 @@ import {
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { join } from 'path';
 
@@ -34,6 +34,8 @@ export interface EdgeStackProps extends StackProps {
   cognitoUserPoolId: string;
   cognitoPlatformUserPoolClientId: string;
   cognitoTenantUserPoolClientId: string;
+  cognitoClientUrlUpdaterLogGroup: ILogGroup;
+  cognitoClientUrlUpdaterProviderLogGroup: ILogGroup;
 }
 
 export class EdgeStack extends Stack {
@@ -112,23 +114,13 @@ export class EdgeStack extends Stack {
     this.cloudFrontDomainName = this.distribution.distributionDomainName;
     this.cloudFrontHttpsUrl = `https://${this.cloudFrontDomainName}`;
 
-    const updaterLogGroup = new LogGroup(this, 'CognitoClientUrlUpdaterLogGroup', {
-      logGroupName: `/workops/${props.stage}/custom-resources/cognito-client-url-updater`,
-      retention: RetentionDays.ONE_WEEK,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-    const providerLogGroup = new LogGroup(this, 'CognitoClientUrlUpdaterProviderLogGroup', {
-      logGroupName: `/workops/${props.stage}/custom-resources/cognito-client-url-updater-provider`,
-      retention: RetentionDays.ONE_WEEK,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
     const updaterFunction = new NodejsFunction(this, 'CognitoClientUrlUpdaterFunction', {
       functionName: `workops-${props.stage}-cognito-client-url-updater`,
       runtime: Runtime.NODEJS_22_X,
       entry: join(__dirname, '..', 'custom-resources', 'cognito-client-url-updater', 'index.ts'),
       handler: 'handler',
       timeout: Duration.minutes(1),
-      logGroup: updaterLogGroup,
+      logGroup: props.cognitoClientUrlUpdaterLogGroup,
       bundling: {
         bundleAwsSDK: true,
       },
@@ -149,7 +141,7 @@ export class EdgeStack extends Stack {
     }));
     const updaterProvider = new Provider(this, 'CognitoClientUrlUpdaterProvider', {
       onEventHandler: updaterFunction,
-      logGroup: providerLogGroup,
+      logGroup: props.cognitoClientUrlUpdaterProviderLogGroup,
     });
 
     // The custom resource registers the current CloudFront endpoint without making IdentityStack depend on EdgeStack.

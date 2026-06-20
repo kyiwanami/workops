@@ -50,6 +50,51 @@ jobs:
       - name: Confirm AWS identity
         run: aws sts get-caller-identity --region "$AWS_REGION"
 
+      - name: Preflight runtime stack state
+        run: |
+          required_stacks=(
+            workops-dev-foundation
+            workops-dev-config
+            workops-dev-identity
+            workops-dev-registry
+            workops-dev-logs
+          )
+
+          for stack_name in "${required_stacks[@]}"; do
+            stack_status="$(aws cloudformation describe-stacks \
+              --stack-name "$stack_name" \
+              --query "Stacks[0].StackStatus" \
+              --output text \
+              --region "$AWS_REGION")"
+            case "$stack_status" in
+              CREATE_COMPLETE|UPDATE_COMPLETE)
+                echo "$stack_name is $stack_status"
+                ;;
+              *)
+                echo "$stack_name is $stack_status; run infra-dev before runtime deploy"
+                exit 1
+                ;;
+            esac
+          done
+
+          edge_status="$(aws cloudformation describe-stacks \
+            --stack-name workops-dev-edge \
+            --query "Stacks[0].StackStatus" \
+            --output text \
+            --region "$AWS_REGION" 2>/dev/null || true)"
+          case "$edge_status" in
+            "")
+              echo "workops-dev-edge does not exist"
+              ;;
+            CREATE_COMPLETE|UPDATE_COMPLETE)
+              echo "workops-dev-edge is $edge_status"
+              ;;
+            *)
+              echo "workops-dev-edge is $edge_status; cleanup is required before runtime deploy"
+              exit 1
+              ;;
+          esac
+
       - name: Log in to Amazon ECR
         id: ecr
         uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64
@@ -66,10 +111,10 @@ jobs:
       - name: Diff runtime stacks
         working-directory: infra/cdk
         run: |
-          npm run cdk -- diff DataStack
-          npm run cdk -- diff EgressStack
-          npm run cdk -- diff EdgeStack
-          npm run cdk -- diff AppRuntimeStack
+          npm run cdk -- diff DataStack --method=template
+          npm run cdk -- diff EgressStack --method=template
+          npm run cdk -- diff EdgeStack --method=template
+          npm run cdk -- diff AppRuntimeStack --method=template
 
       - name: Deploy runtime stacks
         working-directory: infra/cdk
