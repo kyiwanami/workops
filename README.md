@@ -207,15 +207,34 @@ cd C:\git\workops\apps\web
 .\mvnw.cmd test
 ```
 
-## GitHub Actions OIDC deploy
+## Phase 2 AWS dev
 
-Phase 2 P2-9 では、GitHub Actions から AWS dev へ接続するために OIDC を使います。
-長期 AWS credential は GitHub Secrets に置きません。
+Phase 2 では、AWS dev に WorkOps の維持基盤、課金 runtime、Spring Boot app を構築します。
+GitHub Actions OIDC deploy は Phase 2 の暫定 deploy 手段です。長期 AWS credential は GitHub Secrets に置きません。
+Phase 2α では CodePipeline + CodeBuild へ移行し、GitHub Actions workflow は撤去します。
 
-初回だけ、ローカルの AWS profile から `cdk:deploy-app` entrypoint で `DeployStack` を手動 deploy し、GitHub Actions 用 role を作成します。
+Phase 2 AWS dev の deploy 単位は次の通りです。
+
+| 区分 | 実行入口 | 対象 |
+| --- | --- | --- |
+| 初回 OIDC role | ローカル `npm run cdk:deploy-app` | `DeployStack` |
+| 非 runtime / 維持基盤 | `.github/workflows/infra-dev.yml` | `FoundationStack`, `SecretStack`, `ConfigStack`, `IdentityStack`, `RegistryStack`, `LogsStack` |
+| runtime / app | `.github/workflows/app-deploy-dev.yml` | Docker image push, `DataStack`, `EgressStack`, `EdgeStack`, `AppRuntimeStack` |
+
+AWS 実環境の deploy、Cognito Hosted UI のブラウザ操作、CloudFront 経由の画面操作、CloudWatch Logs 確認はユーザー確認として扱います。
+実 account ID、role ARN、SSO role ARN、SSO user、credential、CloudFront domain、public IP、実 Cognito `sub` は README や git 管理文書へ記録しません。
+
+### Phase 2 前提ツール
+
+- AWS CLI
+- AWS profile
+- Docker Desktop
+- Node.js 24
+- GitHub Environment `dev`
+
+AWS CLI を使う前に、PowerShell で AWS profile と region を明示し、環境変数 credential を削除してから認証先を確認します。
 
 ```powershell
-cd C:\git\workops\infra\cdk
 Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
 Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
 Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
@@ -227,17 +246,30 @@ $env:AWS_REGION = "<aws-region>"
 $env:AWS_DEFAULT_REGION = $env:AWS_REGION
 $env:CDK_DEFAULT_ACCOUNT = (aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
 $env:CDK_DEFAULT_REGION = $env:AWS_REGION
-$env:GITHUB_REPOSITORY = "<owner>/<repo>"
 
 aws sts get-caller-identity --region $env:AWS_REGION
+```
+
+### DeployStack 初回手動 deploy
+
+初回だけ、ローカルの AWS profile から `cdk:deploy-app` entrypoint で `DeployStack` を手動 deploy し、GitHub Actions 用 role を作成します。
+`DeployStack` は GitHub Actions から更新しません。
+
+```powershell
+cd C:\git\workops\infra\cdk
+$env:GITHUB_REPOSITORY = "<owner>/<repo>"
+
 npm run cdk:deploy-app -- diff DeployStack
 npm run cdk:deploy-app -- deploy DeployStack
 ```
 
 `DeployStack` deploy 後、CloudFormation Output の `githubActionsDeployRoleArn` を GitHub Environment `dev` の variable `AWS_ROLE_ARN` に設定します。
 同じ GitHub Environment `dev` に `AWS_REGION` も設定します。
+CloudFormation Output の実 role ARN は git 管理文書へ記録しません。
 
-P2-9-01 の GitHub Actions は次の役割です。
+### GitHub Actions workflow
+
+Phase 2 の GitHub Actions は次の役割です。
 
 | workflow | trigger | 内容 |
 | --- | --- | --- |
@@ -249,6 +281,17 @@ P2-9-01 の GitHub Actions は次の役割です。
 `DeployStack` は GitHub Actions から更新しません。
 `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の課金 runtime deploy は `app-deploy-dev.yml` の責務です。
 
+ローカルで非 runtime Stack の synth だけ確認する場合は次を使います。
+
+```powershell
+cd C:\git\workops\infra\cdk
+$env:WORKOPS_STAGE = "dev"
+$env:GITHUB_REPOSITORY = "<owner>/<repo>"
+$env:CDK_DEFAULT_ACCOUNT = "000000000000"
+$env:CDK_DEFAULT_REGION = "ap-northeast-1"
+npm run cdk:infra -- synth FoundationStack SecretStack ConfigStack IdentityStack RegistryStack LogsStack
+```
+
 `app-deploy-dev.yml` は GitHub Actions の手動 workflow です。
 対象 commit の `ci.yml` が成功していることを確認してから、main branch で `confirm_runtime_deploy` を true にして実行します。
 この workflow は RDS、NAT Gateway、ECS、ALB、CloudFront を作成または更新する課金 runtime 操作です。
@@ -258,10 +301,22 @@ docs のみの変更では `app-deploy-dev.yml` を実行しません。
 `dev` tag と `latest` tag は使いません。
 その後、`cdk:runtime` entrypoint で `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の順に `cdk diff` と `cdk deploy --require-approval never` を実行し、ECS service stable と CloudFront HTTPS `/actuator/health` を確認します。
 
+ローカルで runtime Stack の synth だけ確認する場合は次を使います。`WORKOPS_WEB_IMAGE_TAG` は placeholder であり、実 commit SHA や image digest は README に記録しません。
+
+```powershell
+cd C:\git\workops\infra\cdk
+$env:WORKOPS_STAGE = "dev"
+$env:GITHUB_REPOSITORY = "<owner>/<repo>"
+$env:CDK_DEFAULT_ACCOUNT = "000000000000"
+$env:CDK_DEFAULT_REGION = "ap-northeast-1"
+$env:WORKOPS_WEB_IMAGE_TAG = "<image-tag>"
+npm run cdk:runtime -- synth DataStack EgressStack EdgeStack AppRuntimeStack
+```
+
 Workflow の `uses: owner/action@<sha>` は、外部 action を公開 Git commit SHA で固定している指定です。
 この値は secret ではなく、GitHub 上の公開 commit ID です。
 
-実 account ID、role ARN、SSO role ARN、SSO user、credential、public IP、実 Cognito `sub` は git 管理文書へ記録しません。
+実 account ID、role ARN、SSO role ARN、SSO user、credential、CloudFront domain、public IP、実 Cognito `sub` は git 管理文書へ記録しません。
 
 ## Cognito Hosted UI 接続確認
 
@@ -297,6 +352,39 @@ WORKOPS_COGNITO_TENANT_REDIRECT_URI
 Cognito issuer URI は `AWS_REGION` と `WORKOPS_COGNITO_USER_POOL_ID` からアプリ側で構成します。
 PLATFORM / TENANT の redirect URI は、それぞれ `/login/oauth2/code/platform` と `/login/oauth2/code/tenant` を使います。
 logout URI は Cognito App Client の allowed sign-out URL と一致させ、AWS dev では CloudFront HTTPS URL の `/login` を使います。
+
+### AWS dev 初回接続導線
+
+AWS dev の RDS を deploy した直後は、seed 済みの `users.cognito_sub` が `NULL` です。
+そのため、最初に Platform 管理者として使う Cognito user の `sub` を、AWS dev RDS の `platform-admin` に紐付けます。
+この SQL は RDS Console integrated CloudShell VPC から実行し、接続後に必ず `USE workops;` で database を選択します。
+実 Cognito `sub` は README や git 管理文書へ記録しません。
+
+```sql
+USE workops;
+
+UPDATE users
+SET cognito_sub = '<platform-admin-cognito-sub>'
+WHERE username = 'platform-admin'
+  AND email = 'platform-admin@example.local'
+  AND actor_type = 'PLATFORM'
+  AND cognito_sub IS NULL;
+
+SELECT ROW_COUNT() AS updated_rows;
+```
+
+`updated_rows` が `1` であることを確認した後、CloudFront の `/login/platform` から Platform 用 login を実行します。
+Platform login 後、画面から会社を作成し、その会社に所属する TENANT user を作成します。
+TENANT user はアプリのユーザー作成処理で Cognito user 作成と `users.cognito_sub` 登録を行うため、作成後に CloudFront の `/login/tenant` から同じ TENANT user でログインして確認します。
+
+確認順序は次の通りです。
+
+1. AWS dev RDS の `platform-admin` に Platform 管理者 Cognito user の `sub` を登録する
+2. `/login/platform` で Platform 用 login を実行する
+3. Platform 画面で会社を作成する
+4. 作成した会社に所属する TENANT user を作成する
+5. `/login/tenant` で作成した TENANT user としてログインする
+6. トップページの導線と権限外 URL の 403 を確認する
 
 Cognito で実際に招待メールを送るユーザー作成 E2E は、実行者が AWS 認証情報と実メールアドレスを用意して手動確認します。
 Cognito Hosted UI のブラウザ操作、CloudFront 経由の login / logout、実 Cognito `sub` と `users` の突合確認はユーザー確認として扱います。
