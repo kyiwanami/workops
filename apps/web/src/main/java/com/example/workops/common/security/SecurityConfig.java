@@ -3,8 +3,10 @@ package com.example.workops.common.security;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -31,6 +33,13 @@ public class SecurityConfig {
                                 "/login",
                                 "/login/platform",
                                 "/login/tenant").permitAll()
+                        .requestMatchers("/").access((authentication, context) -> {
+                            Authentication currentAuthentication = authentication.get();
+                            // The business home page is available only after DB user matching.
+                            return new AuthorizationDecision(
+                                    currentAuthentication != null
+                                            && currentAuthentication.getPrincipal() instanceof LoginUserContext);
+                        })
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         // CloudFront is the public host; route unauthenticated users to the tenant-facing login page.

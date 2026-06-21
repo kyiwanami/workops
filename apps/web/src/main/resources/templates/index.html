@@ -10,17 +10,15 @@
         <h1 class="h3 mb-2">WorkOps</h1>
         <p class="text-secondary mb-0">申請管理と資産管理をローカル環境で実装していくための最小画面です。</p>
         <div class="mt-3">
-            <a class="btn btn-primary btn-sm" th:href="@{/requests}">申請一覧</a>
-            <a class="btn btn-primary btn-sm ms-2" th:href="@{/assets}">資産一覧</a>
-            <a class="btn btn-outline-primary btn-sm ms-2" th:href="@{/masters/request-types}">申請種別一覧</a>
-            <a class="btn btn-outline-primary btn-sm ms-2" th:href="@{/masters/asset-categories}">資産分類一覧</a>
-            <a class="btn btn-outline-primary btn-sm ms-2" th:href="@{/admin/companies}">会社管理</a>
-            <a class="btn btn-outline-primary btn-sm ms-2" th:href="@{/admin/companies/1/departments}">部署管理 Platform</a>
-            <a class="btn btn-outline-primary btn-sm ms-2" th:href="@{/departments}">部署管理 Tenant</a>
-            <a class="btn btn-outline-primary btn-sm ms-2" th:href="@{/admin/users}">ユーザー管理 Platform</a>
-            <a class="btn btn-outline-primary btn-sm ms-2" th:href="@{/users}">ユーザー管理 Tenant</a>
-            <a class="btn btn-outline-primary btn-sm ms-2" th:href="@{/auth/claims}">Cognito Claims</a>
-            <a class="btn btn-outline-primary btn-sm ms-2" th:href="@{/auth/authorization/manager}">Manager Authorization</a>
+            <a class="btn btn-primary btn-sm" th:if="${canViewRequests}" th:href="@{/requests}">申請一覧</a>
+            <a class="btn btn-primary btn-sm ms-2" th:if="${canViewAssets}" th:href="@{/assets}">資産一覧</a>
+            <a class="btn btn-outline-primary btn-sm ms-2" th:if="${canManageRequestTypes}" th:href="@{/masters/request-types}">申請種別一覧</a>
+            <a class="btn btn-outline-primary btn-sm ms-2" th:if="${canManageAssetCategories}" th:href="@{/masters/asset-categories}">資産分類一覧</a>
+            <a class="btn btn-outline-primary btn-sm ms-2" th:if="${canManagePlatformCompanies}" th:href="@{/admin/companies}">会社管理</a>
+            <a class="btn btn-outline-primary btn-sm ms-2" th:if="${canManagePlatformDepartments}" th:href="@{/admin/companies/1/departments}">部署管理 Platform</a>
+            <a class="btn btn-outline-primary btn-sm ms-2" th:if="${canManageTenantDepartments}" th:href="@{/departments}">部署管理 Tenant</a>
+            <a class="btn btn-outline-primary btn-sm ms-2" th:if="${canManagePlatformUsers}" th:href="@{/admin/users}">ユーザー管理 Platform</a>
+            <a class="btn btn-outline-primary btn-sm ms-2" th:if="${canManageTenantUsers}" th:href="@{/users}">ユーザー管理 Tenant</a>
         </div>
     </section>
 

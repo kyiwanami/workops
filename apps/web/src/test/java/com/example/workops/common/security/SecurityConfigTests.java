@@ -59,4 +59,16 @@ class SecurityConfigTests {
         assertThat(source).contains("CognitoLogoutSuccessHandler");
         assertThat(source).contains("logoutSuccessHandler");
     }
+
+    @Test
+    void rootRequiresDbMatchedLoginUserContext() throws Exception {
+        String source = Files.readString(
+                Path.of("src/main/java/com/example/workops/common/security/SecurityConfig.java"),
+                StandardCharsets.UTF_8);
+
+        assertThat(source).contains(
+                ".requestMatchers(\"/\").access",
+                "new AuthorizationDecision",
+                "instanceof LoginUserContext");
+    }
 }

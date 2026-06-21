@@ -15,6 +15,7 @@
 - `thymeleaf-extras-springsecurity` は追加しない
 - 認可の正本は Controller / Service の `@PreAuthorize` とする
 - `Cognito Claims` と `Manager Authorization` の検証リンクはトップから削除する
+- ポートフォリオとして不要な診断 endpoint は Controller / template / README URL 記載ごと削除する
 - 実 Cognito `sub` は git 管理文書に記録しない
 
 ## 統合した既知課題
@@ -29,6 +30,7 @@ P2-10 では、次を同時に扱う。
 - `LoginUserContext` 以外の OAuth2 / OIDC principal では `/` を表示させない
 - トップページのボタンはリンク先 `@PreAuthorize` と一致する boolean model で表示制御する
 - `Cognito Claims` と `Manager Authorization` の検証リンクはトップから削除する
+- `/auth/claims` と `/auth/authorization/manager` は業務機能ではないため削除する
 - `/actuator/health`、login、static assets の public 境界は維持する
 - 実 Cognito `sub` は git 管理文書に記録しない
 
@@ -58,7 +60,7 @@ P2-10 では、次を同時に扱う。
 | ユーザー管理 Platform | `PLATFORM_ADMIN` |
 | ユーザー管理 Tenant | `TENANT_MANAGER` |
 
-`Cognito Claims` と `Manager Authorization` はトップページから削除する。検証が必要な場合は README の確認手順に URL を記載する。
+`Cognito Claims` と `Manager Authorization` はトップページから削除し、診断用 Controller / template / README URL 記載も削除する。
 
 ## ADR
 
@@ -77,9 +79,10 @@ P2-10 では、次を同時に扱う。
 - `HomeController` で現在ユーザーを取得し、リンク単位 boolean を `Model` に追加する
 - `index.html` のボタンに `th:if` を追加する
 - `index.html` から `Cognito Claims` と `Manager Authorization` のリンクを削除する
+- 診断用の `AuthClaimsController`、`AuthAuthorizationController`、対応 template を削除する
 - トップページ表示制御の MockMvc test を追加する
 - `LoginUserContext` 以外の認証 principal が `/` を表示できない test を追加する
-- README の確認手順に必要な検証 URL を整理する
+- README の URL 一覧から診断 endpoint を削除する
 
 ## 除外範囲
 
@@ -100,6 +103,7 @@ P2-10 では、次を同時に扱う。
 - `TENANT_MANAGER` には TENANT 通常業務と TENANT 管理導線が表示される
 - `TENANT_VIEWER` / `TENANT_EDITOR` には申請一覧と資産一覧だけが表示される
 - トップページから `Cognito Claims` と `Manager Authorization` が削除されている
+- `/auth/claims` と `/auth/authorization/manager` の Controller / template / README URL 記載が削除されている
 - 表示される各ボタンの条件がリンク先 `@PreAuthorize` と一致している
 
 ## 確認方法
@@ -124,3 +128,29 @@ MockMvc 確認:
 - AWS dev の CloudFront HTTPS URL で権限別トップページを確認する
 - 表示されているボタンを押して、想定外の 403 が発生しないことを確認する
 - 表示されない管理 URL へ直接アクセスした場合は、リンク先 `@PreAuthorize` により拒否されることを確認する
+
+## 実装結果
+
+- `/` は `LoginUserContext` principal を持つ認証状態だけ表示できるようにした
+- `HomeController` でリンク単位 boolean model を作成し、トップページのボタン表示に反映した
+- トップページから `Cognito Claims` と `Manager Authorization` の検証リンクを削除した
+- 診断用 Controller / template / README URL 記載を削除した
+- `HomeController` unit test、MockMvc による表示 HTML test、template source test、security config source test を追加した
+
+## 検証結果
+
+エージェント確認:
+
+```powershell
+cd C:\git\workops\apps\web
+.\mvnw.cmd '-Dtest=HomeControllerTests,HomeControllerWebTests,TemplateAuthNavigationTests,SecurityConfigTests' test
+```
+
+結果: 成功。16 tests、failures 0、errors 0。
+
+```powershell
+cd C:\git\workops\apps\web
+.\mvnw.cmd test
+```
+
+結果: 成功。Docker daemon 起動後に Testcontainers MySQL を使う integration tests も実行し、251 tests、failures 0、errors 0、skipped 0。

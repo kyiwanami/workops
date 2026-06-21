@@ -196,8 +196,6 @@ $env:WORKOPS_LOCAL_COGNITO_SUB = "00000000-0000-0000-0000-000000000002"
 | `/users/new` | TENANT_MANAGER 向け自社ユーザー作成 |
 | `/users/{userId}` | TENANT_MANAGER 向け自社ユーザー詳細 |
 | `/users/{userId}/edit` | TENANT_MANAGER 向け自社ユーザー編集 |
-| `/auth/claims` | 認証情報確認 |
-| `/auth/authorization/manager` | 管理者認可確認 |
 
 ## テスト
 

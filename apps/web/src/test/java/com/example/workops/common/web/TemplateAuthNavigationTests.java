@@ -29,6 +29,28 @@ class TemplateAuthNavigationTests {
         assertThat(template).doesNotContain("href=\"/logout\"");
     }
 
+    @Test
+    void indexTemplateUsesBooleanModelAndRemovesAuthVerificationLinks() throws Exception {
+        String template = template("templates/index.html");
+
+        assertThat(template).contains(
+                "th:if=\"${canViewRequests}\"",
+                "th:if=\"${canViewAssets}\"",
+                "th:if=\"${canManageRequestTypes}\"",
+                "th:if=\"${canManageAssetCategories}\"",
+                "th:if=\"${canManagePlatformCompanies}\"",
+                "th:if=\"${canManagePlatformDepartments}\"",
+                "th:if=\"${canManageTenantDepartments}\"",
+                "th:if=\"${canManagePlatformUsers}\"",
+                "th:if=\"${canManageTenantUsers}\"");
+        assertThat(template).doesNotContain(
+                "sec:authorize",
+                "@{/auth/claims}",
+                "@{/auth/authorization/manager}",
+                "Cognito Claims",
+                "Manager Authorization");
+    }
+
     private String template(String path) throws Exception {
         return new ClassPathResource(path).getContentAsString(StandardCharsets.UTF_8);
     }
