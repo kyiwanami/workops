@@ -117,7 +117,7 @@ P2-5 へ同じ AWS dev 実行確認セッションを継続するため、`AppRu
 
 AWS dev 確認:
 
-- AWS account は `REMOVED_AWS_ACCOUNT_ID`
+- AWS account は手元の AWS 認証で確認済み
 - AWS region は `ap-northeast-1`
 - `workops-dev-data` は `CREATE_COMPLETE`
 - `workops-dev-egress` は `CREATE_COMPLETE`

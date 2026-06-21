@@ -120,7 +120,7 @@ P2-4 で拡張した `EdgeStack` を AWS dev に手動 deploy し、CloudFront d
 
 ユーザー確認:
 
-- AWS account `REMOVED_AWS_ACCOUNT_ID`、region `ap-northeast-1` を確認した
+- AWS account は手元の AWS 認証で確認済み、region `ap-northeast-1` を確認した
 - 維持対象の `FoundationStack`、`RegistryStack`、`LogsStack` が存在し、`DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` が未作成であることを確認した
 - `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の CDK diff を確認した
 - `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` を deploy した

@@ -82,8 +82,8 @@ SET
             AND c.is_deleted = FALSE
             AND d.is_deleted = FALSE
     ),
-    username = 'iwanami',
-    name = '岩波',
+    username = 'sample-manager',
+    name = 'サンプル管理者',
     email = 'sample-manager@example.local',
     actor_type = 'TENANT',
     is_deleted = FALSE,
@@ -106,8 +106,8 @@ SELECT
     c.id,
     d.id,
     '00000000-0000-0000-0000-000000000099',
-    'iwanami',
-    '岩波',
+    'sample-manager',
+    'サンプル管理者',
     'sample-manager@example.local',
     'TENANT',
     FALSE,
