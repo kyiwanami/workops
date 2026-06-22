@@ -457,10 +457,10 @@ Phase 2α-2 で buildspec に品質ゲートを組み込んだ際、初回から
 - Maven 品質ゲートは `apps/web` で実行する
 - CDK TypeScript 側は `infra/cdk` を対象にする
 - `infra/cdk/package.json` に `lint`、`lint:fix`、`format:check`、`format:write` を追加する
-- `infra/cdk/package.json` に `cdk:pipeline` script を追加し、`bin/cdk-pipeline.ts` を明示して実行できるようにする
 - `lint` は `eslint .`、`lint:fix` は `eslint . --fix` とする
 - `format:check` は `prettier --check .`、`format:write` は `prettier --write .` とする
-- `cdk:pipeline` は `cdk --app "npx ts-node --prefer-ts-exts bin/cdk-pipeline.ts"` とする
+- P2-alpha-1 の CDK synth / cdk-nag は現行 entrypoint の `cdk:deploy-app`、`cdk:infra`、`cdk:runtime` を対象にする
+- `cdk:pipeline` script と `bin/cdk-pipeline.ts` は P2-alpha-2 で追加する
 - Spotless / Prettier の自動整形差分と意味のある実装修正は、可能な限り commit を分ける
 - 本番コード変更は許可するが、業務仕様変更を目的にしない
 - 本番コードを変更した場合は、対象機能のローカル動作確認手順または結果を実装記録へ残す
