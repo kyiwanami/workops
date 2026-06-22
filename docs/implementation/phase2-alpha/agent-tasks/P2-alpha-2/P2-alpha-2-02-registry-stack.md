@@ -84,18 +84,46 @@ cd C:\git\workops\infra\cdk
 npm run test
 npm run lint
 npm run format:check
+npm run build
 ```
 
 ## 実装時の記録
 
 ### 実装結果
 
-- 未実装。
+- `RegistryStack` を 4 repository 構成に変更した。
+  - `workops-${stage}-web`
+  - `workops-${stage}-migration`
+  - `workops-${stage}-web-cache`
+  - `workops-${stage}-migration-cache`
+- 公開 property を責務別に変更した。
+  - `webRepository`
+  - `migrationRepository`
+  - `webCacheRepository`
+  - `migrationCacheRepository`
+- 既存の `repository` 単一公開を削除した。
+- 本 image repository は immutable tag、最新 10 個保持、untagged image 1日削除にした。
+- cache repository は mutable tag、最新 5 個保持、untagged image 1日削除にした。
+- repository output は 4 repository それぞれの name / uri を明示名で出す形にした。
+- `cdk-runtime.ts` の AppRuntimeStack 呼び出し側は `registryStack.webRepository` を渡す形に変更した。
+- CDK test は 4 repository 構成、immutability、lifecycle、outputs を検証する形に更新した。
 
 ### 確認結果
 
-- 未確認。
+- `cd C:\git\workops\infra\cdk; npm run build`
+  - 成功。
+- `cd C:\git\workops\infra\cdk; npm run test`
+  - 成功。Test Suites: 2 passed, Tests: 21 passed。
+- `cd C:\git\workops\infra\cdk; npm run lint`
+  - 成功。
+- `cd C:\git\workops\infra\cdk; npm run format:check`
+  - 成功。
+- 実装対象の静的検索で `registryStack.repository`、`readonly repository`、ECR repository 1本前提の test が残っていないことを確認した。
+- `cd C:\git\workops\infra\cdk; npm run cdk:infra -- synth --profile amazon-connect`
+  - 成功。AWS account は手元の AWS 認証で確認済み。region は `ap-northeast-1`。
+- `cd C:\git\workops\infra\cdk; npm run cdk:runtime -- synth --profile amazon-connect`
+  - 成功。`WORKOPS_WEB_IMAGE_TAG=test-sha` を指定した。AWS account は手元の AWS 認証で確認済み。region は `ap-northeast-1`。
 
 ### 残課題
 
-- 未整理。
+- MigrationStack への `migrationRepository` 受け渡しは、P2-alpha-2-05 で扱う。

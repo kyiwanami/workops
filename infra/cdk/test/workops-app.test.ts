@@ -117,7 +117,7 @@ describe('WorkOps CDK app', () => {
       cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
       cognitoUserPoolId: identityStack.userPoolId,
       env: testEnv,
-      repository: registryStack.repository,
+      repository: registryStack.webRepository,
       stage,
       stackName: `workops-${stage}-app-runtime`,
       targetGroup: edgeStack.targetGroup,
@@ -271,7 +271,7 @@ describe('WorkOps CDK app', () => {
     });
   });
 
-  test('creates the RegistryStack repository and lifecycle policy', () => {
+  test('creates the RegistryStack repositories and lifecycle policies', () => {
     const app = new App();
     const stage = 'dev';
     const registryStack = new RegistryStack(app, 'RegistryStack', {
@@ -280,9 +280,10 @@ describe('WorkOps CDK app', () => {
     });
     const template = Template.fromStack(registryStack);
 
-    template.resourceCountIs('AWS::ECR::Repository', 1);
+    template.resourceCountIs('AWS::ECR::Repository', 4);
     template.hasResourceProperties('AWS::ECR::Repository', {
       RepositoryName: 'workops-dev-web',
+      ImageTagMutability: 'IMMUTABLE',
       EmptyOnDelete: true,
       LifecyclePolicy: {
         LifecyclePolicyText: Match.serializedJson(
@@ -293,7 +294,94 @@ describe('WorkOps CDK app', () => {
                   tagStatus: 'tagged',
                   tagPatternList: ['*'],
                   countType: 'imageCountMoreThan',
-                  countNumber: 2,
+                  countNumber: 10,
+                }),
+              }),
+              Match.objectLike({
+                selection: Match.objectLike({
+                  tagStatus: 'untagged',
+                  countType: 'sinceImagePushed',
+                  countUnit: 'days',
+                  countNumber: 1,
+                }),
+              }),
+            ]),
+          }),
+        ),
+      },
+    });
+    template.hasResourceProperties('AWS::ECR::Repository', {
+      RepositoryName: 'workops-dev-migration',
+      ImageTagMutability: 'IMMUTABLE',
+      EmptyOnDelete: true,
+      LifecyclePolicy: {
+        LifecyclePolicyText: Match.serializedJson(
+          Match.objectLike({
+            rules: Match.arrayWith([
+              Match.objectLike({
+                selection: Match.objectLike({
+                  tagStatus: 'tagged',
+                  tagPatternList: ['*'],
+                  countType: 'imageCountMoreThan',
+                  countNumber: 10,
+                }),
+              }),
+              Match.objectLike({
+                selection: Match.objectLike({
+                  tagStatus: 'untagged',
+                  countType: 'sinceImagePushed',
+                  countUnit: 'days',
+                  countNumber: 1,
+                }),
+              }),
+            ]),
+          }),
+        ),
+      },
+    });
+    template.hasResourceProperties('AWS::ECR::Repository', {
+      RepositoryName: 'workops-dev-web-cache',
+      ImageTagMutability: 'MUTABLE',
+      EmptyOnDelete: true,
+      LifecyclePolicy: {
+        LifecyclePolicyText: Match.serializedJson(
+          Match.objectLike({
+            rules: Match.arrayWith([
+              Match.objectLike({
+                selection: Match.objectLike({
+                  tagStatus: 'tagged',
+                  tagPatternList: ['*'],
+                  countType: 'imageCountMoreThan',
+                  countNumber: 5,
+                }),
+              }),
+              Match.objectLike({
+                selection: Match.objectLike({
+                  tagStatus: 'untagged',
+                  countType: 'sinceImagePushed',
+                  countUnit: 'days',
+                  countNumber: 1,
+                }),
+              }),
+            ]),
+          }),
+        ),
+      },
+    });
+    template.hasResourceProperties('AWS::ECR::Repository', {
+      RepositoryName: 'workops-dev-migration-cache',
+      ImageTagMutability: 'MUTABLE',
+      EmptyOnDelete: true,
+      LifecyclePolicy: {
+        LifecyclePolicyText: Match.serializedJson(
+          Match.objectLike({
+            rules: Match.arrayWith([
+              Match.objectLike({
+                selection: Match.objectLike({
+                  tagStatus: 'tagged',
+                  tagPatternList: ['*'],
+                  countType: 'imageCountMoreThan',
+                  countNumber: 5,
                 }),
               }),
               Match.objectLike({
@@ -317,8 +405,38 @@ describe('WorkOps CDK app', () => {
       DeletionPolicy: 'Delete',
       UpdateReplacePolicy: 'Delete',
     });
-    template.hasOutput('repositoryName', {});
-    template.hasOutput('repositoryUri', {});
+    template.hasResource('AWS::ECR::Repository', {
+      Properties: {
+        RepositoryName: 'workops-dev-migration',
+        EmptyOnDelete: true,
+      },
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    template.hasResource('AWS::ECR::Repository', {
+      Properties: {
+        RepositoryName: 'workops-dev-web-cache',
+        EmptyOnDelete: true,
+      },
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    template.hasResource('AWS::ECR::Repository', {
+      Properties: {
+        RepositoryName: 'workops-dev-migration-cache',
+        EmptyOnDelete: true,
+      },
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    template.hasOutput('webRepositoryName', {});
+    template.hasOutput('webRepositoryUri', {});
+    template.hasOutput('migrationRepositoryName', {});
+    template.hasOutput('migrationRepositoryUri', {});
+    template.hasOutput('webCacheRepositoryName', {});
+    template.hasOutput('webCacheRepositoryUri', {});
+    template.hasOutput('migrationCacheRepositoryName', {});
+    template.hasOutput('migrationCacheRepositoryUri', {});
   });
 
   test('creates the LogsStack log groups', () => {
@@ -744,7 +862,7 @@ describe('WorkOps CDK app', () => {
       cognitoTenantUserPoolClientId: testCognitoTenantUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
       env: testEnv,
-      repository: registryStack.repository,
+      repository: registryStack.webRepository,
       stage,
       stackName: `workops-${stage}-app-runtime`,
       targetGroup: edgeStack.targetGroup,

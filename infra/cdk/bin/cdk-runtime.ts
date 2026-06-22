@@ -93,7 +93,7 @@ if (webImageTag) {
     cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
     cognitoUserPoolId: identityStack.userPoolId,
     env,
-    repository: registryStack.repository,
+    repository: registryStack.webRepository,
     stage,
     stackName: `workops-${stage}-app-runtime`,
     targetGroup: edgeStack.targetGroup,
