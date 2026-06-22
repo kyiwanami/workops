@@ -14,11 +14,10 @@ import com.example.workops.common.security.LoginUserContext;
  * @param exceptionType 拒否時に呼び出し側へ返す例外種別。成功時はnull
  */
 public record OperationLogRecord(
-        LoginUserContext loginUserContext,
-        String operation,
-        String targetType,
-        Long targetId,
-        String reasonCode,
-        boolean reasonCommentPresent,
-        String exceptionType) {
-}
+    LoginUserContext loginUserContext,
+    String operation,
+    String targetType,
+    Long targetId,
+    String reasonCode,
+    boolean reasonCommentPresent,
+    String exceptionType) {}

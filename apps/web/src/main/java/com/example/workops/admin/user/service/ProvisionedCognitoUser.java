@@ -5,5 +5,4 @@ package com.example.workops.admin.user.service;
  *
  * @param cognitoSub {@code users.cognito_sub} に保存するCognito {@code sub}
  */
-public record ProvisionedCognitoUser(String cognitoSub) {
-}
+public record ProvisionedCognitoUser(String cognitoSub) {}

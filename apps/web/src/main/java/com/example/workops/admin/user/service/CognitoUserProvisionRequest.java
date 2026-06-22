@@ -6,7 +6,4 @@ package com.example.workops.admin.user.service;
  * @param username Cognitoのusernameとして渡すWorkOpsユーザー名
  * @param email Cognitoのemail属性として渡すメールアドレス
  */
-public record CognitoUserProvisionRequest(
-        String username,
-        String email) {
-}
+public record CognitoUserProvisionRequest(String username, String email) {}

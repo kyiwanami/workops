@@ -11,8 +11,4 @@ import com.example.workops.common.security.LoginUserContext;
  * @param exceptionType 例外種別。例外がない場合はnull
  */
 public record SecurityEventLogRecord(
-        LoginUserContext loginUserContext,
-        String eventType,
-        String reasonCode,
-        String exceptionType) {
-}
+    LoginUserContext loginUserContext, String eventType, String reasonCode, String exceptionType) {}

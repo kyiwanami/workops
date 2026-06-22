@@ -1,14 +1,13 @@
 package com.example.workops;
 
-import org.junit.jupiter.api.Test;
-
 import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.Test;
 
 class WorkOpsApplicationTests {
 
-	@Test
-	void applicationClassExists() {
-		assertThat(WorkOpsApplication.class).isNotNull();
-	}
-
+  @Test
+  void applicationClassExists() {
+    assertThat(WorkOpsApplication.class).isNotNull();
+  }
 }

@@ -2,24 +2,21 @@ package com.example.workops.request.model;
 
 import java.time.LocalDateTime;
 
-/**
- * 申請一覧画面に表示する申請の要約。
- */
+/** 申請一覧画面に表示する申請の要約。 */
 public record RequestListItem(
-        Long id,
-        String requesterName,
-        Long assetId,
-        String assetCode,
-        String assetName,
-        Boolean assetDeleted,
-        Long requestTypeValueId,
-        String requestTypeCode,
-        String requestTypeName,
-        Boolean requestTypeValueIsDeleted,
-        String statusCode,
-        String statusName,
-        String title,
-        LocalDateTime submittedAt,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt) {
-}
+    Long id,
+    String requesterName,
+    Long assetId,
+    String assetCode,
+    String assetName,
+    Boolean assetDeleted,
+    Long requestTypeValueId,
+    String requestTypeCode,
+    String requestTypeName,
+    Boolean requestTypeValueIsDeleted,
+    String statusCode,
+    String statusName,
+    String title,
+    LocalDateTime submittedAt,
+    LocalDateTime createdAt,
+    LocalDateTime updatedAt) {}

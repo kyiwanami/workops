@@ -1,59 +1,53 @@
 package com.example.workops.admin.company.mapper;
 
-import java.util.List;
-import java.util.Optional;
-
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-
 import com.example.workops.admin.company.form.CompanySearchForm;
 import com.example.workops.admin.company.model.CompanyDetail;
 import com.example.workops.admin.company.model.CompanyListItem;
+import java.util.List;
+import java.util.Optional;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
-/**
- * PLATFORM_ADMIN向け会社管理とテナント初期化のSQLを実行するMapper。
- */
+/** PLATFORM_ADMIN向け会社管理とテナント初期化のSQLを実行するMapper。 */
 @Mapper
 public interface CompanyAdminMapper {
 
-    List<CompanyListItem> findCompaniesBySearchForm(
-            @Param("companySearchForm") CompanySearchForm companySearchForm);
+  List<CompanyListItem> findCompaniesBySearchForm(
+      @Param("companySearchForm") CompanySearchForm companySearchForm);
 
-    Optional<CompanyDetail> findCompanyDetailById(@Param("companyId") Long companyId);
+  Optional<CompanyDetail> findCompanyDetailById(@Param("companyId") Long companyId);
 
-    Optional<CompanyDetail> findActiveCompanyDetailById(@Param("companyId") Long companyId);
+  Optional<CompanyDetail> findActiveCompanyDetailById(@Param("companyId") Long companyId);
 
-    boolean existsCompanyCode(@Param("code") String code);
+  boolean existsCompanyCode(@Param("code") String code);
 
-    int insertCompany(
-            @Param("code") String code,
-            @Param("name") String name,
-            @Param("createdBy") Long createdBy,
-            @Param("updatedBy") Long updatedBy);
+  int insertCompany(
+      @Param("code") String code,
+      @Param("name") String name,
+      @Param("createdBy") Long createdBy,
+      @Param("updatedBy") Long updatedBy);
 
-    int updateActiveCompanyNameById(
-            @Param("companyId") Long companyId,
-            @Param("name") String name,
-            @Param("updatedBy") Long updatedBy);
+  int updateActiveCompanyNameById(
+      @Param("companyId") Long companyId,
+      @Param("name") String name,
+      @Param("updatedBy") Long updatedBy);
 
-    int logicalDeleteActiveCompanyById(
-            @Param("companyId") Long companyId,
-            @Param("updatedBy") Long updatedBy);
+  int logicalDeleteActiveCompanyById(
+      @Param("companyId") Long companyId, @Param("updatedBy") Long updatedBy);
 
-    Long findLastInsertId();
+  Long findLastInsertId();
 
-    Optional<Long> findActiveGenericMasterIdByCode(@Param("code") String code);
+  Optional<Long> findActiveGenericMasterIdByCode(@Param("code") String code);
 
-    int insertGenericMasterValue(
-            @Param("genericMasterId") Long genericMasterId,
-            @Param("companyId") Long companyId,
-            @Param("code") String code,
-            @Param("name") String name,
-            @Param("sortOrder") Integer sortOrder,
-            @Param("createdBy") Long createdBy,
-            @Param("updatedBy") Long updatedBy);
+  int insertGenericMasterValue(
+      @Param("genericMasterId") Long genericMasterId,
+      @Param("companyId") Long companyId,
+      @Param("code") String code,
+      @Param("name") String name,
+      @Param("sortOrder") Integer sortOrder,
+      @Param("createdBy") Long createdBy,
+      @Param("updatedBy") Long updatedBy);
 
-    Long countGenericMasterValuesByCompanyIdAndMasterCode(
-            @Param("companyId") Long companyId,
-            @Param("genericMasterCode") String genericMasterCode);
+  Long countGenericMasterValuesByCompanyIdAndMasterCode(
+      @Param("companyId") Long companyId, @Param("genericMasterCode") String genericMasterCode);
 }

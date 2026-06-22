@@ -9,8 +9,4 @@ package com.example.workops.common.logging;
  * @param exceptionType 例外種別
  */
 public record ApplicationExceptionLogRecord(
-        String eventType,
-        int status,
-        String path,
-        String exceptionType) {
-}
+    String eventType, int status, String path, String exceptionType) {}

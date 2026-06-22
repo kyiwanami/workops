@@ -7,20 +7,19 @@ import org.springframework.security.authentication.DefaultAuthenticationEventPub
 import org.springframework.security.authorization.AuthorizationEventPublisher;
 import org.springframework.security.authorization.SpringAuthorizationEventPublisher;
 
-/**
- * Spring Security公式イベントをSpringのApplicationEventとして発行する設定。
- */
+/** Spring Security公式イベントをSpringのApplicationEventとして発行する設定。 */
 @Configuration
 public class SecurityEventPublisherConfig {
 
-    @Bean
-    DefaultAuthenticationEventPublisher defaultAuthenticationEventPublisher(
-            ApplicationEventPublisher applicationEventPublisher) {
-        return new DefaultAuthenticationEventPublisher(applicationEventPublisher);
-    }
+  @Bean
+  DefaultAuthenticationEventPublisher defaultAuthenticationEventPublisher(
+      ApplicationEventPublisher applicationEventPublisher) {
+    return new DefaultAuthenticationEventPublisher(applicationEventPublisher);
+  }
 
-    @Bean
-    AuthorizationEventPublisher authorizationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        return new SpringAuthorizationEventPublisher(applicationEventPublisher);
-    }
+  @Bean
+  AuthorizationEventPublisher authorizationEventPublisher(
+      ApplicationEventPublisher applicationEventPublisher) {
+    return new SpringAuthorizationEventPublisher(applicationEventPublisher);
+  }
 }
