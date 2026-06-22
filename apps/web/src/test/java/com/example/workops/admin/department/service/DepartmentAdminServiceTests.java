@@ -86,6 +86,23 @@ class DepartmentAdminServiceTests {
   }
 
   @Test
+  void platformAdminCanFindDepartmentFormPage() {
+    signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+    givenActiveCompany(OTHER_COMPANY_ID);
+
+    DepartmentListPage result =
+        departmentAdminService.findPlatformDepartmentFormPage(OTHER_COMPANY_ID);
+
+    assertCompanyPage(result, OTHER_COMPANY_ID);
+    assertThat(result.showDeleted()).isFalse();
+    assertThat(result.departments()).isEmpty();
+    verify(departmentAdminMapper).findActiveCompanyCodeById(OTHER_COMPANY_ID);
+    verify(departmentAdminMapper).findActiveCompanyNameById(OTHER_COMPANY_ID);
+    verify(departmentAdminMapper, never())
+        .findDepartmentsByCompanyIdAndSearchForm(OTHER_COMPANY_ID, new DepartmentSearchForm(false));
+  }
+
+  @Test
   void platformAdminCanCreateDepartmentForSpecifiedCompany() {
     signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
     givenActiveCompany(OTHER_COMPANY_ID);
@@ -138,6 +155,20 @@ class DepartmentAdminServiceTests {
   }
 
   @Test
+  void tenantManagerCanFindDepartmentFormPage() {
+    signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+    givenActiveCompany(COMPANY_ID);
+
+    DepartmentListPage result = departmentAdminService.findTenantDepartmentFormPage();
+
+    assertCompanyPage(result, COMPANY_ID);
+    assertThat(result.showDeleted()).isFalse();
+    assertThat(result.departments()).isEmpty();
+    verify(departmentAdminMapper).findActiveCompanyCodeById(COMPANY_ID);
+    verify(departmentAdminMapper).findActiveCompanyNameById(COMPANY_ID);
+  }
+
+  @Test
   void duplicateDepartmentCodeIsRejectedBeforeInsert() {
     signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
     givenActiveCompany(COMPANY_ID);
@@ -182,6 +213,34 @@ class DepartmentAdminServiceTests {
         .updateActiveDepartmentNameByIdAndCompanyId(
             DEPARTMENT_ID, COMPANY_ID, "人事部", MANAGER_USER_ID);
     assertSuccessLog("DEPARTMENT_UPDATE", MANAGER_USER_ID, COMPANY_ID, DEPARTMENT_ID);
+  }
+
+  @Test
+  void platformAdminCanFindDepartmentForEdit() {
+    signIn(PLATFORM_USER_ID, null, "PLATFORM", permission("PLATFORM_ADMIN", "WorkOps管理者"));
+    DepartmentListItem department = departmentListItem();
+    givenActiveCompany(OTHER_COMPANY_ID);
+    when(departmentAdminMapper.findActiveDepartmentByIdAndCompanyId(
+            DEPARTMENT_ID, OTHER_COMPANY_ID))
+        .thenReturn(Optional.of(department));
+
+    DepartmentListItem result =
+        departmentAdminService.findPlatformDepartmentForEdit(OTHER_COMPANY_ID, DEPARTMENT_ID);
+
+    assertThat(result).isEqualTo(department);
+  }
+
+  @Test
+  void tenantManagerCanFindDepartmentForEdit() {
+    signIn(MANAGER_USER_ID, COMPANY_ID, "TENANT", permission("TENANT_MANAGER", "管理者"));
+    DepartmentListItem department = departmentListItem();
+    givenActiveCompany(COMPANY_ID);
+    when(departmentAdminMapper.findActiveDepartmentByIdAndCompanyId(DEPARTMENT_ID, COMPANY_ID))
+        .thenReturn(Optional.of(department));
+
+    DepartmentListItem result = departmentAdminService.findTenantDepartmentForEdit(DEPARTMENT_ID);
+
+    assertThat(result).isEqualTo(department);
   }
 
   @Test

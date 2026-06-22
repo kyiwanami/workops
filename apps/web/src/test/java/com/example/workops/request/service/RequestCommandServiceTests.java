@@ -250,6 +250,113 @@ class RequestCommandServiceTests {
   }
 
   @Test
+  void editorCanFindDraftForEdit() {
+    signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
+    RequestDetail requestDetail = requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT", null);
+    when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+        .thenReturn(Optional.of(requestDetail));
+
+    RequestDetail result = requestCommandService.findDraftForEdit(REQUEST_ID);
+
+    assertThat(result).isEqualTo(requestDetail);
+    verify(requestMapper).findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID);
+  }
+
+  @Test
+  void editorCannotFindDraftForEditWhenRequestNotFound() {
+    signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
+    when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> requestCommandService.findDraftForEdit(REQUEST_ID))
+        .isInstanceOfSatisfying(
+            ResponseStatusException.class,
+            exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+  }
+
+  @Test
+  void editorCannotFindDraftForEditWhenRequesterDoesNotMatch() {
+    signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
+    when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+        .thenReturn(Optional.of(requestDetail(REQUEST_ID, 3L, "DRAFT", "既存の申請コメント")));
+
+    assertThatThrownBy(() -> requestCommandService.findDraftForEdit(REQUEST_ID))
+        .isInstanceOf(AccessDeniedException.class);
+  }
+
+  @Test
+  void managerCanFindSubmittedRequestForReject() {
+    signIn(MANAGER_USER_ID, COMPANY_ID, permission("TENANT_MANAGER", "管理者"));
+    RequestDetail submittedRequest =
+        requestDetail(REQUEST_ID, REQUESTER_USER_ID, "SUBMITTED", null);
+    when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+        .thenReturn(Optional.of(submittedRequest));
+
+    RequestDetail result = requestCommandService.findSubmittedForReject(REQUEST_ID);
+
+    assertThat(result).isEqualTo(submittedRequest);
+  }
+
+  @Test
+  void managerCannotFindSubmittedRequestForRejectWhenStatusIsNotSubmitted() {
+    signIn(MANAGER_USER_ID, COMPANY_ID, permission("TENANT_MANAGER", "管理者"));
+    when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+        .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT", null)));
+
+    assertThatThrownBy(() -> requestCommandService.findSubmittedForReject(REQUEST_ID))
+        .isInstanceOf(AccessDeniedException.class);
+  }
+
+  @Test
+  void managerCanFindSubmittedRequestForRemand() {
+    signIn(MANAGER_USER_ID, COMPANY_ID, permission("TENANT_MANAGER", "管理者"));
+    RequestDetail submittedRequest =
+        requestDetail(REQUEST_ID, REQUESTER_USER_ID, "SUBMITTED", null);
+    when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+        .thenReturn(Optional.of(submittedRequest));
+
+    RequestDetail result = requestCommandService.findSubmittedForRemand(REQUEST_ID);
+
+    assertThat(result).isEqualTo(submittedRequest);
+  }
+
+  @Test
+  void managerCannotFindSubmittedRequestForRemandWhenStatusIsNotSubmitted() {
+    signIn(MANAGER_USER_ID, COMPANY_ID, permission("TENANT_MANAGER", "管理者"));
+    when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+        .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "DRAFT", null)));
+
+    assertThatThrownBy(() -> requestCommandService.findSubmittedForRemand(REQUEST_ID))
+        .isInstanceOf(AccessDeniedException.class);
+  }
+
+  @Test
+  void managerCanRejectSubmittedWithEmptyReviewComment() {
+    signIn(MANAGER_USER_ID, COMPANY_ID, permission("TENANT_MANAGER", "管理者"));
+    when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+        .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "SUBMITTED", null)));
+
+    requestCommandService.rejectSubmitted(REQUEST_ID, new RequestReviewForm(""));
+
+    verify(requestMapper)
+        .rejectSubmittedByIdAndCompanyId(REQUEST_ID, COMPANY_ID, "", MANAGER_USER_ID);
+    assertSuccessLog("REQUEST_REJECT", REQUEST_ID, false);
+  }
+
+  @Test
+  void managerCanRemandSubmittedWithNullReviewComment() {
+    signIn(MANAGER_USER_ID, COMPANY_ID, permission("TENANT_MANAGER", "管理者"));
+    when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
+        .thenReturn(Optional.of(requestDetail(REQUEST_ID, REQUESTER_USER_ID, "SUBMITTED", null)));
+
+    requestCommandService.remandSubmitted(REQUEST_ID, RequestReviewForm.empty());
+
+    verify(requestMapper)
+        .remandSubmittedByIdAndCompanyId(REQUEST_ID, COMPANY_ID, null, MANAGER_USER_ID);
+    assertSuccessLog("REQUEST_REMAND", REQUEST_ID, false);
+  }
+
+  @Test
   void deletedOrOtherCompanyRequestTypeIsRejectedForCreateAndUpdate() {
     signIn(REQUESTER_USER_ID, COMPANY_ID, permission("TENANT_EDITOR", "編集者"));
     when(requestMapper.findDetailByIdAndCompanyId(REQUEST_ID, COMPANY_ID))
