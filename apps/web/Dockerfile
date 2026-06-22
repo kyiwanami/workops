@@ -10,9 +10,11 @@ COPY src/ src/
 RUN chmod +x ./mvnw && ./mvnw -DskipTests package
 
 # The runtime stage keeps only the Java runtime and the built WorkOps web application jar.
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:25-jre-alpine
 
 WORKDIR /app
+
+RUN apk upgrade --no-cache
 
 COPY --from=build /workspace/target/workops-web-0.0.1-SNAPSHOT.jar /app/workops-web.jar
 

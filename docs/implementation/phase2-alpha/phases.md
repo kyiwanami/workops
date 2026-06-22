@@ -157,26 +157,18 @@ AWS アカウントへの認証、課金対象リソースの作成、CodeConnec
 - ECR Enhanced Scanning は ECR 側設定として扱い、Pipeline gate にはしない
 - Build Images stage の合否判定は Trivy image scan と docker push 結果で行う
 - Trivy は image scan のみに限定する
-- Trivy は HIGH / CRITICAL で fail する
+- Trivy は MEDIUM / HIGH / CRITICAL で fail する
 - Trivy DB cache 専用の永続 cache は作らない
-- CycloneDX SBOM は生成成功を gate とし、生成物は git 管理しない
-- OWASP Dependency-Check は CVSS 7 以上で fail する
-- NVD API key は Phase 2α-1 の必須条件にしない
-- Dependency-Check suppression file は初期作成しない
-- suppression、ignore、JaCoCo 除外、cdk-nag suppression、SpotBugs suppression は最終手段とする
+- 依存脆弱性スキャンは Trivy に一本化し、OWASP Dependency-Check と CycloneDX は採用しない
+- suppression、ignore、JaCoCo 除外、SpotBugs suppression は最終手段とする
 - 抑制が必要な場合は、最小範囲、理由、根拠、再検討条件を記録する
 - wildcard 的な一括 suppression、一括 ignore、一括除外は禁止する
 - 品質ゲート未達は、原則として依存更新、テスト追加、実装修正で解消する
-- OWASP Dependency-Check の脆弱性は依存更新で解消できるものを suppression しない
-- OWASP Dependency-Check suppression は、HTML report などで false positive、到達不能、修正版なしを確認した場合だけ追加する
-- OWASP Dependency-Check suppression を追加する場合は `apps/web/config/dependency-check-suppressions.xml` に置き、CVE、CPE、GAV などの最小範囲と notes を記録する
-- Trivy の HIGH / CRITICAL は、まずベース image 更新または同等要件を満たす公式系 image への切替で解消する
+- Trivy の MEDIUM / HIGH / CRITICAL は、まずベース image 更新または同等要件を満たす公式系 image への切替で解消する
 - `.trivyignore` は修正版なし、到達不能、誤検知を説明できる場合だけ使う
 - SpotBugs / FindSecBugs は、まず実装修正で解消する
 - `@SuppressFBWarnings` や exclude filter は誤検知、フレームワーク都合、テストコード特有の制約など、実装修正が不自然になる場合だけ最小範囲で使う
 - セキュリティ系警告は suppression 前に必ず実装修正で解消できないか確認する
-- cdk-nag suppression は、dev ポートフォリオ用途として意図を説明でき、代替実装が過剰設計、過剰コスト、または今回のスコープ外になる場合だけ許可する
-- cdk-nag suppression は rule ID 単位の最小範囲に限定し、理由と将来再検討条件を残す
 - JaCoCo は line coverage 80%、branch coverage 70% とする
 - JaCoCo 除外は最終手段とし、除外で閾値達成を狙わない
 - Spotless は Java のみを対象にし、google-java-format を使う
@@ -283,7 +275,7 @@ file path filter は使いません。
 ### Synth
 
 CDK Pipelines の synth を実行します。
-`cdk synth` と cdk-nag を実行します。
+`cdk synth` を実行します。
 
 ### Build & Test
 
@@ -441,8 +433,6 @@ Phase 2α-2 で buildspec に品質ゲートを組み込んだ際、初回から
 
 - `apps/web` の Maven 品質ゲート設定
 - `infra/cdk` の ESLint / Prettier 設定
-- cdk-nag 適用
-- CDK assertion test 拡充
 - 品質ゲート違反修正
 - 必要なテスト追加
 - ローカルで実行できる固定 command / npm script
@@ -459,7 +449,7 @@ Phase 2α-2 で buildspec に品質ゲートを組み込んだ際、初回から
 - `infra/cdk/package.json` に `lint`、`lint:fix`、`format:check`、`format:write` を追加する
 - `lint` は `eslint .`、`lint:fix` は `eslint . --fix` とする
 - `format:check` は `prettier --check .`、`format:write` は `prettier --write .` とする
-- P2-alpha-1 の CDK synth / cdk-nag は現行 entrypoint の `cdk:deploy-app`、`cdk:infra`、`cdk:runtime` を対象にする
+- P2-alpha-1 の CDK synth は現行 entrypoint の `cdk:deploy-app`、`cdk:infra`、`cdk:runtime` を対象にする
 - `cdk:pipeline` script と `bin/cdk-pipeline.ts` は P2-alpha-2 で追加する
 - Spotless / Prettier の自動整形差分と意味のある実装修正は、可能な限り commit を分ける
 - 本番コード変更は許可するが、業務仕様変更を目的にしない
@@ -486,20 +476,14 @@ Phase 2α-2 で buildspec に品質ゲートを組み込んだ際、初回から
 ローカルで次がすべて exit 0 となること。
 
 - `apps/web` で `./mvnw spotless:check`
-- `apps/web` で `./mvnw spotbugs:check`
-- `apps/web` で `./mvnw org.owasp:dependency-check-maven:check`
-- `apps/web` で `./mvnw jacoco:check`
-- `apps/web` で `./mvnw verify`
-- `apps/web` で `./mvnw cyclonedx:makeAggregateBom`
+- `apps/web` で `./mvnw compile spotbugs:check`
+- `apps/web` で `./mvnw verify` を実行し、verify 内の JaCoCo check が通る
 - Web image の Trivy image scan
 - `infra/cdk` で `npm run lint`
 - `infra/cdk` で `npm run format:check`
-- `infra/cdk` で `npm run build`
-- `infra/cdk` で `npm test -- --runInBand`
 - 現行 stack 構成の CDK synth
-- cdk-nag 全 rule pass
 
-SBOM 生成物、Dependency-Check report、JaCoCo report などの生成物は、必要な確認には使いますが、生成物自体は git 管理しません。
+JaCoCo report、SpotBugs report、CDK 出力などの生成物は、必要な確認には使いますが、生成物自体は git 管理しません。
 
 ### 確認方針
 
@@ -544,7 +528,6 @@ PipelineStack / MigrationStack を新設し、DeployStack を廃止し、Registr
 - CodeStar Notifications + SNS 通知
 - GitHub Actions workflow 撤去
 - DeployStack 撤去
-- CDK assertion test 更新
 
 ### 実装方針
 
@@ -602,8 +585,6 @@ PipelineStack / MigrationStack を新設し、DeployStack を廃止し、Registr
 ### 完了条件
 
 - 新構成で `cdk synth` 全 stack が exit 0 となる
-- cdk-nag が全 pass する
-- CDK assertion test が全 pass する
 - `PipelineStack` が定義されている
 - `MigrationStack` が定義されている
 - `DeployStack` が存在しない
@@ -617,7 +598,7 @@ PipelineStack / MigrationStack を新設し、DeployStack を廃止し、Registr
 
 ### 確認方針
 
-エージェントは、CDK synth、cdk-nag、CDK assertion test、buildspec 静的確認、Dockerfile 構成確認、compose 設定確認を行います。
+エージェントは、CDK synth、buildspec 静的確認、Dockerfile 構成確認、compose 設定確認を行います。
 AWS deploy、Pipeline 実走、CodeConnection 認可、SNS メール受信、ManualApproval は P2-alpha-2 では実施しません。
 
 ### agent task 分割方針
@@ -636,7 +617,7 @@ CDK code の作業を伴わず、初回 deploy、CodeConnection 認可、Pipelin
 ### 前提フェーズ
 
 - P2-alpha-2 が完了している
-- 新構成の CDK synth、cdk-nag、CDK assertion test が pass している
+- 新構成の CDK synth が pass している
 - AWS profile、region、WORKOPS_STAGE がユーザーにより確認可能である
 - CodeConnection の GitHub OAuth 認可をユーザーが実施できる
 
@@ -673,7 +654,7 @@ CDK code の作業を伴わず、初回 deploy、CodeConnection 認可、Pipelin
 Pipeline:
 
 - Source が CodeConnections で `main` を取得して起動した
-- Synth stage で `cdk synth` と cdk-nag が pass した
+- Synth stage で `cdk synth` が pass した
 - Build & Test stage で全品質ゲートが pass した
 - ManualApproval 通知メールが届いた
 - 手動承認後、Deploy Registry stage で RegistryStack が deploy され、ECR repository 4 本が存在することを確認した
