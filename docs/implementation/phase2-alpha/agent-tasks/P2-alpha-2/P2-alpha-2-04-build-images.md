@@ -116,14 +116,38 @@ npm run cdk:pipeline -- synth
 
 ## 実装時の記録
 
+- 2026-06-23: `PipelineStack` に `BuildImages` wave を追加し、`BuildWebImage` と `BuildMigrationImage` を同一 stage / 同一 run order の CodeBuild step として定義した。
+- 2026-06-23: image tag は CodePipeline source の `CommitId` を `COMMIT_SHA` として渡し、web / migration 両方で同一 commit SHA tag を使う構成にした。
+- 2026-06-23: buildx の registry cache は web / migration それぞれの cache repository に `buildcache` tag で push し、`mode=max` を使う構成にした。
+- 2026-06-23: Trivy は `public.ecr.aws/aquasecurity/trivy:0.71.2` の container image を使い、MEDIUM / HIGH / CRITICAL を `--exit-code 1` で gate する構成にした。
+- 2026-06-23: P2-alpha-2 の範囲どおり、AWS deploy / Pipeline 実走 / 実 ECR push は実施していない。
+
 ### 実装結果
 
-- 未実装。
+- `infra/cdk/lib/pipeline-stack.ts`
+  - `BuildImages` wave を `DeployRegistry` stage の後に追加した。
+  - `BuildWebImage` / `BuildMigrationImage` を別 CodeBuild project として追加した。
+  - Dockerfile / build context / image repository / cache repository を web と migration で分離した。
+  - ECR login、buildx builder 作成、buildx build、Trivy image scan、docker push の command を CodeBuildStep に定義した。
+  - ECR push / pull 用 IAM policy を image repository と cache repository の ARN に限定して追加した。
+- `infra/cdk/test/workops-app.test.ts`
+  - `BuildImages` stage、2 project 並列、commit SHA env、buildx registry cache、Trivy gate、repository 名、Dockerfile、context、ECR IAM policy の検証を追加した。
+  - `WORKOPS_WEB_IMAGE_TAG`、`:latest`、`:dev` が PipelineStack template に出ないことを検証した。
 
 ### 確認結果
 
-- 未確認。
+- `cd C:\git\workops\infra\cdk; npm run build`
+  - 成功。
+- `cd C:\git\workops\infra\cdk; npm run test`
+  - 成功。2 test suites / 22 tests passed。
+- `cd C:\git\workops\infra\cdk; npm run lint`
+  - 成功。
+- `cd C:\git\workops\infra\cdk; npm run format:check`
+  - 成功。
+- AWS credential 環境変数を削除し、dummy account / dummy email で `npm run cdk:pipeline -- synth --quiet`
+  - 成功。
 
 ### 残課題
 
-- 未整理。
+- Build Images の実 ECR push、Trivy 実 scan、AWS deploy、Pipeline 実走は P2-alpha-2 の範囲外。
+- Build Images stage で作った commit SHA image tag を Migration RunTask / AppRuntime へ渡す処理は P2-alpha-2-05 / P2-alpha-2-06 で扱う。

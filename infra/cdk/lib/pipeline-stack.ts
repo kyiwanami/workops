@@ -1,4 +1,5 @@
 import {
+  Aws,
   CfnOutput,
   Duration,
   Environment,
@@ -37,6 +38,14 @@ export interface PipelineStackProps extends StackProps {
 interface RegistryDeployStageProps {
   env?: Environment;
   stage: string;
+}
+
+interface BuildImageConfig {
+  cacheRepositoryName: string;
+  dockerfile: string;
+  id: string;
+  repositoryName: string;
+  buildContext: string;
 }
 
 class RegistryDeployStage extends Stage {
@@ -155,6 +164,24 @@ export class PipelineStack extends Stack {
         pre: [buildAndTestStep, manualApprovalStep],
       },
     );
+    pipeline.addWave('BuildImages', {
+      pre: [
+        this.createBuildImageStep(source, {
+          buildContext: 'apps/web',
+          cacheRepositoryName: `workops-${props.stage}-web-cache`,
+          dockerfile: 'apps/web/Dockerfile',
+          id: 'BuildWebImage',
+          repositoryName: `workops-${props.stage}-web`,
+        }),
+        this.createBuildImageStep(source, {
+          buildContext: '.',
+          cacheRepositoryName: `workops-${props.stage}-migration-cache`,
+          dockerfile: 'infra/docker/migration/Dockerfile',
+          id: 'BuildMigrationImage',
+          repositoryName: `workops-${props.stage}-migration`,
+        }),
+      ],
+    });
     pipeline.buildPipeline();
 
     codePipeline.notifyOn('PipelineNotifications', notificationTopic, {
@@ -185,6 +212,69 @@ export class PipelineStack extends Stack {
       computeType: ComputeType.MEDIUM,
       privileged: true,
     };
+  }
+
+  private createBuildImageStep(
+    source: CodePipelineSource,
+    config: BuildImageConfig,
+  ): CodeBuildStep {
+    const registryUri = `${Aws.ACCOUNT_ID}.dkr.ecr.${Aws.REGION}.${Aws.URL_SUFFIX}`;
+    const imageUri = `${registryUri}/${config.repositoryName}:$COMMIT_SHA`;
+    const cacheUri = `${registryUri}/${config.cacheRepositoryName}:buildcache`;
+
+    // Image build steps publish immutable commit images while keeping buildx cache mutable.
+    return new CodeBuildStep(config.id, {
+      buildEnvironment: this.createBuildEnvironment(),
+      commands: [
+        'aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$REGISTRY_URI"',
+        'docker buildx create --name workops-builder --driver docker-container --use',
+        'docker buildx inspect --bootstrap',
+        'docker buildx build --platform linux/arm64 --file "$DOCKERFILE" --tag "$IMAGE_URI" --cache-from "$CACHE_FROM" --cache-to "$CACHE_TO" --load "$BUILD_CONTEXT"',
+        'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock public.ecr.aws/aquasecurity/trivy:0.71.2 image --exit-code 1 --severity MEDIUM,HIGH,CRITICAL --no-progress "$IMAGE_URI"',
+        'docker push "$IMAGE_URI"',
+      ],
+      env: {
+        BUILD_CONTEXT: config.buildContext,
+        CACHE_FROM: `type=registry,ref=${cacheUri}`,
+        CACHE_TO: `type=registry,ref=${cacheUri},mode=max`,
+        COMMIT_SHA: source.sourceAttribute('CommitId'),
+        DOCKERFILE: config.dockerfile,
+        IMAGE_URI: imageUri,
+        REGISTRY_URI: registryUri,
+      },
+      input: source,
+      rolePolicyStatements: [
+        new PolicyStatement({
+          actions: ['ecr:GetAuthorizationToken'],
+          effect: Effect.ALLOW,
+          resources: ['*'],
+        }),
+        new PolicyStatement({
+          actions: [
+            'ecr:BatchCheckLayerAvailability',
+            'ecr:BatchGetImage',
+            'ecr:CompleteLayerUpload',
+            'ecr:GetDownloadUrlForLayer',
+            'ecr:InitiateLayerUpload',
+            'ecr:PutImage',
+            'ecr:UploadLayerPart',
+          ],
+          effect: Effect.ALLOW,
+          resources: [
+            this.createEcrRepositoryArn(config.repositoryName),
+            this.createEcrRepositoryArn(config.cacheRepositoryName),
+          ],
+        }),
+      ],
+    });
+  }
+
+  private createEcrRepositoryArn(repositoryName: string): string {
+    return this.formatArn({
+      service: 'ecr',
+      resource: 'repository',
+      resourceName: repositoryName,
+    });
   }
 
   private restrictConnectionUseToRepositoryAndBranch(

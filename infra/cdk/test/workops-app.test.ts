@@ -441,7 +441,7 @@ describe('WorkOps CDK app', () => {
     template.hasOutput('migrationCacheRepositoryUri', {});
   });
 
-  test('creates the PipelineStack source, quality gate, approval, and registry deploy path', () => {
+  test('creates the PipelineStack source, quality gate, registry deploy, and image builds', () => {
     const app = new App();
     const stage = 'dev';
     const pipelineStack = new PipelineStack(app, 'PipelineStack', {
@@ -513,6 +513,178 @@ describe('WorkOps CDK app', () => {
         Type: 'ARM_CONTAINER',
       }),
     });
+    template.resourceCountIs('AWS::CodeBuild::Project', 5);
+    template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
+      Stages: Match.arrayWith([
+        Match.objectLike({
+          Actions: Match.arrayWith([
+            Match.objectLike({
+              Name: 'BuildAndTest',
+              RunOrder: 1,
+            }),
+            Match.objectLike({
+              Name: 'ManualApproval',
+              RunOrder: 2,
+            }),
+          ]),
+          Name: 'DeployRegistry',
+        }),
+        Match.objectLike({
+          Actions: Match.arrayWith([
+            Match.objectLike({
+              Configuration: Match.objectLike({
+                EnvironmentVariables: Match.stringLikeRegexp('COMMIT_SHA.*CommitId'),
+              }),
+              Name: 'BuildWebImage',
+              RunOrder: 1,
+            }),
+          ]),
+          Name: 'BuildImages',
+        }),
+      ]),
+    });
+    template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
+      Stages: Match.arrayWith([
+        Match.objectLike({
+          Actions: Match.arrayWith([
+            Match.objectLike({
+              Configuration: Match.objectLike({
+                EnvironmentVariables: Match.stringLikeRegexp('COMMIT_SHA.*CommitId'),
+              }),
+              Name: 'BuildMigrationImage',
+              RunOrder: 1,
+            }),
+          ]),
+          Name: 'BuildImages',
+        }),
+      ]),
+    });
+    template.hasResourceProperties('AWS::CodeBuild::Project', {
+      Environment: Match.objectLike({
+        ComputeType: 'BUILD_GENERAL1_MEDIUM',
+        EnvironmentVariables: Match.arrayWith([
+          Match.objectLike({
+            Name: 'BUILD_CONTEXT',
+            Value: 'apps/web',
+          }),
+          Match.objectLike({
+            Name: 'DOCKERFILE',
+            Value: 'apps/web/Dockerfile',
+          }),
+        ]),
+        Image: 'aws/codebuild/amazonlinux-aarch64-standard:3.0',
+        PrivilegedMode: true,
+        Type: 'ARM_CONTAINER',
+      }),
+      Source: Match.objectLike({
+        BuildSpec: Match.stringLikeRegexp(
+          'docker buildx build --platform linux/arm64.*--cache-to.*--load',
+        ),
+      }),
+    });
+    template.hasResourceProperties('AWS::CodeBuild::Project', {
+      Environment: Match.objectLike({
+        ComputeType: 'BUILD_GENERAL1_MEDIUM',
+        EnvironmentVariables: Match.arrayWith([
+          Match.objectLike({
+            Name: 'BUILD_CONTEXT',
+            Value: '.',
+          }),
+          Match.objectLike({
+            Name: 'DOCKERFILE',
+            Value: 'infra/docker/migration/Dockerfile',
+          }),
+        ]),
+        Image: 'aws/codebuild/amazonlinux-aarch64-standard:3.0',
+        PrivilegedMode: true,
+        Type: 'ARM_CONTAINER',
+      }),
+      Source: Match.objectLike({
+        BuildSpec: Match.stringLikeRegexp(
+          'docker buildx build --platform linux/arm64.*--cache-to.*--load',
+        ),
+      }),
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'ecr:GetAuthorizationToken',
+            Effect: 'Allow',
+            Resource: '*',
+          }),
+          Match.objectLike({
+            Action: Match.arrayWith([
+              'ecr:BatchCheckLayerAvailability',
+              'ecr:BatchGetImage',
+              'ecr:CompleteLayerUpload',
+              'ecr:GetDownloadUrlForLayer',
+              'ecr:InitiateLayerUpload',
+              'ecr:PutImage',
+              'ecr:UploadLayerPart',
+            ]),
+            Effect: 'Allow',
+            Resource: Match.arrayWith([
+              Match.objectLike({
+                'Fn::Join': Match.arrayWith([
+                  '',
+                  Match.arrayWith([':ecr:ap-northeast-1:123456789012:repository/workops-dev-web']),
+                ]),
+              }),
+              Match.objectLike({
+                'Fn::Join': Match.arrayWith([
+                  '',
+                  Match.arrayWith([
+                    ':ecr:ap-northeast-1:123456789012:repository/workops-dev-web-cache',
+                  ]),
+                ]),
+              }),
+            ]),
+          }),
+        ]),
+      },
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'ecr:GetAuthorizationToken',
+            Effect: 'Allow',
+            Resource: '*',
+          }),
+          Match.objectLike({
+            Action: Match.arrayWith([
+              'ecr:BatchCheckLayerAvailability',
+              'ecr:BatchGetImage',
+              'ecr:CompleteLayerUpload',
+              'ecr:GetDownloadUrlForLayer',
+              'ecr:InitiateLayerUpload',
+              'ecr:PutImage',
+              'ecr:UploadLayerPart',
+            ]),
+            Effect: 'Allow',
+            Resource: Match.arrayWith([
+              Match.objectLike({
+                'Fn::Join': Match.arrayWith([
+                  '',
+                  Match.arrayWith([
+                    ':ecr:ap-northeast-1:123456789012:repository/workops-dev-migration',
+                  ]),
+                ]),
+              }),
+              Match.objectLike({
+                'Fn::Join': Match.arrayWith([
+                  '',
+                  Match.arrayWith([
+                    ':ecr:ap-northeast-1:123456789012:repository/workops-dev-migration-cache',
+                  ]),
+                ]),
+              }),
+            ]),
+          }),
+        ]),
+      },
+    });
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
         Statement: Match.arrayWith([
@@ -557,7 +729,27 @@ describe('WorkOps CDK app', () => {
     expect(templateText).toContain('ManualApproval');
     expect(templateText).toContain('DeployRegistry');
     expect(templateText).toContain('workops-dev-registry');
+    expect(templateText).toContain('BuildImages');
+    expect(templateText).toContain('BuildWebImage');
+    expect(templateText).toContain('BuildMigrationImage');
+    expect(templateText).toContain('workops-dev-web');
+    expect(templateText).toContain('workops-dev-web-cache:buildcache');
+    expect(templateText).toContain('workops-dev-migration');
+    expect(templateText).toContain('workops-dev-migration-cache:buildcache');
+    expect(templateText).toContain('docker buildx create --name workops-builder');
+    expect(templateText).toContain('--driver docker-container --use');
+    expect(templateText).toContain('docker buildx inspect --bootstrap');
+    expect(templateText).toContain('type=registry,ref=');
+    expect(templateText).toContain('mode=max');
+    expect(templateText).toContain('public.ecr.aws/aquasecurity/trivy:0.71.2');
+    expect(templateText).toContain('--exit-code 1');
+    expect(templateText).toContain('--severity MEDIUM,HIGH,CRITICAL');
+    expect(templateText).toContain('docker push');
+    expect(templateText).toContain('$COMMIT_SHA');
     expect(templateText).toContain('npm run cdk:pipeline -- synth');
+    expect(templateText).not.toContain('WORKOPS_WEB_IMAGE_TAG');
+    expect(templateText).not.toContain(':latest');
+    expect(templateText).not.toContain(':dev');
     expect(templateText).not.toContain('workflow_dispatch');
     template.hasOutput('pipelineName', {});
     template.hasOutput('artifactBucketName', {});
