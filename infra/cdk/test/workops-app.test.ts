@@ -13,6 +13,7 @@ import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
 import { IdentityStack } from '../lib/identity-stack';
 import { LogsStack } from '../lib/logs-stack';
+import { PipelineStack } from '../lib/pipeline-stack';
 import { RegistryStack } from '../lib/registry-stack';
 import { SecretStack } from '../lib/secret-stack';
 
@@ -31,6 +32,7 @@ const testCognitoTenantUserPoolClientId = 'tenantclientid';
 const testCognitoHostedUiDomainBaseUrl =
   'https://workops-dev.auth.ap-northeast-1.amazoncognito.com';
 const testGitHubRepository = 'owner/repo';
+const testPipelineNotificationEmail = 'pipeline@example.com';
 const testWebImageTag = 'test-sha';
 const testEnv = {
   account: '123456789012',
@@ -437,6 +439,130 @@ describe('WorkOps CDK app', () => {
     template.hasOutput('webCacheRepositoryUri', {});
     template.hasOutput('migrationCacheRepositoryName', {});
     template.hasOutput('migrationCacheRepositoryUri', {});
+  });
+
+  test('creates the PipelineStack source, quality gate, approval, and registry deploy path', () => {
+    const app = new App();
+    const stage = 'dev';
+    const pipelineStack = new PipelineStack(app, 'PipelineStack', {
+      env: testEnv,
+      githubRepository: testGitHubRepository,
+      notificationEmail: testPipelineNotificationEmail,
+      stage,
+      stackName: `workops-${stage}-pipeline`,
+    });
+    const template = Template.fromStack(pipelineStack);
+    const templateText = JSON.stringify(template.toJSON());
+
+    template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
+      Name: 'workops-dev-pipeline',
+      PipelineType: 'V2',
+    });
+    template.hasResourceProperties('AWS::CodeStarConnections::Connection', {
+      ConnectionName: 'workops-dev-github',
+      ProviderType: 'GitHub',
+    });
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      BucketEncryption: {
+        ServerSideEncryptionConfiguration: [
+          {
+            ServerSideEncryptionByDefault: {
+              SSEAlgorithm: 'AES256',
+            },
+          },
+        ],
+      },
+      BucketName: 'workops-dev-pipeline-artifacts',
+      LifecycleConfiguration: {
+        Rules: Match.arrayWith([
+          Match.objectLike({
+            ExpirationInDays: 30,
+            NoncurrentVersionExpiration: {
+              NoncurrentDays: 1,
+            },
+          }),
+        ]),
+      },
+      VersioningConfiguration: {
+        Status: 'Enabled',
+      },
+    });
+    template.hasResource('AWS::S3::Bucket', {
+      DeletionPolicy: 'Retain',
+      UpdateReplacePolicy: 'Retain',
+    });
+    template.hasResourceProperties('AWS::SNS::Topic', {
+      TopicName: 'workops-dev-pipeline-notifications',
+    });
+    template.hasResourceProperties('AWS::SNS::Subscription', {
+      Endpoint: testPipelineNotificationEmail,
+      Protocol: 'email',
+    });
+    template.hasResourceProperties('AWS::CodeStarNotifications::NotificationRule', {
+      DetailType: 'BASIC',
+      EventTypeIds: [
+        'codepipeline-pipeline-manual-approval-needed',
+        'codepipeline-pipeline-pipeline-execution-failed',
+      ],
+    });
+    template.hasResourceProperties('AWS::CodeBuild::Project', {
+      Environment: Match.objectLike({
+        ComputeType: 'BUILD_GENERAL1_MEDIUM',
+        Image: 'aws/codebuild/amazonlinux-aarch64-standard:3.0',
+        PrivilegedMode: true,
+        Type: 'ARM_CONTAINER',
+      }),
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith([
+              'codeconnections:UseConnection',
+              'codestar-connections:UseConnection',
+            ]),
+            Condition: {
+              StringNotEquals: {
+                'codeconnections:FullRepositoryId': testGitHubRepository,
+              },
+            },
+            Effect: 'Deny',
+          }),
+          Match.objectLike({
+            Action: Match.arrayWith([
+              'codeconnections:UseConnection',
+              'codestar-connections:UseConnection',
+            ]),
+            Condition: {
+              StringNotEquals: {
+                'codeconnections:BranchName': 'main',
+              },
+            },
+            Effect: 'Deny',
+          }),
+        ]),
+      },
+    });
+    expect(templateText).toContain('GitHubSource');
+    expect(templateText).not.toContain('GitHubSourceCodePipelineActionRole');
+    expect(templateText).toContain(testGitHubRepository);
+    expect(templateText).toContain('BranchName');
+    expect(templateText).toContain('main');
+    expect(templateText).toContain('BuildAndTest');
+    expect(templateText).toContain('./mvnw spotless:check');
+    expect(templateText).toContain('./mvnw compile spotbugs:check');
+    expect(templateText).toContain('./mvnw verify');
+    expect(templateText).toContain('npm run lint');
+    expect(templateText).toContain('npm run format:check');
+    expect(templateText).toContain('ManualApproval');
+    expect(templateText).toContain('DeployRegistry');
+    expect(templateText).toContain('workops-dev-registry');
+    expect(templateText).toContain('npm run cdk:pipeline -- synth');
+    expect(templateText).not.toContain('workflow_dispatch');
+    template.hasOutput('pipelineName', {});
+    template.hasOutput('artifactBucketName', {});
+    template.hasOutput('githubConnectionName', {});
+    template.hasOutput('notificationTopicName', {});
   });
 
   test('creates the LogsStack log groups', () => {
@@ -1205,12 +1331,14 @@ describe('WorkOps CDK app', () => {
     const deployEntrypointPath = join(__dirname, '..', 'bin', 'cdk-deploy.ts');
     const infraEntrypointPath = join(__dirname, '..', 'bin', 'cdk-infra.ts');
     const runtimeEntrypointPath = join(__dirname, '..', 'bin', 'cdk-runtime.ts');
+    const pipelineEntrypointPath = join(__dirname, '..', 'bin', 'cdk-pipeline.ts');
     const packageJsonText = readFileSync(packageJsonPath, 'utf8');
     const cdkJsonText = readFileSync(cdkJsonPath, 'utf8');
     const deployEntrypointText = readFileSync(deployEntrypointPath, 'utf8');
     const infraEntrypointText = readFileSync(infraEntrypointPath, 'utf8');
     const runtimeEntrypointText = readFileSync(runtimeEntrypointPath, 'utf8');
-    const allEntrypointText = `${deployEntrypointText}\n${infraEntrypointText}\n${runtimeEntrypointText}`;
+    const pipelineEntrypointText = readFileSync(pipelineEntrypointPath, 'utf8');
+    const allEntrypointText = `${deployEntrypointText}\n${infraEntrypointText}\n${runtimeEntrypointText}\n${pipelineEntrypointText}`;
 
     expect(packageJsonText).toContain('"build": "tsc"');
     expect(packageJsonText).toContain('"watch": "tsc -w"');
@@ -1218,6 +1346,7 @@ describe('WorkOps CDK app', () => {
     expect(packageJsonText).toContain('"cdk:deploy-app": "cdk --app');
     expect(packageJsonText).toContain('"cdk:infra": "cdk --app');
     expect(packageJsonText).toContain('"cdk:runtime": "cdk --app');
+    expect(packageJsonText).toContain('"cdk:pipeline": "cdk --app');
     expect(packageJsonText).not.toContain('"bin"');
     expect(packageJsonText).not.toContain('"cdk": "cdk"');
     expect(cdkJsonText).not.toContain('"app"');
@@ -1234,6 +1363,11 @@ describe('WorkOps CDK app', () => {
     expect(runtimeEntrypointText).toContain('WORKOPS_WEB_IMAGE_TAG');
     expect(runtimeEntrypointText).toContain('AppRuntimeStack is not defined');
     expect(runtimeEntrypointText).toContain('edgeStack.addDependency(logsStack)');
+    expect(pipelineEntrypointText).toContain('PipelineStack');
+    expect(pipelineEntrypointText).toContain('GITHUB_REPOSITORY');
+    expect(pipelineEntrypointText).toContain('WORKOPS_PIPELINE_NOTIFICATION_EMAIL');
+    expect(pipelineEntrypointText).not.toContain('WORKOPS_WEB_IMAGE_TAG');
+    expect(pipelineEntrypointText).not.toContain('AppRuntimeStack');
     expect(packageJsonText).not.toContain('synth:dev');
     expect(packageJsonText).not.toContain('diff:dev');
     expect(packageJsonText).not.toContain('deploy:dev');

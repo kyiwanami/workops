@@ -125,14 +125,31 @@ npm run cdk:pipeline -- synth
 
 ## 実装時の記録
 
+- `CodePipelineSource.connection` は action role を直接受け取らないため、core `CodePipeline` と CDK Pipelines の両方で `usePipelineRoleForActions: true` を指定し、Pipeline role に `codeconnections:FullRepositoryId` / `codeconnections:BranchName` 不一致時の明示 Deny を追加した。
+- CodeBuild ARM image は `LinuxArmBuildImage.AMAZON_LINUX_2023_STANDARD_3_0` を使用し、生成 template 上で `aws/codebuild/amazonlinux-aarch64-standard:3.0` になることを確認した。
+- `WORKOPS_PIPELINE_NOTIFICATION_EMAIL` は環境変数で受け取り、git 管理文書には実メールアドレスを記録しない。確認では `pipeline@example.com` を使用した。
+
 ### 実装結果
 
-- 未実装。
+- `infra/cdk/lib/pipeline-stack.ts` を追加し、CodePipeline V2、CDK Pipelines、CodeConnections、artifact bucket、SNS email topic、ManualApproval、Deploy Registry stage を定義した。
+- artifact bucket は S3 managed encryption、`crossAccountKeys: false`、versioning enabled、current object 30日 expire、noncurrent version 1日 expire、Retain にした。
+- Source は GitHub `main` branch の CodeConnections source とし、path filter は使っていない。
+- Synth / Build & Test / ManualApproval / DeployRegistry の順序を CDK Pipelines の stage と pre steps で定義した。
+- Build & Test は `./mvnw spotless:check`、`./mvnw compile spotbugs:check`、`./mvnw verify`、CDK `build` / `test` / `lint` / `format:check` を実行する。
+- CodeStar Notifications は承認待ちと Pipeline 全体失敗だけを SNS topic へ通知し、detail type は `BASIC` にした。
+- `infra/cdk/bin/cdk-pipeline.ts` と `cdk:pipeline` script を追加し、`WORKOPS_STAGE`、`GITHUB_REPOSITORY`、`WORKOPS_PIPELINE_NOTIFICATION_EMAIL` を必須入力にした。
+- CDK test に PipelineStack、entrypoint、CodeConnections IAM 条件、ARM CodeBuild image、通知契機、Build & Test command の検証を追加した。
 
 ### 確認結果
 
-- 未確認。
+- `cd C:\git\workops\infra\cdk; npm run build` 成功。
+- `cd C:\git\workops\infra\cdk; npm run test` 成功。2 suites / 22 tests passed。
+- `cd C:\git\workops\infra\cdk; npm run lint` 成功。
+- `cd C:\git\workops\infra\cdk; npm run format:check` 成功。
+- AWS credential 環境変数を削除し、`WORKOPS_STAGE=dev`、`GITHUB_REPOSITORY=kyiwanami/workops`、`WORKOPS_PIPELINE_NOTIFICATION_EMAIL=pipeline@example.com`、`CDK_DEFAULT_ACCOUNT=000000000000`、`CDK_DEFAULT_REGION=ap-northeast-1` で `npm run cdk:pipeline -- synth --quiet` 成功。
+- 生成 template で `PipelineType: V2`、`codeconnections:FullRepositoryId=kyiwanami/workops`、`codeconnections:BranchName=main`、`aws/codebuild/amazonlinux-aarch64-standard:3.0`、通知 `DetailType: BASIC` を確認した。
 
 ### 残課題
 
-- 未整理。
+- CodeConnection OAuth 認可、PipelineStack deploy、Pipeline 実走はこの task の除外範囲のため未実施。
+- Build Images、MigrationStack、Migration RunTask、AppRuntime Blue/Green、DeployStack / GitHub Actions 撤去は後続 task で扱う。
