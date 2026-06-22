@@ -22,8 +22,7 @@ import {
   ApplicationLoadBalancer,
   ApplicationListener,
   ApplicationProtocol,
-  ApplicationTargetGroup,
-  TargetType,
+  ListenerAction,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
@@ -47,7 +46,6 @@ export interface EdgeStackProps extends StackProps {
 export class EdgeStack extends Stack {
   public readonly loadBalancer: ApplicationLoadBalancer;
   public readonly listener: ApplicationListener;
-  public readonly targetGroup: ApplicationTargetGroup;
   public readonly distribution: Distribution;
   public readonly cloudFrontDomainName: string;
   public readonly cloudFrontHttpsUrl: string;
@@ -65,28 +63,14 @@ export class EdgeStack extends Stack {
       },
     });
 
-    this.targetGroup = new ApplicationTargetGroup(this, 'WebTargetGroup', {
-      vpc: props.vpc,
-      targetType: TargetType.IP,
-      protocol: ApplicationProtocol.HTTP,
-      port: 8080,
-      targetGroupName: `workops-${props.stage}-web-tg`,
-      healthCheck: {
-        path: '/actuator/health',
-        healthyHttpCodes: '200',
-        interval: Duration.seconds(30),
-        timeout: Duration.seconds(5),
-        healthyThresholdCount: 2,
-        unhealthyThresholdCount: 3,
-      },
-    });
-    this.targetGroup.setAttribute('deregistration_delay.timeout_seconds', '30');
-
     this.listener = this.loadBalancer.addListener('HttpListener', {
       port: 80,
       protocol: ApplicationProtocol.HTTP,
       open: false,
-      defaultTargetGroups: [this.targetGroup],
+      defaultAction: ListenerAction.fixedResponse(404, {
+        contentType: 'text/plain',
+        messageBody: 'Not Found',
+      }),
     });
 
     const cloudFrontOriginPrefixList = PrefixList.fromLookup(

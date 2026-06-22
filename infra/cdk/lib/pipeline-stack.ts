@@ -29,6 +29,8 @@ import {
   ManualApprovalStep,
 } from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
+import { AppRuntimeStack } from './app-runtime-stack';
+import { ConfigStack } from './config-stack';
 import { DataStack } from './data-stack';
 import { EdgeStack } from './edge-stack';
 import { EgressStack } from './egress-stack';
@@ -43,7 +45,8 @@ export interface PipelineStackProps extends StackProps {
   stage: string;
   githubRepository: string;
   notificationEmail: string;
-  imageTag: string;
+  webImageTag: string;
+  migrationImageTag: string;
 }
 
 interface RegistryDeployStageProps {
@@ -63,6 +66,12 @@ interface DataNetworkMigrationDeployStageProps {
   env: Environment;
   stage: string;
   migrationImageTag: string;
+}
+
+interface AppRuntimeDeployStageProps {
+  env: Environment;
+  stage: string;
+  webImageTag: string;
 }
 
 class RegistryDeployStage extends Stage {
@@ -157,6 +166,102 @@ class DataNetworkMigrationDeployStage extends Stage {
     this.migrationStack.addDependency(dataStack);
     this.migrationStack.addDependency(egressStack);
     this.migrationStack.addDependency(logsStack);
+  }
+}
+
+class AppRuntimeDeployStage extends Stage {
+  constructor(scope: Construct, id: string, props: AppRuntimeDeployStageProps) {
+    super(scope, id, {
+      env: props.env,
+    });
+
+    const foundationStack = new FoundationStack(this, 'FoundationStack', {
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-foundation`,
+    });
+    const dataStack = new DataStack(this, 'DataStack', {
+      appSecurityGroup: foundationStack.appSecurityGroup,
+      dbSecurityGroup: foundationStack.dbSecurityGroup,
+      dbSubnets: foundationStack.dbSubnets,
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-data`,
+      vpc: foundationStack.vpc,
+    });
+    const configStack = new ConfigStack(this, 'ConfigStack', {
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-config`,
+    });
+    const identityStack = new IdentityStack(this, 'IdentityStack', {
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-identity`,
+    });
+    const logsStack = new LogsStack(this, 'LogsStack', {
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-logs`,
+    });
+    const egressStack = new EgressStack(this, 'EgressStack', {
+      appSubnets: foundationStack.appSubnets,
+      env: props.env,
+      publicSubnets: foundationStack.publicSubnets,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-egress`,
+      vpc: foundationStack.vpc,
+    });
+    const edgeStack = new EdgeStack(this, 'EdgeStack', {
+      albSecurityGroup: foundationStack.albSecurityGroup,
+      appSubnets: foundationStack.appSubnets,
+      cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
+      cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
+      cognitoUserPoolId: identityStack.userPoolId,
+      cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
+      cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-edge`,
+      vpc: foundationStack.vpc,
+    });
+    const webRepository = Repository.fromRepositoryName(
+      foundationStack,
+      'WebRepository',
+      `workops-${props.stage}-web`,
+    );
+
+    // AppRuntime deployment reuses support stack constructs so cross-stack references stay local.
+    const appRuntimeStack = new AppRuntimeStack(this, 'AppRuntimeStack', {
+      albSecurityGroup: foundationStack.albSecurityGroup,
+      appSecurityGroup: foundationStack.appSecurityGroup,
+      appSubnets: foundationStack.appSubnets,
+      cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
+      cluster: foundationStack.ecsCluster,
+      cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
+      cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
+      cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
+      cognitoUserPoolId: identityStack.userPoolId,
+      env: props.env,
+      listener: edgeStack.listener,
+      loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
+      repository: webRepository,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-app-runtime`,
+      vpc: foundationStack.vpc,
+      webImageTag: props.webImageTag,
+      webLogGroup: logsStack.webLogGroup,
+    });
+
+    edgeStack.addDependency(egressStack);
+    edgeStack.addDependency(identityStack);
+    edgeStack.addDependency(logsStack);
+    appRuntimeStack.addDependency(dataStack);
+    appRuntimeStack.addDependency(egressStack);
+    appRuntimeStack.addDependency(edgeStack);
+    appRuntimeStack.addDependency(identityStack);
+    appRuntimeStack.addDependency(configStack);
+    appRuntimeStack.addDependency(logsStack);
   }
 }
 
@@ -286,7 +391,7 @@ export class PipelineStack extends Stack {
       'DeployDataNetworkMigration',
       {
         env: props.env,
-        migrationImageTag: props.imageTag,
+        migrationImageTag: props.migrationImageTag,
         stage: props.stage,
       },
     );
@@ -294,6 +399,13 @@ export class PipelineStack extends Stack {
     pipeline.addWave('MigrationRunTask', {
       pre: [this.createMigrationRunTaskStep(dataNetworkMigrationStage.migrationStack, props.stage)],
     });
+    pipeline.addStage(
+      new AppRuntimeDeployStage(this, 'DeployAppRuntime', {
+        env: props.env,
+        stage: props.stage,
+        webImageTag: props.webImageTag,
+      }),
+    );
     pipeline.buildPipeline();
 
     codePipeline.notifyOn('PipelineNotifications', notificationTopic, {

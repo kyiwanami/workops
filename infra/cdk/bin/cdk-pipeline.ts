@@ -21,8 +21,9 @@ Tags.of(app).add('ManagedBy', 'CDK');
 new PipelineStack(app, 'PipelineStack', {
   env,
   githubRepository,
-  imageTag,
+  migrationImageTag: imageTag,
   notificationEmail,
   stage,
   stackName: `workops-${stage}-pipeline`,
+  webImageTag: imageTag,
 });

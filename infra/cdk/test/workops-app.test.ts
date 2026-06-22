@@ -132,10 +132,12 @@ describe('WorkOps CDK app', () => {
       cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
       cognitoUserPoolId: identityStack.userPoolId,
       env: testEnv,
+      listener: edgeStack.listener,
+      loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
       repository: registryStack.webRepository,
       stage,
       stackName: `workops-${stage}-app-runtime`,
-      targetGroup: edgeStack.targetGroup,
+      vpc: foundationStack.vpc,
       webImageTag: testWebImageTag,
       webLogGroup: logsStack.webLogGroup,
     });
@@ -455,16 +457,17 @@ describe('WorkOps CDK app', () => {
     template.hasOutput('migrationCacheRepositoryUri', {});
   });
 
-  test('creates the PipelineStack source, quality gate, registry deploy, image builds, and migration run', () => {
+  test('creates the PipelineStack source, quality gate, image builds, migration run, and app runtime deploy', () => {
     const app = new App();
     const stage = 'dev';
     const pipelineStack = new PipelineStack(app, 'PipelineStack', {
       env: testEnv,
       githubRepository: testGitHubRepository,
-      imageTag: testMigrationImageTag,
+      migrationImageTag: testMigrationImageTag,
       notificationEmail: testPipelineNotificationEmail,
       stage,
       stackName: `workops-${stage}-pipeline`,
+      webImageTag: testWebImageTag,
     });
     const template = Template.fromStack(pipelineStack);
     const templateText = JSON.stringify(template.toJSON());
@@ -596,6 +599,21 @@ describe('WorkOps CDK app', () => {
             }),
           ]),
           Name: 'MigrationRunTask',
+        }),
+      ]),
+    });
+    template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
+      Stages: Match.arrayWith([
+        Match.objectLike({
+          Actions: Match.arrayWith([
+            Match.objectLike({
+              Name: Match.stringLikeRegexp('workops-dev-app-runtime.Prepare'),
+            }),
+            Match.objectLike({
+              Name: Match.stringLikeRegexp('workops-dev-app-runtime.Deploy'),
+            }),
+          ]),
+          Name: 'DeployAppRuntime',
         }),
       ]),
     });
@@ -852,6 +870,8 @@ describe('WorkOps CDK app', () => {
     expect(templateText).toContain('DeployDataNetworkMigration');
     expect(templateText).toContain('MigrationRunTask');
     expect(templateText).toContain('RunMigration');
+    expect(templateText).toContain('DeployAppRuntime');
+    expect(templateText).toContain('workops-dev-app-runtime');
     expect(templateText).toContain('python3 infra/cdk/scripts/run-migration-task.py');
     expect(templateText).not.toContain('cat > run-migration');
     expect(migrationRunTaskScriptText).toContain('run-task');
@@ -870,6 +890,7 @@ describe('WorkOps CDK app', () => {
     expect(templateText).toContain('npm run cdk:pipeline -- synth');
     expect(templateText).not.toContain('AWS::StepFunctions::StateMachine');
     expect(templateText).not.toContain('AWS::Lambda::Function');
+    expect(templateText).not.toContain('AWS::CodeDeploy');
     expect(templateText).not.toContain('Custom::RunTask');
     expect(templateText).not.toContain('WORKOPS_WEB_IMAGE_TAG');
     expect(templateText).not.toContain(':latest');
@@ -1149,29 +1170,20 @@ describe('WorkOps CDK app', () => {
       Type: 'application',
     });
     template.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+      DefaultActions: Match.arrayWith([
+        Match.objectLike({
+          FixedResponseConfig: Match.objectLike({
+            ContentType: 'text/plain',
+            MessageBody: 'Not Found',
+            StatusCode: '404',
+          }),
+          Type: 'fixed-response',
+        }),
+      ]),
       Port: 80,
       Protocol: 'HTTP',
     });
-    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
-      HealthCheckIntervalSeconds: 30,
-      HealthCheckPath: '/actuator/health',
-      HealthCheckTimeoutSeconds: 5,
-      HealthyThresholdCount: 2,
-      Matcher: {
-        HttpCode: '200',
-      },
-      Port: 8080,
-      Protocol: 'HTTP',
-      TargetGroupAttributes: Match.arrayWith([
-        {
-          Key: 'deregistration_delay.timeout_seconds',
-          Value: '30',
-        },
-      ]),
-      Name: 'workops-dev-web-tg',
-      TargetType: 'ip',
-      UnhealthyThresholdCount: 3,
-    });
+    template.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 0);
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
         Comment: 'workops-dev-web-edge',
@@ -1431,10 +1443,12 @@ describe('WorkOps CDK app', () => {
       cognitoTenantUserPoolClientId: testCognitoTenantUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
       env: testEnv,
+      listener: edgeStack.listener,
+      loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
       repository: registryStack.webRepository,
       stage,
       stackName: `workops-${stage}-app-runtime`,
-      targetGroup: edgeStack.targetGroup,
+      vpc: foundationStack.vpc,
       webImageTag: testWebImageTag,
       webLogGroup: logsStack.webLogGroup,
     });
@@ -1453,7 +1467,7 @@ describe('WorkOps CDK app', () => {
       NetworkMode: 'awsvpc',
       RequiresCompatibilities: ['FARGATE'],
       RuntimePlatform: {
-        CpuArchitecture: 'X86_64',
+        CpuArchitecture: 'ARM64',
         OperatingSystemFamily: 'LINUX',
       },
       ContainerDefinitions: Match.arrayWith([
@@ -1538,24 +1552,119 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('WORKOPS_COGNITO_CLIENT_ID');
     expect(templateText).not.toContain('WORKOPS_COGNITO_REDIRECT_URI');
     expect(templateText).not.toContain('/login/oauth2/code/cognito');
+    template.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+      HealthCheckIntervalSeconds: 30,
+      HealthCheckPath: '/actuator/health',
+      HealthCheckTimeoutSeconds: 5,
+      HealthyThresholdCount: 2,
+      Matcher: {
+        HttpCode: '200',
+      },
+      Name: 'workops-dev-web-blue-tg',
+      Port: 8080,
+      Protocol: 'HTTP',
+      TargetGroupAttributes: Match.arrayWith([
+        {
+          Key: 'deregistration_delay.timeout_seconds',
+          Value: '30',
+        },
+      ]),
+      TargetType: 'ip',
+      UnhealthyThresholdCount: 3,
+    });
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+      Name: 'workops-dev-web-green-tg',
+      TargetType: 'ip',
+    });
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::ListenerRule', {
+      Actions: Match.arrayWith([
+        Match.objectLike({
+          TargetGroupArn: {
+            Ref: Match.stringLikeRegexp('WebBlueTargetGroup'),
+          },
+          Type: 'forward',
+        }),
+      ]),
+      Conditions: Match.arrayWith([
+        Match.objectLike({
+          Field: 'path-pattern',
+          PathPatternConfig: {
+            Values: ['/*'],
+          },
+        }),
+      ]),
+      Priority: 10,
+    });
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 2);
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'workops-dev-web-target-5xx',
+      ComparisonOperator: 'GreaterThanThreshold',
+      DatapointsToAlarm: 2,
+      EvaluationPeriods: 2,
+      Metrics: Match.arrayWith([
+        Match.objectLike({
+          Expression: 'blue5xx + green5xx',
+        }),
+      ]),
+      Threshold: 0,
+      TreatMissingData: 'notBreaching',
+    });
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'workops-dev-web-unhealthy-host',
+      ComparisonOperator: 'GreaterThanThreshold',
+      DatapointsToAlarm: 2,
+      EvaluationPeriods: 2,
+      Metrics: Match.arrayWith([
+        Match.objectLike({
+          Expression: 'blueUnhealthy + greenUnhealthy',
+        }),
+      ]),
+      Threshold: 0,
+      TreatMissingData: 'notBreaching',
+    });
     template.hasResourceProperties('AWS::ECS::Service', {
       DesiredCount: 1,
       DeploymentConfiguration: Match.objectLike({
+        Alarms: Match.objectLike({
+          AlarmNames: Match.arrayWith([
+            Match.objectLike({
+              Ref: Match.stringLikeRegexp('WebTarget5xxAlarm'),
+            }),
+            Match.objectLike({
+              Ref: Match.stringLikeRegexp('WebUnhealthyHostAlarm'),
+            }),
+          ]),
+          Enable: true,
+          Rollback: true,
+        }),
+        BakeTimeInMinutes: 3,
         DeploymentCircuitBreaker: {
           Enable: true,
           Rollback: true,
         },
         MaximumPercent: 200,
         MinimumHealthyPercent: 100,
+        Strategy: 'BLUE_GREEN',
       }),
       HealthCheckGracePeriodSeconds: 90,
       LaunchType: 'FARGATE',
       LoadBalancers: Match.arrayWith([
-        {
+        Match.objectLike({
+          AdvancedConfiguration: Match.objectLike({
+            AlternateTargetGroupArn: {
+              Ref: Match.stringLikeRegexp('WebGreenTargetGroup'),
+            },
+            ProductionListenerRule: {
+              Ref: Match.stringLikeRegexp('WebListenerRule'),
+            },
+          }),
           ContainerName: 'web',
           ContainerPort: 8080,
-          TargetGroupArn: Match.anyValue(),
-        },
+          TargetGroupArn: {
+            Ref: Match.stringLikeRegexp('WebBlueTargetGroup'),
+          },
+        }),
       ]),
       NetworkConfiguration: {
         AwsvpcConfiguration: Match.objectLike({
@@ -1600,6 +1709,7 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('cognito-idp:AdminDisableUser');
     expect(templateText).toContain('WebLogGroup');
     expect(templateText).not.toContain('/workops/dev/migration');
+    expect(templateText).not.toContain('AWS::CodeDeploy');
   });
 
   test('creates the SecretStack without secret resources in P2-2-01', () => {
@@ -1803,8 +1913,9 @@ describe('WorkOps CDK app', () => {
     expect(infraEntrypointText).not.toContain('EdgeStack');
     expect(infraEntrypointText).not.toContain('AppRuntimeStack');
     expect(infraEntrypointText).not.toContain('WORKOPS_WEB_IMAGE_TAG');
-    expect(runtimeEntrypointText).toContain('WORKOPS_WEB_IMAGE_TAG');
-    expect(runtimeEntrypointText).toContain('AppRuntimeStack is not defined');
+    expect(runtimeEntrypointText).toContain('WORKOPS_IMAGE_TAG');
+    expect(runtimeEntrypointText).not.toContain('WORKOPS_WEB_IMAGE_TAG');
+    expect(runtimeEntrypointText).not.toContain('AppRuntimeStack is not defined');
     expect(runtimeEntrypointText).toContain('edgeStack.addDependency(logsStack)');
     expect(pipelineEntrypointText).toContain('PipelineStack');
     expect(pipelineEntrypointText).toContain('GITHUB_REPOSITORY');

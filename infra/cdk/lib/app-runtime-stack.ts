@@ -1,18 +1,36 @@
 import { ArnFormat, Duration, Stack, StackProps } from 'aws-cdk-lib';
-import { CfnSecurityGroupIngress, ISubnet, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
+import { CfnSecurityGroupIngress, ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { IRepository } from 'aws-cdk-lib/aws-ecr';
 import {
+  AlarmBehavior,
+  AlternateTarget,
   Cluster,
-  CfnService,
   ContainerImage,
   CpuArchitecture,
+  DeploymentStrategy,
   FargateService,
   FargateTaskDefinition,
+  ListenerRuleConfiguration,
   LogDrivers,
   OperatingSystemFamily,
   Secret as EcsSecret,
 } from 'aws-cdk-lib/aws-ecs';
-import { ApplicationTargetGroup } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import {
+  ApplicationListener,
+  ApplicationListenerRule,
+  ApplicationProtocol,
+  ApplicationTargetGroup,
+  ListenerAction,
+  ListenerCondition,
+  TargetType,
+} from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import {
+  Alarm,
+  ComparisonOperator,
+  MathExpression,
+  Metric,
+  TreatMissingData,
+} from 'aws-cdk-lib/aws-cloudwatch';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
@@ -22,12 +40,14 @@ import { Construct } from 'constructs';
 export interface AppRuntimeStackProps extends StackProps {
   stage: string;
   cluster: Cluster;
+  vpc: Vpc;
   appSubnets: ISubnet[];
   appSecurityGroup: SecurityGroup;
   albSecurityGroup: SecurityGroup;
   repository: IRepository;
   webLogGroup: ILogGroup;
-  targetGroup: ApplicationTargetGroup;
+  listener: ApplicationListener;
+  loadBalancerFullName: string;
   cognitoUserPoolId: string;
   cognitoPlatformUserPoolClientId: string;
   cognitoTenantUserPoolClientId: string;
@@ -75,7 +95,7 @@ export class AppRuntimeStack extends Stack {
       memoryLimitMiB: 1024,
       runtimePlatform: {
         operatingSystemFamily: OperatingSystemFamily.LINUX,
-        cpuArchitecture: CpuArchitecture.X86_64,
+        cpuArchitecture: CpuArchitecture.ARM64,
       },
     });
 
@@ -129,6 +149,27 @@ export class AppRuntimeStack extends Stack {
       ],
     });
 
+    const blueTargetGroup = this.createTargetGroup('WebBlueTargetGroup', props, 'blue');
+    const greenTargetGroup = this.createTargetGroup('WebGreenTargetGroup', props, 'green');
+    const listenerRule = new ApplicationListenerRule(this, 'WebListenerRule', {
+      listener: props.listener,
+      priority: 10,
+      conditions: [ListenerCondition.pathPatterns(['/*'])],
+      action: ListenerAction.forward([blueTargetGroup]),
+    });
+    const target5xxAlarm = this.createTarget5xxAlarm(
+      props.stage,
+      props.loadBalancerFullName,
+      blueTargetGroup,
+      greenTargetGroup,
+    );
+    const unhealthyHostAlarm = this.createUnhealthyHostAlarm(
+      props.stage,
+      props.loadBalancerFullName,
+      blueTargetGroup,
+      greenTargetGroup,
+    );
+
     this.service = new FargateService(this, 'WebService', {
       cluster: props.cluster,
       serviceName: `workops-${props.stage}-web`,
@@ -137,6 +178,12 @@ export class AppRuntimeStack extends Stack {
       assignPublicIp: false,
       circuitBreaker: {
         rollback: true,
+      },
+      deploymentStrategy: DeploymentStrategy.BLUE_GREEN,
+      bakeTime: Duration.minutes(3),
+      deploymentAlarms: {
+        alarmNames: [target5xxAlarm.alarmName, unhealthyHostAlarm.alarmName],
+        behavior: AlarmBehavior.ROLLBACK_ON_ALARM,
       },
       healthCheckGracePeriod: Duration.seconds(90),
       minHealthyPercent: 100,
@@ -147,19 +194,130 @@ export class AppRuntimeStack extends Stack {
       },
     });
 
-    const serviceResource = this.service.node.defaultChild;
-    if (!(serviceResource instanceof CfnService)) {
-      throw new Error('WebService must synthesize an ECS CfnService');
-    }
+    // ECS native blue/green uses the listener rule as production traffic and green as alternate traffic.
+    const target = this.service.loadBalancerTarget({
+      containerName: 'web',
+      containerPort: 8080,
+      alternateTarget: new AlternateTarget('WebAlternateTarget', {
+        alternateTargetGroup: greenTargetGroup,
+        productionListener: ListenerRuleConfiguration.applicationListenerRule(listenerRule),
+      }),
+    });
+    target.attachToApplicationTargetGroup(blueTargetGroup);
+    this.service.node.addDependency(listenerRule);
+  }
 
-    // The service target group is wired at the CfnService level to avoid mutating shared security groups.
-    serviceResource.loadBalancers = [
-      {
-        containerName: 'web',
-        containerPort: 8080,
-        targetGroupArn: props.targetGroup.targetGroupArn,
+  private createTargetGroup(
+    id: string,
+    props: AppRuntimeStackProps,
+    color: string,
+  ): ApplicationTargetGroup {
+    const targetGroup = new ApplicationTargetGroup(this, id, {
+      vpc: props.vpc,
+      targetType: TargetType.IP,
+      protocol: ApplicationProtocol.HTTP,
+      port: 8080,
+      targetGroupName: `workops-${props.stage}-web-${color}-tg`,
+      healthCheck: {
+        path: '/actuator/health',
+        healthyHttpCodes: '200',
+        interval: Duration.seconds(30),
+        timeout: Duration.seconds(5),
+        healthyThresholdCount: 2,
+        unhealthyThresholdCount: 3,
       },
-    ];
-    this.service.node.addDependency(props.targetGroup);
+    });
+    targetGroup.setAttribute('deregistration_delay.timeout_seconds', '30');
+    return targetGroup;
+  }
+
+  private createTarget5xxAlarm(
+    stage: string,
+    loadBalancerFullName: string,
+    blueTargetGroup: ApplicationTargetGroup,
+    greenTargetGroup: ApplicationTargetGroup,
+  ): Alarm {
+    const totalTarget5xx = new MathExpression({
+      expression: 'blue5xx + green5xx',
+      label: 'Total target 5xx',
+      period: Duration.minutes(1),
+      usingMetrics: {
+        blue5xx: this.createTargetGroupMetric(
+          loadBalancerFullName,
+          blueTargetGroup,
+          'HTTPCode_Target_5XX_Count',
+          'Sum',
+        ),
+        green5xx: this.createTargetGroupMetric(
+          loadBalancerFullName,
+          greenTargetGroup,
+          'HTTPCode_Target_5XX_Count',
+          'Sum',
+        ),
+      },
+    });
+    return new Alarm(this, 'WebTarget5xxAlarm', {
+      alarmName: `workops-${stage}-web-target-5xx`,
+      metric: totalTarget5xx,
+      threshold: 0,
+      evaluationPeriods: 2,
+      datapointsToAlarm: 2,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+  }
+
+  private createUnhealthyHostAlarm(
+    stage: string,
+    loadBalancerFullName: string,
+    blueTargetGroup: ApplicationTargetGroup,
+    greenTargetGroup: ApplicationTargetGroup,
+  ): Alarm {
+    const totalUnhealthyHosts = new MathExpression({
+      expression: 'blueUnhealthy + greenUnhealthy',
+      label: 'Total unhealthy hosts',
+      period: Duration.minutes(1),
+      usingMetrics: {
+        blueUnhealthy: this.createTargetGroupMetric(
+          loadBalancerFullName,
+          blueTargetGroup,
+          'UnHealthyHostCount',
+          'Maximum',
+        ),
+        greenUnhealthy: this.createTargetGroupMetric(
+          loadBalancerFullName,
+          greenTargetGroup,
+          'UnHealthyHostCount',
+          'Maximum',
+        ),
+      },
+    });
+    return new Alarm(this, 'WebUnhealthyHostAlarm', {
+      alarmName: `workops-${stage}-web-unhealthy-host`,
+      metric: totalUnhealthyHosts,
+      threshold: 0,
+      evaluationPeriods: 2,
+      datapointsToAlarm: 2,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+  }
+
+  private createTargetGroupMetric(
+    loadBalancerFullName: string,
+    targetGroup: ApplicationTargetGroup,
+    metricName: string,
+    statistic: string,
+  ): Metric {
+    return new Metric({
+      namespace: 'AWS/ApplicationELB',
+      metricName,
+      dimensionsMap: {
+        LoadBalancer: loadBalancerFullName,
+        TargetGroup: targetGroup.targetGroupFullName,
+      },
+      period: Duration.minutes(1),
+      statistic,
+    });
   }
 }

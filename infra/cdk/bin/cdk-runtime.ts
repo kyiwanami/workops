@@ -17,7 +17,7 @@ const env: Environment = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION,
 };
-const webImageTag = process.env.WORKOPS_WEB_IMAGE_TAG;
+const imageTag = readRequiredEnv('WORKOPS_IMAGE_TAG');
 
 // Runtime deploy owns the paid and session-oriented stacks used for AWS dev verification.
 Tags.of(app).add('Project', 'WorkOps');
@@ -29,7 +29,7 @@ const foundationStack = new FoundationStack(app, 'FoundationStack', {
   stage,
   stackName: `workops-${stage}-foundation`,
 });
-new DataStack(app, 'DataStack', {
+const dataStack = new DataStack(app, 'DataStack', {
   appSecurityGroup: foundationStack.appSecurityGroup,
   dbSecurityGroup: foundationStack.dbSecurityGroup,
   dbSubnets: foundationStack.dbSubnets,
@@ -80,34 +80,34 @@ const edgeStack = new EdgeStack(app, 'EdgeStack', {
   vpc: foundationStack.vpc,
 });
 
-if (webImageTag) {
-  // Runtime deploys must choose the immutable web image tag explicitly.
-  const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
-    albSecurityGroup: foundationStack.albSecurityGroup,
-    appSecurityGroup: foundationStack.appSecurityGroup,
-    appSubnets: foundationStack.appSubnets,
-    cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
-    cluster: foundationStack.ecsCluster,
-    cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
-    cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
-    cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
-    cognitoUserPoolId: identityStack.userPoolId,
-    env,
-    repository: registryStack.webRepository,
-    stage,
-    stackName: `workops-${stage}-app-runtime`,
-    targetGroup: edgeStack.targetGroup,
-    webImageTag,
-    webLogGroup: logsStack.webLogGroup,
-  });
+// Runtime deploys use the same immutable commit image tag as the Pipeline image build.
+const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
+  albSecurityGroup: foundationStack.albSecurityGroup,
+  appSecurityGroup: foundationStack.appSecurityGroup,
+  appSubnets: foundationStack.appSubnets,
+  cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
+  cluster: foundationStack.ecsCluster,
+  cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
+  cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
+  cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
+  cognitoUserPoolId: identityStack.userPoolId,
+  env,
+  listener: edgeStack.listener,
+  loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
+  repository: registryStack.webRepository,
+  stage,
+  stackName: `workops-${stage}-app-runtime`,
+  vpc: foundationStack.vpc,
+  webImageTag: imageTag,
+  webLogGroup: logsStack.webLogGroup,
+});
 
-  appRuntimeStack.addDependency(egressStack);
-  appRuntimeStack.addDependency(edgeStack);
-  appRuntimeStack.addDependency(identityStack);
-  appRuntimeStack.addDependency(configStack);
-} else {
-  console.warn('WORKOPS_WEB_IMAGE_TAG is not set; AppRuntimeStack is not defined.');
-}
+appRuntimeStack.addDependency(egressStack);
+appRuntimeStack.addDependency(edgeStack);
+appRuntimeStack.addDependency(identityStack);
+appRuntimeStack.addDependency(configStack);
+appRuntimeStack.addDependency(dataStack);
+appRuntimeStack.addDependency(logsStack);
 
 edgeStack.addDependency(egressStack);
 edgeStack.addDependency(identityStack);

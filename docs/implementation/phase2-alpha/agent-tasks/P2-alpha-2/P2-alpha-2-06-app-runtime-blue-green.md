@@ -56,6 +56,10 @@ Alarm は P2-alpha-3 で実走確認するが、P2-alpha-2 では CDK code と s
 
 - Amazon ECS の blue/green deployment では、traffic shift 後に blue / green 両 revision が同時稼働する bake time がある。
 - ECS deployment failure detection では CloudWatch alarm を rollback trigger として扱える。
+- 公式ドキュメント確認日: 2026-06-23
+  - Amazon ECS blue/green deployments
+  - Amazon ECS deployment alarms
+  - AWS::ECS::Service DeploymentAlarms
 
 ## 判断メモ
 
@@ -102,27 +106,55 @@ Alarm は P2-alpha-3 で実走確認するが、P2-alpha-2 では CDK code と s
 
 ```powershell
 cd C:\git\workops\infra\cdk
+npm run build
 npm run test
 npm run lint
 npm run format:check
+Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
+$env:AWS_PROFILE = "amazon-connect"
+$env:AWS_REGION = "ap-northeast-1"
+$env:AWS_DEFAULT_REGION = $env:AWS_REGION
+$account = aws sts get-caller-identity --profile $env:AWS_PROFILE --region $env:AWS_REGION --query Account --output text
+$env:CDK_DEFAULT_ACCOUNT = $account
+$env:CDK_DEFAULT_REGION = $env:AWS_REGION
 $env:WORKOPS_STAGE = "dev"
-$env:CDK_DEFAULT_ACCOUNT = "000000000000"
-$env:CDK_DEFAULT_REGION = "ap-northeast-1"
-$env:WORKOPS_WEB_IMAGE_TAG = "test-sha"
-npm run cdk:runtime -- synth
-npm run cdk:pipeline -- synth
+$env:WORKOPS_IMAGE_TAG = "test-sha"
+npm run cdk:runtime -- synth --quiet --profile $env:AWS_PROFILE
+$env:GITHUB_REPOSITORY = "owner/repo"
+$env:WORKOPS_PIPELINE_NOTIFICATION_EMAIL = "pipeline@example.com"
+npm run cdk:pipeline -- synth --quiet --profile $env:AWS_PROFILE
 ```
 
 ## 実装時の記録
 
+- 2026-06-23: ECS native blue/green と deployment alarms の公式ドキュメントを確認した。
+- 2026-06-23: Latency alarm は数値 SLO が P2-alpha-2 で未定義のため採用せず、ALB target 5xx と unhealthy host を deployment rollback 用 alarm とした。
+- 2026-06-23: P2-alpha-2 では AWS deploy / Pipeline 実走 / ECR push / ECS RunTask は行わず、CDK synth までを確認対象にした。
+
 ### 実装結果
 
-- 未実装。
+- `EdgeStack` は internal ALB、listener、CloudFront、Cognito client URL updater の所有に絞り、listener default action は fixed 404 にした。
+- `AppRuntimeStack` は blue / green target group、listener rule、ARM64 Fargate task definition、ECS native blue/green service、deployment alarms を所有する構成にした。
+- Web ECS service は `DeploymentStrategy.BLUE_GREEN`、bake time 3分、rollback enabled deployment alarms を使う。
+- Web ECS service は task 起動失敗を早く検出するため、ECS deployment circuit breaker も rollback enabled で維持する。
+- Web image tag は `WORKOPS_IMAGE_TAG` から渡し、`WORKOPS_WEB_IMAGE_TAG` は復活させない。
+- `PipelineStack` に `DeployAppRuntime` stage を追加し、`MigrationRunTask` 後に AppRuntimeStack を deploy する配線にした。
+- CodeDeploy application、deployment group、appspec.yml、Lambda / Step Functions / custom resource による deploy hook は追加していない。
 
 ### 確認結果
 
-- 未確認。
+- `npm run build` 成功。
+- `npm run test -- --runInBand` 成功。
+- `npm run lint` 成功。
+- `npm run format:check` 成功。
+- AWS profile `amazon-connect` / region `ap-northeast-1` で `aws sts get-caller-identity` により認証先を確認済み。
+- `WORKOPS_STAGE=dev`、`WORKOPS_IMAGE_TAG=test-sha` で `npm run cdk:runtime -- synth --quiet --profile amazon-connect` 成功。
+- `WORKOPS_STAGE=dev`、`WORKOPS_IMAGE_TAG=test-sha`、`GITHUB_REPOSITORY=kyiwanami/workops`、`WORKOPS_PIPELINE_NOTIFICATION_EMAIL` 設定で `npm run cdk:pipeline -- synth --quiet --profile amazon-connect` 成功。
+- AWS deploy、Pipeline 実走、ECR push、ECS RunTask は実施していない。
 
 ### 残課題
 
-- 未整理。
+- AWS deploy、Pipeline 実走、ECR push、ECS RunTask、CloudFront domain 経由の HTTP 200、Alarm 実発火確認は P2-alpha-2 の除外範囲として未実施。
+- Blue/Green の実 traffic shift と rollback 挙動は P2-alpha-3 以降の AWS dev 実走確認で扱う。
