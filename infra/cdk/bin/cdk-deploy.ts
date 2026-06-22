@@ -1,22 +1,11 @@
 #!/usr/bin/env node
 import { App, Environment, Tags } from 'aws-cdk-lib';
 import { DeployStack } from '../lib/deploy-stack';
-
-declare global {
-  namespace NodeJS {
-    interface ProcessEnv {
-      WORKOPS_STAGE: string;
-      GITHUB_REPOSITORY: string;
-    }
-  }
-}
+import { readRequiredEnv } from '../lib/environment';
 
 const app = new App();
-const stage = process.env.WORKOPS_STAGE;
-const githubRepository = process.env.GITHUB_REPOSITORY;
-if (!githubRepository) {
-  throw new Error('GITHUB_REPOSITORY environment variable is required');
-}
+const stage = readRequiredEnv('WORKOPS_STAGE');
+const githubRepository = readRequiredEnv('GITHUB_REPOSITORY');
 const env: Environment = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION,

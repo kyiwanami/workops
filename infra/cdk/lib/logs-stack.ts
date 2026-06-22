@@ -32,11 +32,15 @@ export class LogsStack extends Stack {
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });
-    this.cognitoClientUrlUpdaterProviderLogGroup = new LogGroup(this, 'CognitoClientUrlUpdaterProviderLogGroup', {
-      logGroupName: `/workops/${props.stage}/custom-resources/cognito-client-url-updater-provider`,
-      retention: RetentionDays.ONE_WEEK,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
+    this.cognitoClientUrlUpdaterProviderLogGroup = new LogGroup(
+      this,
+      'CognitoClientUrlUpdaterProviderLogGroup',
+      {
+        logGroupName: `/workops/${props.stage}/custom-resources/cognito-client-url-updater-provider`,
+        retention: RetentionDays.ONE_WEEK,
+        removalPolicy: RemovalPolicy.DESTROY,
+      },
+    );
 
     new CfnOutput(this, 'webLogGroupName', {
       value: this.webLogGroup.logGroupName,

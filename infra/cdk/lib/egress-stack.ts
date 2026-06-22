@@ -15,10 +15,10 @@ export class EgressStack extends Stack {
   constructor(scope: Construct, id: string, props: EgressStackProps) {
     super(scope, id, props);
 
-    const natSubnet = props.publicSubnets[0];
-    if (!natSubnet) {
+    if (props.publicSubnets.length === 0) {
       throw new Error('EgressStack requires at least one public subnet');
     }
+    const natSubnet = props.publicSubnets[0];
 
     // P2-3 runtime tasks need temporary internet egress for ECR image pulls and CloudWatch Logs.
     const natEip = new CfnEIP(this, 'NatGatewayEip', {
@@ -43,7 +43,8 @@ export class EgressStack extends Stack {
     });
 
     props.appSubnets.forEach((subnet, index) => {
-      new CfnRoute(this, `AppSubnetDefaultRoute${index + 1}`, {
+      const routeNumber = String(index + 1);
+      new CfnRoute(this, `AppSubnetDefaultRoute${routeNumber}`, {
         routeTableId: subnet.routeTable.routeTableId,
         destinationCidrBlock: '0.0.0.0/0',
         natGatewayId: this.natGateway.ref,

@@ -6,17 +6,10 @@ import { IdentityStack } from '../lib/identity-stack';
 import { LogsStack } from '../lib/logs-stack';
 import { RegistryStack } from '../lib/registry-stack';
 import { SecretStack } from '../lib/secret-stack';
-
-declare global {
-  namespace NodeJS {
-    interface ProcessEnv {
-      WORKOPS_STAGE: string;
-    }
-  }
-}
+import { readRequiredEnv } from '../lib/environment';
 
 const app = new App();
-const stage = process.env.WORKOPS_STAGE;
+const stage = readRequiredEnv('WORKOPS_STAGE');
 const env: Environment = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION,

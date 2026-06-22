@@ -1,6 +1,22 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
-import { CfnSecurityGroupIngress, InstanceClass, InstanceSize, InstanceType, ISubnet, Port, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
-import { Credentials, DatabaseInstance, DatabaseInstanceEngine, MysqlEngineVersion, StorageType, SubnetGroup } from 'aws-cdk-lib/aws-rds';
+import {
+  CfnSecurityGroupIngress,
+  InstanceClass,
+  InstanceSize,
+  InstanceType,
+  ISubnet,
+  Port,
+  SecurityGroup,
+  Vpc,
+} from 'aws-cdk-lib/aws-ec2';
+import {
+  Credentials,
+  DatabaseInstance,
+  DatabaseInstanceEngine,
+  MysqlEngineVersion,
+  StorageType,
+  SubnetGroup,
+} from 'aws-cdk-lib/aws-rds';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
@@ -37,12 +53,16 @@ export class DataStack extends Stack {
     });
 
     // RDS Console integrated CloudShell attaches the DB security groups to its VPC environment.
-    this.rdsConsoleCloudShellSecurityGroup = new SecurityGroup(this, 'RdsConsoleCloudShellSecurityGroup', {
-      allowAllOutbound: false,
-      description: 'WorkOps RDS Console CloudShell VPC security group',
-      securityGroupName: `workops-${props.stage}-rds-console-cloudshell-sg`,
-      vpc: props.vpc,
-    });
+    this.rdsConsoleCloudShellSecurityGroup = new SecurityGroup(
+      this,
+      'RdsConsoleCloudShellSecurityGroup',
+      {
+        allowAllOutbound: false,
+        description: 'WorkOps RDS Console CloudShell VPC security group',
+        securityGroupName: `workops-${props.stage}-rds-console-cloudshell-sg`,
+        vpc: props.vpc,
+      },
+    );
     this.rdsConsoleCloudShellSecurityGroup.addEgressRule(
       this.rdsConsoleCloudShellSecurityGroup,
       Port.tcp(3306),

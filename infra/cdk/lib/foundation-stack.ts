@@ -79,13 +79,22 @@ export class FoundationStack extends Stack {
       value: this.vpc.vpcId,
     });
     new CfnOutput(this, 'publicSubnetIds', {
-      value: Fn.join(',', this.publicSubnets.map((subnet) => subnet.subnetId)),
+      value: Fn.join(
+        ',',
+        this.publicSubnets.map((subnet) => subnet.subnetId),
+      ),
     });
     new CfnOutput(this, 'appSubnetIds', {
-      value: Fn.join(',', this.appSubnets.map((subnet) => subnet.subnetId)),
+      value: Fn.join(
+        ',',
+        this.appSubnets.map((subnet) => subnet.subnetId),
+      ),
     });
     new CfnOutput(this, 'dbSubnetIds', {
-      value: Fn.join(',', this.dbSubnets.map((subnet) => subnet.subnetId)),
+      value: Fn.join(
+        ',',
+        this.dbSubnets.map((subnet) => subnet.subnetId),
+      ),
     });
     new CfnOutput(this, 'ecsClusterName', {
       value: this.ecsCluster.clusterName,

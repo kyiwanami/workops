@@ -5,6 +5,10 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format:check": "prettier --check .",
+    "format:write": "prettier --write .",
     "cdk:deploy-app": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-deploy.ts\"",
     "cdk:infra": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-infra.ts\"",
     "cdk:runtime": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-runtime.ts\""
@@ -14,10 +18,13 @@
     "@types/node": "^24.10.1",
     "aws-cdk": "2.1126.0",
     "esbuild": "^0.28.1",
+    "eslint": "^10.5.0",
     "jest": "^30",
+    "prettier": "^3.8.4",
     "ts-jest": "^29",
     "ts-node": "^10.9.2",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.61.1"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.1070.0",

@@ -37,27 +37,29 @@ export class DeployStack extends Stack {
     });
 
     // P2-9 uses a dev-only broad deploy role until Phase 2 alpha replaces GitHub Actions with AWS native CI/CD.
-    deployRole.addToPolicy(new PolicyStatement({
-      effect: Effect.ALLOW,
-      actions: [
-        'cloudformation:*',
-        'cloudfront:*',
-        'cognito-idp:*',
-        'ec2:*',
-        'ecr:*',
-        'ecs:*',
-        'elasticloadbalancing:*',
-        'iam:*',
-        'lambda:*',
-        'logs:*',
-        'rds:*',
-        's3:*',
-        'secretsmanager:*',
-        'ssm:*',
-        'sts:AssumeRole',
-      ],
-      resources: ['*'],
-    }));
+    deployRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'cloudformation:*',
+          'cloudfront:*',
+          'cognito-idp:*',
+          'ec2:*',
+          'ecr:*',
+          'ecs:*',
+          'elasticloadbalancing:*',
+          'iam:*',
+          'lambda:*',
+          'logs:*',
+          'rds:*',
+          's3:*',
+          'secretsmanager:*',
+          'ssm:*',
+          'sts:AssumeRole',
+        ],
+        resources: ['*'],
+      }),
+    );
 
     new CfnOutput(this, 'githubActionsDeployRoleArn', {
       value: deployRole.roleArn,

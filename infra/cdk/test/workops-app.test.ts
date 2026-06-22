@@ -28,7 +28,8 @@ class TaggedResourceStack extends Stack {
 const testCognitoUserPoolId = 'ap-northeast-1_test';
 const testCognitoPlatformUserPoolClientId = 'platformclientid';
 const testCognitoTenantUserPoolClientId = 'tenantclientid';
-const testCognitoHostedUiDomainBaseUrl = 'https://workops-dev.auth.ap-northeast-1.amazoncognito.com';
+const testCognitoHostedUiDomainBaseUrl =
+  'https://workops-dev.auth.ap-northeast-1.amazoncognito.com';
 const testGitHubRepository = 'owner/repo';
 const testWebImageTag = 'test-sha';
 const testEnv = {
@@ -175,11 +176,7 @@ describe('WorkOps CDK app', () => {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: Match.arrayWith([
-              'cloudformation:*',
-              'iam:*',
-              'sts:AssumeRole',
-            ]),
+            Action: Match.arrayWith(['cloudformation:*', 'iam:*', 'sts:AssumeRole']),
             Effect: 'Allow',
             Resource: '*',
           }),
@@ -406,10 +403,7 @@ describe('WorkOps CDK app', () => {
     template.resourceCountIs('AWS::EC2::NatGateway', 1);
     template.hasResourceProperties('AWS::EC2::NatGateway', {
       AllocationId: {
-        'Fn::GetAtt': [
-          Match.stringLikeRegexp('NatGatewayEip'),
-          'AllocationId',
-        ],
+        'Fn::GetAtt': [Match.stringLikeRegexp('NatGatewayEip'), 'AllocationId'],
       },
     });
     template.resourceCountIs('AWS::EC2::Route', 2);
@@ -495,19 +489,8 @@ describe('WorkOps CDK app', () => {
       DistributionConfig: Match.objectLike({
         Comment: 'workops-dev-web-edge',
         DefaultCacheBehavior: Match.objectLike({
-          AllowedMethods: [
-            'GET',
-            'HEAD',
-            'OPTIONS',
-            'PUT',
-            'PATCH',
-            'POST',
-            'DELETE',
-          ],
-          CachedMethods: [
-            'GET',
-            'HEAD',
-          ],
+          AllowedMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'PATCH', 'POST', 'DELETE'],
+          CachedMethods: ['GET', 'HEAD'],
           CachePolicyId: '4135ea2d-6df8-44a3-9df3-4b5a84be39ad',
           OriginRequestPolicyId: 'b689b0a8-53d0-40ab-baf2-68738e2966ac',
           TargetOriginId: Match.anyValue(),
@@ -552,15 +535,14 @@ describe('WorkOps CDK app', () => {
     expect(templateText).toContain('CognitoClientUrlUpdaterLogGroup');
     expect(templateText).toContain('CognitoClientUrlUpdaterProviderLogGroup');
     expect(templateText).not.toContain('/workops/dev/custom-resources/cognito-client-url-updater');
-    expect(templateText).not.toContain('/workops/dev/custom-resources/cognito-client-url-updater-provider');
+    expect(templateText).not.toContain(
+      '/workops/dev/custom-resources/cognito-client-url-updater-provider',
+    );
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: [
-              'cognito-idp:DescribeUserPoolClient',
-              'cognito-idp:UpdateUserPoolClient',
-            ],
+            Action: ['cognito-idp:DescribeUserPoolClient', 'cognito-idp:UpdateUserPoolClient'],
             Effect: 'Allow',
           }),
         ]),
@@ -657,10 +639,7 @@ describe('WorkOps CDK app', () => {
       GenerateSecret: false,
       AllowedOAuthFlowsUserPoolClient: true,
       AllowedOAuthFlows: ['code'],
-      AllowedOAuthScopes: [
-        'openid',
-        'email',
-      ],
+      AllowedOAuthScopes: ['openid', 'email'],
       SupportedIdentityProviders: ['COGNITO'],
     });
     template.hasResourceProperties('AWS::Cognito::UserPoolClient', {
@@ -668,10 +647,7 @@ describe('WorkOps CDK app', () => {
       GenerateSecret: false,
       AllowedOAuthFlowsUserPoolClient: true,
       AllowedOAuthFlows: ['code'],
-      AllowedOAuthScopes: [
-        'openid',
-        'email',
-      ],
+      AllowedOAuthScopes: ['openid', 'email'],
       SupportedIdentityProviders: ['COGNITO'],
     });
     template.hasResourceProperties('AWS::Cognito::ManagedLoginBranding', {
@@ -700,7 +676,9 @@ describe('WorkOps CDK app', () => {
         DefaultRedirectURI: 'https://workops-dev-placeholder.invalid/login/oauth2/code/tenant',
       }),
     });
-    const brandingTemplateText = JSON.stringify(template.findResources('AWS::Cognito::ManagedLoginBranding'));
+    const brandingTemplateText = JSON.stringify(
+      template.findResources('AWS::Cognito::ManagedLoginBranding'),
+    );
     expect(templateText).toContain('WorkOps アカウント作成のお知らせ');
     expect(templateText).toContain('WorkOps アカウントを作成しました。');
     expect(templateText).toContain('{username}');
@@ -818,28 +796,19 @@ describe('WorkOps CDK app', () => {
             {
               Name: 'WORKOPS_COGNITO_LOGOUT_URI',
               Value: {
-                'Fn::Join': [
-                  '',
-                  Match.arrayWith(['/login']),
-                ],
+                'Fn::Join': ['', Match.arrayWith(['/login'])],
               },
             },
             {
               Name: 'WORKOPS_COGNITO_PLATFORM_REDIRECT_URI',
               Value: {
-                'Fn::Join': [
-                  '',
-                  Match.arrayWith(['/login/oauth2/code/platform']),
-                ],
+                'Fn::Join': ['', Match.arrayWith(['/login/oauth2/code/platform'])],
               },
             },
             {
               Name: 'WORKOPS_COGNITO_TENANT_REDIRECT_URI',
               Value: {
-                'Fn::Join': [
-                  '',
-                  Match.arrayWith(['/login/oauth2/code/tenant']),
-                ],
+                'Fn::Join': ['', Match.arrayWith(['/login/oauth2/code/tenant'])],
               },
             },
           ]),
@@ -999,10 +968,7 @@ describe('WorkOps CDK app', () => {
       StorageType: 'gp2',
       VPCSecurityGroups: Match.arrayWith([
         {
-          'Fn::GetAtt': [
-            Match.stringLikeRegexp('RdsConsoleCloudShellSecurityGroup'),
-            'GroupId',
-          ],
+          'Fn::GetAtt': [Match.stringLikeRegexp('RdsConsoleCloudShellSecurityGroup'), 'GroupId'],
         },
       ]),
     });
@@ -1064,10 +1030,7 @@ describe('WorkOps CDK app', () => {
           Match.arrayWith([
             'jdbc:mysql://',
             {
-              'Fn::GetAtt': [
-                Match.stringLikeRegexp('Database'),
-                'Endpoint.Address',
-              ],
+              'Fn::GetAtt': [Match.stringLikeRegexp('Database'), 'Endpoint.Address'],
             },
             ':3306/workops?useSSL=true&serverTimezone=Asia/Tokyo',
           ]),
@@ -1165,8 +1128,24 @@ describe('WorkOps CDK app', () => {
 
   test('defines the P2-9 GitHub Actions CI and infra deploy workflows', () => {
     const ciWorkflowPath = join(__dirname, '..', '..', '..', '.github', 'workflows', 'ci.yml');
-    const infraWorkflowPath = join(__dirname, '..', '..', '..', '.github', 'workflows', 'infra-dev.yml');
-    const appWorkflowPath = join(__dirname, '..', '..', '..', '.github', 'workflows', 'app-deploy-dev.yml');
+    const infraWorkflowPath = join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      '.github',
+      'workflows',
+      'infra-dev.yml',
+    );
+    const appWorkflowPath = join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      '.github',
+      'workflows',
+      'app-deploy-dev.yml',
+    );
     const ciWorkflowText = readFileSync(ciWorkflowPath, 'utf8');
     const infraWorkflowText = readFileSync(infraWorkflowPath, 'utf8');
     const appWorkflowText = readFileSync(appWorkflowPath, 'utf8');
@@ -1177,48 +1156,68 @@ describe('WorkOps CDK app', () => {
     expect(ciWorkflowText).toContain('infra/cdk/**');
     expect(ciWorkflowText).toContain('.github/workflows/app-deploy-dev.yml');
     expect(ciWorkflowText).toContain('p2-9-ci-changes');
-    expect(ciWorkflowText).toContain('CDK_DEFAULT_ACCOUNT: \'000000000000\'');
+    expect(ciWorkflowText).toContain("CDK_DEFAULT_ACCOUNT: '000000000000'");
     expect(ciWorkflowText).toContain('CDK_DEFAULT_REGION: ap-northeast-1');
     expect(ciWorkflowText).toContain('infra_changed=${{ steps.changes.outputs.infra }}');
     expect(ciWorkflowText).toContain('actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0');
     expect(ciWorkflowText).toContain('actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287');
     expect(ciWorkflowText).toContain('actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e');
-    expect(ciWorkflowText).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
+    expect(ciWorkflowText).toContain(
+      'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
+    );
     expect(ciWorkflowText).toContain('dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d');
     expect(ciWorkflowText).not.toContain('configure-aws-credentials');
     expect(ciWorkflowText).not.toContain('cdk -- deploy');
 
     expect(infraWorkflowText).toContain('workflow_run:');
-    expect(infraWorkflowText).toContain('github.event.workflow_run.conclusion == \'success\'');
-    expect(infraWorkflowText).toContain('github.event.workflow_run.event == \'push\'');
-    expect(infraWorkflowText).toContain('github.event.workflow_run.head_branch == \'main\'');
+    expect(infraWorkflowText).toContain("github.event.workflow_run.conclusion == 'success'");
+    expect(infraWorkflowText).toContain("github.event.workflow_run.event == 'push'");
+    expect(infraWorkflowText).toContain("github.event.workflow_run.head_branch == 'main'");
     expect(infraWorkflowText).toContain('environment: dev');
     expect(infraWorkflowText).toContain('id-token: write');
     expect(infraWorkflowText).toContain('group: workops-dev-deploy');
-    expect(infraWorkflowText).toContain('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c');
-    expect(infraWorkflowText).toContain('actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0');
-    expect(infraWorkflowText).toContain('actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e');
-    expect(infraWorkflowText).toContain('aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b');
-    expect(infraWorkflowText).toContain('needs.read-changes.outputs.infra_changed == \'true\'');
+    expect(infraWorkflowText).toContain(
+      'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c',
+    );
+    expect(infraWorkflowText).toContain(
+      'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0',
+    );
+    expect(infraWorkflowText).toContain(
+      'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e',
+    );
+    expect(infraWorkflowText).toContain(
+      'aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b',
+    );
+    expect(infraWorkflowText).toContain("needs.read-changes.outputs.infra_changed == 'true'");
     expect(ciWorkflowText).toContain('npm run cdk:deploy-app -- synth DeployStack');
-    expect(infraWorkflowText).toContain('npm run cdk:infra -- deploy FoundationStack --require-approval never');
-    expect(infraWorkflowText).toContain('npm run cdk:infra -- deploy LogsStack --require-approval never');
+    expect(infraWorkflowText).toContain(
+      'npm run cdk:infra -- deploy FoundationStack --require-approval never',
+    );
+    expect(infraWorkflowText).toContain(
+      'npm run cdk:infra -- deploy LogsStack --require-approval never',
+    );
     expect(infraWorkflowText).not.toContain('deploy DeployStack');
     expect(infraWorkflowText).not.toContain('AppRuntimeStack');
 
     expect(appWorkflowText).toContain('name: App Deploy Dev');
     expect(appWorkflowText).toContain('workflow_dispatch:');
     expect(appWorkflowText).toContain('confirm_runtime_deploy:');
-    expect(appWorkflowText).toContain('github.ref == \'refs/heads/main\'');
+    expect(appWorkflowText).toContain("github.ref == 'refs/heads/main'");
     expect(appWorkflowText).toContain('inputs.confirm_runtime_deploy == true');
     expect(appWorkflowText).toContain('environment: dev');
     expect(appWorkflowText).toContain('id-token: write');
     expect(appWorkflowText).toContain('group: workops-dev-deploy');
     expect(appWorkflowText).toContain('WORKOPS_WEB_IMAGE_TAG: ${{ github.sha }}');
     expect(appWorkflowText).toContain('actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0');
-    expect(appWorkflowText).toContain('actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e');
-    expect(appWorkflowText).toContain('aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b');
-    expect(appWorkflowText).toContain('aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64');
+    expect(appWorkflowText).toContain(
+      'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e',
+    );
+    expect(appWorkflowText).toContain(
+      'aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b',
+    );
+    expect(appWorkflowText).toContain(
+      'aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64',
+    );
     expect(appWorkflowText).toContain('docker build -t "$IMAGE_URI" .');
     expect(appWorkflowText).toContain('docker push "$IMAGE_URI"');
     expect(appWorkflowText).toContain('Preflight runtime stack state');
@@ -1228,9 +1227,15 @@ describe('WorkOps CDK app', () => {
     expect(appWorkflowText).toContain('npm run cdk:runtime -- diff DataStack --method=template');
     expect(appWorkflowText).toContain('npm run cdk:runtime -- diff EgressStack --method=template');
     expect(appWorkflowText).toContain('npm run cdk:runtime -- diff EdgeStack --method=template');
-    expect(appWorkflowText).toContain('npm run cdk:runtime -- diff AppRuntimeStack --method=template');
-    expect(appWorkflowText).toContain('npm run cdk:runtime -- deploy DataStack --require-approval never');
-    expect(appWorkflowText).toContain('npm run cdk:runtime -- deploy AppRuntimeStack --require-approval never');
+    expect(appWorkflowText).toContain(
+      'npm run cdk:runtime -- diff AppRuntimeStack --method=template',
+    );
+    expect(appWorkflowText).toContain(
+      'npm run cdk:runtime -- deploy DataStack --require-approval never',
+    );
+    expect(appWorkflowText).toContain(
+      'npm run cdk:runtime -- deploy AppRuntimeStack --require-approval never',
+    );
     expect(appWorkflowText).not.toContain('deploy LogsStack');
     expect(appWorkflowText).toContain('aws ecs wait services-stable');
     expect(appWorkflowText).toContain('/actuator/health');
@@ -1240,6 +1245,8 @@ describe('WorkOps CDK app', () => {
     expect(appWorkflowText).not.toContain('npm run build');
     expect(appWorkflowText).not.toContain('npm test');
     expect(appWorkflowText).not.toContain('cdk -- synth');
-    expect(`${ciWorkflowText}\n${infraWorkflowText}\n${appWorkflowText}`).not.toContain('npm run cdk --');
+    expect(`${ciWorkflowText}\n${infraWorkflowText}\n${appWorkflowText}`).not.toContain(
+      'npm run cdk --',
+    );
   });
 });

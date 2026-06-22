@@ -1,10 +1,4 @@
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+import { Stack } from 'aws-cdk-lib';
 
-export class SecretStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps) {
-    super(scope, id, props);
-
-    // P2-2 keeps this stack as the future home for app and migration secrets.
-  }
-}
+// P2-2 keeps this stack as the future home for app and migration secrets.
+export class SecretStack extends Stack {}

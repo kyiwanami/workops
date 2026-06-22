@@ -84,19 +84,19 @@ export class AppRuntimeStack extends Stack {
     springProfileParameter.grantRead(executionRole);
     dbMasterSecret.grantRead(executionRole);
     // WorkOps user creation can create Cognito users, but cannot read, update, disable, or delete them.
-    this.taskDefinition.addToTaskRolePolicy(new PolicyStatement({
-      actions: [
-        'cognito-idp:AdminCreateUser',
-      ],
-      resources: [
-        this.formatArn({
-          service: 'cognito-idp',
-          resource: 'userpool',
-          resourceName: props.cognitoUserPoolId,
-          arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
-        }),
-      ],
-    }));
+    this.taskDefinition.addToTaskRolePolicy(
+      new PolicyStatement({
+        actions: ['cognito-idp:AdminCreateUser'],
+        resources: [
+          this.formatArn({
+            service: 'cognito-idp',
+            resource: 'userpool',
+            resourceName: props.cognitoUserPoolId,
+            arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
+          }),
+        ],
+      }),
+    );
 
     // The dev ECS task runs the non-local Spring security profile and reads Cognito settings from CDK wiring.
     this.taskDefinition.addContainer('WebContainer', {

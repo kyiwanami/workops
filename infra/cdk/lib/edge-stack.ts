@@ -11,7 +11,13 @@ import {
 } from 'aws-cdk-lib/aws-cloudfront';
 import { VpcOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Provider } from 'aws-cdk-lib/custom-resources';
-import { CfnSecurityGroupIngress, ISubnet, PrefixList, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
+import {
+  CfnSecurityGroupIngress,
+  ISubnet,
+  PrefixList,
+  SecurityGroup,
+  Vpc,
+} from 'aws-cdk-lib/aws-ec2';
 import {
   ApplicationLoadBalancer,
   ApplicationListener,
@@ -83,10 +89,14 @@ export class EdgeStack extends Stack {
       defaultTargetGroups: [this.targetGroup],
     });
 
-    const cloudFrontOriginPrefixList = PrefixList.fromLookup(this, 'CloudFrontOriginFacingPrefixList', {
-      ownerId: 'AWS',
-      prefixListName: 'com.amazonaws.global.cloudfront.origin-facing',
-    });
+    const cloudFrontOriginPrefixList = PrefixList.fromLookup(
+      this,
+      'CloudFrontOriginFacingPrefixList',
+      {
+        ownerId: 'AWS',
+        prefixListName: 'com.amazonaws.global.cloudfront.origin-facing',
+      },
+    );
     // CloudFront VPC Origin still needs ALB inbound permission; use the AWS managed list without static pl-* IDs.
     new CfnSecurityGroupIngress(this, 'AlbHttpIngressFromCloudFront', {
       groupId: props.albSecurityGroup.securityGroupId,
@@ -128,20 +138,19 @@ export class EdgeStack extends Stack {
         bundleAwsSDK: true,
       },
     });
-    updaterFunction.addToRolePolicy(new PolicyStatement({
-      actions: [
-        'cognito-idp:DescribeUserPoolClient',
-        'cognito-idp:UpdateUserPoolClient',
-      ],
-      resources: [
-        this.formatArn({
-          service: 'cognito-idp',
-          resource: 'userpool',
-          resourceName: props.cognitoUserPoolId,
-          arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
-        }),
-      ],
-    }));
+    updaterFunction.addToRolePolicy(
+      new PolicyStatement({
+        actions: ['cognito-idp:DescribeUserPoolClient', 'cognito-idp:UpdateUserPoolClient'],
+        resources: [
+          this.formatArn({
+            service: 'cognito-idp',
+            resource: 'userpool',
+            resourceName: props.cognitoUserPoolId,
+            arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
+          }),
+        ],
+      }),
+    );
     const updaterProvider = new Provider(this, 'CognitoClientUrlUpdaterProvider', {
       onEventHandler: updaterFunction,
       logGroup: props.cognitoClientUrlUpdaterProviderLogGroup,

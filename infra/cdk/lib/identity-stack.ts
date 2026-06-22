@@ -133,10 +133,7 @@ export class IdentityStack extends Stack {
         flows: {
           authorizationCodeGrant: true,
         },
-        scopes: [
-          OAuthScope.OPENID,
-          OAuthScope.EMAIL,
-        ],
+        scopes: [OAuthScope.OPENID, OAuthScope.EMAIL],
         // Cognito requires a callback URL at App Client creation; EdgeStack replaces it with CloudFront.
         callbackUrls: [platformPlaceholderCallbackUrl],
         logoutUrls: [placeholderLogoutUrl],
@@ -151,10 +148,7 @@ export class IdentityStack extends Stack {
         flows: {
           authorizationCodeGrant: true,
         },
-        scopes: [
-          OAuthScope.OPENID,
-          OAuthScope.EMAIL,
-        ],
+        scopes: [OAuthScope.OPENID, OAuthScope.EMAIL],
         // Cognito requires a callback URL at App Client creation; EdgeStack replaces it with CloudFront.
         callbackUrls: [tenantPlaceholderCallbackUrl],
         logoutUrls: [placeholderLogoutUrl],

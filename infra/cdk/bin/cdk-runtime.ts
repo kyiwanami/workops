@@ -5,22 +5,14 @@ import { ConfigStack } from '../lib/config-stack';
 import { DataStack } from '../lib/data-stack';
 import { EdgeStack } from '../lib/edge-stack';
 import { EgressStack } from '../lib/egress-stack';
+import { readRequiredEnv } from '../lib/environment';
 import { FoundationStack } from '../lib/foundation-stack';
 import { IdentityStack } from '../lib/identity-stack';
 import { LogsStack } from '../lib/logs-stack';
 import { RegistryStack } from '../lib/registry-stack';
 
-declare global {
-  namespace NodeJS {
-    interface ProcessEnv {
-      WORKOPS_STAGE: string;
-      WORKOPS_WEB_IMAGE_TAG: string;
-    }
-  }
-}
-
 const app = new App();
-const stage = process.env.WORKOPS_STAGE;
+const stage = readRequiredEnv('WORKOPS_STAGE');
 const env: Environment = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION,

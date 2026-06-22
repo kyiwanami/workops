@@ -36,9 +36,9 @@ class CognitoClientFake implements CognitoClient {
     this.userPoolClient = userPoolClient;
   }
 
-  async send(command: DescribeUserPoolClientCommand): Promise<DescribeUserPoolClientCommandOutput>;
-  async send(command: UpdateUserPoolClientCommand): Promise<UpdateUserPoolClientCommandOutput>;
-  async send(
+  send(command: DescribeUserPoolClientCommand): Promise<DescribeUserPoolClientCommandOutput>;
+  send(command: UpdateUserPoolClientCommand): Promise<UpdateUserPoolClientCommandOutput>;
+  send(
     command: DescribeUserPoolClientCommand | UpdateUserPoolClientCommand,
   ): Promise<DescribeUserPoolClientCommandOutput | UpdateUserPoolClientCommandOutput> {
     if (command instanceof DescribeUserPoolClientCommand) {
@@ -47,10 +47,10 @@ class CognitoClientFake implements CognitoClient {
         input: command.input,
       });
 
-      return {
+      return Promise.resolve({
         UserPoolClient: this.userPoolClient,
         $metadata: {},
-      };
+      });
     }
 
     this.commands.push({
@@ -58,13 +58,13 @@ class CognitoClientFake implements CognitoClient {
       input: command.input,
     });
 
-    return {
+    return Promise.resolve({
       UserPoolClient: {
         ClientId: command.input.ClientId,
         UserPoolId: command.input.UserPoolId,
       },
       $metadata: {},
-    };
+    });
   }
 }
 
@@ -117,7 +117,9 @@ describe('cognito-client-url-updater custom resource', () => {
   test('builds Cognito callback and logout URLs from the CloudFront domain', () => {
     const urls = buildUrls('d111111abcdef8.cloudfront.net', 'platform');
 
-    expect(urls.callbackUrl).toBe('https://d111111abcdef8.cloudfront.net/login/oauth2/code/platform');
+    expect(urls.callbackUrl).toBe(
+      'https://d111111abcdef8.cloudfront.net/login/oauth2/code/platform',
+    );
     expect(urls.logoutUrl).toBe('https://d111111abcdef8.cloudfront.net/login');
     expect(urls.defaultRedirectUri).toBe(urls.callbackUrl);
   });
@@ -131,7 +133,12 @@ describe('cognito-client-url-updater custom resource', () => {
   });
 
   test('keeps existing app client settings and replaces only URL fields', () => {
-    const input = buildUpdateInput(existingClient, resourceProperties, resourceProperties.PlatformClientId, 'platform');
+    const input = buildUpdateInput(
+      existingClient,
+      resourceProperties,
+      resourceProperties.PlatformClientId,
+      'platform',
+    );
 
     expect(input.UserPoolId).toBe(resourceProperties.UserPoolId);
     expect(input.ClientId).toBe(resourceProperties.PlatformClientId);
@@ -152,9 +159,13 @@ describe('cognito-client-url-updater custom resource', () => {
     expect(input.EnableTokenRevocation).toBe(true);
     expect(input.AuthSessionValidity).toBe(existingClient.AuthSessionValidity);
     expect(input.RefreshTokenRotation).toEqual(existingClient.RefreshTokenRotation);
-    expect(input.CallbackURLs).toEqual(['https://d111111abcdef8.cloudfront.net/login/oauth2/code/platform']);
+    expect(input.CallbackURLs).toEqual([
+      'https://d111111abcdef8.cloudfront.net/login/oauth2/code/platform',
+    ]);
     expect(input.LogoutURLs).toEqual(['https://d111111abcdef8.cloudfront.net/login']);
-    expect(input.DefaultRedirectURI).toBe('https://d111111abcdef8.cloudfront.net/login/oauth2/code/platform');
+    expect(input.DefaultRedirectURI).toBe(
+      'https://d111111abcdef8.cloudfront.net/login/oauth2/code/platform',
+    );
     expect(JSON.stringify(input)).not.toContain('ClientSecret');
     expect(JSON.stringify(input)).not.toContain('GenerateSecret');
     expect(JSON.stringify(input)).not.toContain('CreationDate');

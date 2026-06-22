@@ -115,7 +115,8 @@ export function buildUpdateInput(
     updateInput.EnableTokenRevocation = userPoolClient.EnableTokenRevocation;
   }
   if (userPoolClient.EnablePropagateAdditionalUserContextData !== undefined) {
-    updateInput.EnablePropagateAdditionalUserContextData = userPoolClient.EnablePropagateAdditionalUserContextData;
+    updateInput.EnablePropagateAdditionalUserContextData =
+      userPoolClient.EnablePropagateAdditionalUserContextData;
   }
   if (userPoolClient.AuthSessionValidity !== undefined) {
     updateInput.AuthSessionValidity = userPoolClient.AuthSessionValidity;
@@ -141,10 +142,12 @@ async function updateUserPoolClient(
   clientId: string,
   registrationId: string,
 ): Promise<void> {
-  const describeResponse = await client.send(new DescribeUserPoolClientCommand({
-    UserPoolId: properties.UserPoolId,
-    ClientId: clientId,
-  }));
+  const describeResponse = await client.send(
+    new DescribeUserPoolClientCommand({
+      UserPoolId: properties.UserPoolId,
+      ClientId: clientId,
+    }),
+  );
   const userPoolClient = describeResponse.UserPoolClient;
   if (userPoolClient === undefined) {
     throw new Error('DescribeUserPoolClient did not return UserPoolClient');
@@ -154,7 +157,10 @@ async function updateUserPoolClient(
   await client.send(new UpdateUserPoolClientCommand(updateInput));
 }
 
-export async function handleEvent(event: CustomResourceEvent, client: CognitoClient): Promise<HandlerResponse> {
+export async function handleEvent(
+  event: CustomResourceEvent,
+  client: CognitoClient,
+): Promise<HandlerResponse> {
   const physicalResourceId = getPhysicalResourceId(event);
 
   // Delete keeps the last registered Cognito URLs for the next EdgeStack replacement.
