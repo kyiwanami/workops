@@ -1,4 +1,5 @@
 import {
+  ArnFormat,
   Aws,
   CfnOutput,
   Duration,
@@ -16,6 +17,7 @@ import {
   PipelineType,
   Pipeline as CodePipelinePipeline,
 } from 'aws-cdk-lib/aws-codepipeline';
+import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
 import { Topic } from 'aws-cdk-lib/aws-sns';
@@ -27,16 +29,25 @@ import {
   ManualApprovalStep,
 } from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
+import { DataStack } from './data-stack';
+import { EdgeStack } from './edge-stack';
+import { EgressStack } from './egress-stack';
+import { FoundationStack } from './foundation-stack';
+import { IdentityStack } from './identity-stack';
+import { LogsStack } from './logs-stack';
+import { MigrationStack } from './migration-stack';
 import { RegistryStack } from './registry-stack';
 
 export interface PipelineStackProps extends StackProps {
+  env: Environment;
   stage: string;
   githubRepository: string;
   notificationEmail: string;
+  imageTag: string;
 }
 
 interface RegistryDeployStageProps {
-  env?: Environment;
+  env: Environment;
   stage: string;
 }
 
@@ -46,6 +57,12 @@ interface BuildImageConfig {
   id: string;
   repositoryName: string;
   buildContext: string;
+}
+
+interface DataNetworkMigrationDeployStageProps {
+  env: Environment;
+  stage: string;
+  migrationImageTag: string;
 }
 
 class RegistryDeployStage extends Stage {
@@ -59,6 +76,87 @@ class RegistryDeployStage extends Stage {
       stage: props.stage,
       stackName: `workops-${props.stage}-registry`,
     });
+  }
+}
+
+class DataNetworkMigrationDeployStage extends Stage {
+  public readonly migrationStack: MigrationStack;
+
+  constructor(scope: Construct, id: string, props: DataNetworkMigrationDeployStageProps) {
+    super(scope, id, {
+      env: props.env,
+    });
+
+    const foundationStack = new FoundationStack(this, 'FoundationStack', {
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-foundation`,
+    });
+    const dataStack = new DataStack(this, 'DataStack', {
+      appSecurityGroup: foundationStack.appSecurityGroup,
+      dbSecurityGroup: foundationStack.dbSecurityGroup,
+      dbSubnets: foundationStack.dbSubnets,
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-data`,
+      vpc: foundationStack.vpc,
+    });
+    const identityStack = new IdentityStack(this, 'IdentityStack', {
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-identity`,
+    });
+    const logsStack = new LogsStack(this, 'LogsStack', {
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-logs`,
+    });
+    const egressStack = new EgressStack(this, 'EgressStack', {
+      appSubnets: foundationStack.appSubnets,
+      env: props.env,
+      publicSubnets: foundationStack.publicSubnets,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-egress`,
+      vpc: foundationStack.vpc,
+    });
+    const edgeStack = new EdgeStack(this, 'EdgeStack', {
+      albSecurityGroup: foundationStack.albSecurityGroup,
+      appSubnets: foundationStack.appSubnets,
+      cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
+      cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
+      cognitoUserPoolId: identityStack.userPoolId,
+      cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
+      cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-edge`,
+      vpc: foundationStack.vpc,
+    });
+    const migrationRepository = Repository.fromRepositoryName(
+      foundationStack,
+      'MigrationRepository',
+      `workops-${props.stage}-migration`,
+    );
+
+    // MigrationStack consumes the runtime network and log resources but owns only RunTask assets.
+    this.migrationStack = new MigrationStack(this, 'MigrationStack', {
+      appSecurityGroup: foundationStack.appSecurityGroup,
+      appSubnets: foundationStack.appSubnets,
+      cluster: foundationStack.ecsCluster,
+      env: props.env,
+      migrationImageTag: props.migrationImageTag,
+      migrationLogGroup: logsStack.migrationLogGroup,
+      migrationRepository,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-migration`,
+    });
+
+    edgeStack.addDependency(egressStack);
+    edgeStack.addDependency(identityStack);
+    edgeStack.addDependency(logsStack);
+    this.migrationStack.addDependency(dataStack);
+    this.migrationStack.addDependency(egressStack);
+    this.migrationStack.addDependency(logsStack);
   }
 }
 
@@ -123,6 +221,7 @@ export class PipelineStack extends Stack {
         commands: ['cd infra/cdk', 'npm ci', 'npm run build', 'npm run cdk:pipeline -- synth'],
         env: {
           GITHUB_REPOSITORY: props.githubRepository,
+          WORKOPS_IMAGE_TAG: source.sourceAttribute('CommitId'),
           WORKOPS_PIPELINE_NOTIFICATION_EMAIL: props.notificationEmail,
           WORKOPS_STAGE: props.stage,
         },
@@ -181,6 +280,19 @@ export class PipelineStack extends Stack {
           repositoryName: `workops-${props.stage}-migration`,
         }),
       ],
+    });
+    const dataNetworkMigrationStage = new DataNetworkMigrationDeployStage(
+      this,
+      'DeployDataNetworkMigration',
+      {
+        env: props.env,
+        migrationImageTag: props.imageTag,
+        stage: props.stage,
+      },
+    );
+    pipeline.addStage(dataNetworkMigrationStage);
+    pipeline.addWave('MigrationRunTask', {
+      pre: [this.createMigrationRunTaskStep(dataNetworkMigrationStage.migrationStack, props.stage)],
     });
     pipeline.buildPipeline();
 
@@ -274,6 +386,64 @@ export class PipelineStack extends Stack {
       service: 'ecr',
       resource: 'repository',
       resourceName: repositoryName,
+    });
+  }
+
+  private createMigrationRunTaskStep(migrationStack: MigrationStack, stage: string): CodeBuildStep {
+    return new CodeBuildStep('RunMigration', {
+      buildEnvironment: this.createBuildEnvironment(),
+      commands: ['set -euo pipefail', 'python3 infra/cdk/scripts/run-migration-task.py'],
+      envFromCfnOutputs: {
+        MIGRATION_CLUSTER_NAME: migrationStack.migrationClusterNameOutput,
+        MIGRATION_CONTAINER_NAME: migrationStack.migrationContainerNameOutput,
+        MIGRATION_SECURITY_GROUP_ID: migrationStack.migrationSecurityGroupIdOutput,
+        MIGRATION_SUBNET_IDS: migrationStack.migrationSubnetIdsOutput,
+        MIGRATION_TASK_DEFINITION_ARN: migrationStack.migrationTaskDefinitionArnOutput,
+      },
+      rolePolicyStatements: [
+        new PolicyStatement({
+          actions: ['ecs:RunTask'],
+          effect: Effect.ALLOW,
+          resources: [this.createEcsTaskDefinitionArn(`workops-${stage}-migration:*`)],
+        }),
+        new PolicyStatement({
+          actions: ['ecs:DescribeTasks'],
+          effect: Effect.ALLOW,
+          resources: ['*'],
+        }),
+        new PolicyStatement({
+          actions: ['iam:PassRole'],
+          conditions: {
+            StringEquals: {
+              'iam:PassedToService': 'ecs-tasks.amazonaws.com',
+            },
+          },
+          effect: Effect.ALLOW,
+          resources: [
+            this.createIamRoleArn(`workops-${stage}-migration-execution`),
+            this.createIamRoleArn(`workops-${stage}-migration-task`),
+          ],
+        }),
+      ],
+    });
+  }
+
+  private createEcsTaskDefinitionArn(taskDefinitionName: string): string {
+    return this.formatArn({
+      service: 'ecs',
+      resource: 'task-definition',
+      resourceName: taskDefinitionName,
+      arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
+    });
+  }
+
+  private createIamRoleArn(roleName: string): string {
+    return this.formatArn({
+      service: 'iam',
+      region: '',
+      resource: 'role',
+      resourceName: roleName,
+      arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
     });
   }
 

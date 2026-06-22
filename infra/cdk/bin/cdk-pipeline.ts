@@ -7,6 +7,7 @@ const app = new App();
 const stage = readRequiredEnv('WORKOPS_STAGE');
 const githubRepository = readRequiredEnv('GITHUB_REPOSITORY');
 const notificationEmail = readRequiredEnv('WORKOPS_PIPELINE_NOTIFICATION_EMAIL');
+const imageTag = readRequiredEnv('WORKOPS_IMAGE_TAG');
 const env: Environment = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION,
@@ -20,6 +21,7 @@ Tags.of(app).add('ManagedBy', 'CDK');
 new PipelineStack(app, 'PipelineStack', {
   env,
   githubRepository,
+  imageTag,
   notificationEmail,
   stage,
   stackName: `workops-${stage}-pipeline`,
