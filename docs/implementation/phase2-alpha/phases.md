@@ -23,8 +23,8 @@ ADR 本文はこのファイルの作成時に参照しません。
 - 実装結果
 - 確認結果
 
-具体的な agent task 分割は、各 Phase 2α 小フェーズ着手前にコーディングエージェントが提案します。
-ユーザーが分割案を確認し、合意した後にだけ詳細な agent task Markdown を作成します。
+具体的な agent task 分割は、P2-alpha-0 で作成した各 Phase 2α 小フェーズ用ディレクトリの中で、各小フェーズの作業として行います。
+ユーザーが分割案を確認し、合意した後にだけ、その小フェーズ配下へ詳細な agent task Markdown を作成します。
 このファイルでは、`P2-alpha-1-01` のような具体タスク名、詳細タスク数、対応ファイル一覧を固定しません。
 
 PR は作業・レビューの単位であり、Phase 2α の完了条件ではありません。
@@ -354,12 +354,20 @@ apps/web の ECS Task は ARM_64 で起動します。
 ### 目的
 
 Notion で確定した Phase 2α の範囲、順序、完了条件、責務境界を、リポジトリ側で実装へ渡せる状態にします。
+P2-alpha-0 では、親計画である `phases.md` と、後続小フェーズごとの agent task 置き場だけを用意します。
+詳細な agent task Markdown の作成は P2-alpha-0 では行わず、P2-alpha-1、P2-alpha-2、P2-alpha-3 の各フェーズ内で行います。
 
 ### 前提フェーズ
 
 - Phase 2 が完了している
 - Notion の Phase 2α 実装計画、要件定義、基本設計、スコープ管理が確定している
 - Notion の Pipeline stage 順序に Deploy Registry が追加済みである
+
+### ユーザー要件
+
+- P2-alpha-0 の完了条件は、`docs/implementation/phase2-alpha/agent-tasks/P2-alpha-1/`、`docs/implementation/phase2-alpha/agent-tasks/P2-alpha-2/`、`docs/implementation/phase2-alpha/agent-tasks/P2-alpha-3/` のフォルダ分けができていることを含む
+- 各フェーズ内の詳細なファイル分けは、そのフェーズの作業として行う
+- P2-alpha-0 では詳細な agent task Markdown を作らない
 
 ### 成果物
 
@@ -369,12 +377,18 @@ Notion で確定した Phase 2α の範囲、順序、完了条件、責務境�
 - AWS 実環境確認の分担
 - Notion へ戻す判断条件
 - agent task 作成ルール
+- `docs/implementation/phase2-alpha/agent-tasks/P2-alpha-1/`
+- `docs/implementation/phase2-alpha/agent-tasks/P2-alpha-2/`
+- `docs/implementation/phase2-alpha/agent-tasks/P2-alpha-3/`
+- 上記ディレクトリを git 管理対象に残すための `.gitkeep`
 
 ### 実装方針
 
 - Notion の内容をコード詳細へ展開するための入口文書として管理する
 - Notion の文章をそのまま複製せず、実装順序、依存関係、成果物、確認方法をリポジトリ向けに整理する
-- 詳細 agent task は対象フェーズの着手直前に作成する
+- P2-alpha-0 では、後続フェーズの作業場所として `agent-tasks/P2-alpha-1/`、`agent-tasks/P2-alpha-2/`、`agent-tasks/P2-alpha-3/` を作成する
+- 詳細 agent task Markdown は対象フェーズの中で、着手時点の Notion とコードベースを確認してから作成する
+- `.gitkeep` はディレクトリを git 管理対象に残すためだけに置き、詳細 task Markdown とは扱わない
 - Phase 2α-1 以降の実装を P2-alpha-0 に含めない
 
 ### 除外範囲
@@ -386,22 +400,30 @@ Notion で確定した Phase 2α の範囲、順序、完了条件、責務境�
 - 品質ゲート設定
 - AWS リソース作成
 - 詳細 agent task Markdown
-- `agent-tasks` ディレクトリ
+- P2-alpha-1、P2-alpha-2、P2-alpha-3 の詳細なファイル分け
 
 ### 完了条件
 
-Phase 2α の目的、前提、成果物、実装方針、除外範囲、完了条件、確認方針、agent task 分割方針が定義されていること。
-Notion とリポジトリの責務境界、および AWS 実環境確認の分担が明記されていること。
+- Phase 2α の目的、前提、成果物、実装方針、除外範囲、完了条件、確認方針、agent task 分割方針が定義されている
+- Notion とリポジトリの責務境界、および AWS 実環境確認の分担が明記されている
+- 次のフェーズ別ディレクトリが作成されている
+- `docs/implementation/phase2-alpha/agent-tasks/P2-alpha-1/`
+- `docs/implementation/phase2-alpha/agent-tasks/P2-alpha-2/`
+- `docs/implementation/phase2-alpha/agent-tasks/P2-alpha-3/`
+- 上記ディレクトリは `.gitkeep` により git 管理対象として残せる
+- P2-alpha-1、P2-alpha-2、P2-alpha-3 の詳細な agent task Markdown は作成されていない
 
 ### 確認方針
 
 エージェントは、Notion の Phase 2α 実装計画、要件定義、基本設計、スコープ管理と本ファイルを照合します。
-ユーザーは、フェーズ境界と実装順序が Notion の合意内容どおりであることを確認します。
+エージェントは、`agent-tasks/P2-alpha-1/`、`agent-tasks/P2-alpha-2/`、`agent-tasks/P2-alpha-3/` が存在することを確認します。
+ユーザーは、フェーズ境界、実装順序、agent task ディレクトリ分けが合意内容どおりであることを確認します。
 
 ### agent task 分割方針
 
 P2-alpha-0 のための詳細 agent task Markdown は作成しません。
-本ファイルの作成と確認を P2-alpha-0 の成果物とします。
+P2-alpha-1、P2-alpha-2、P2-alpha-3 の詳細 task は、それぞれのフェーズ内で作成します。
+本ファイルの作成と確認、および Phase 2α-1、Phase 2α-2、Phase 2α-3 用の agent task ディレクトリ作成を P2-alpha-0 の成果物とします。
 
 ## P2-alpha-1. コードベース品質ゲート対応
 
