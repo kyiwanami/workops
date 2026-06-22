@@ -95,6 +95,9 @@ $env:GITHUB_REPOSITORY = "kyiwanami/workops"
 npm run cdk:deploy-app -- synth
 npm run cdk:infra -- synth
 
+Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
 $env:AWS_PROFILE = "amazon-connect"
 $env:AWS_REGION = "ap-northeast-1"
 aws sts get-caller-identity --profile $env:AWS_PROFILE --region $env:AWS_REGION
@@ -109,7 +112,7 @@ Web image / Trivy:
 
 ```powershell
 cd C:\git\workops\apps\web
-docker build -t workops-web:p2-alpha-1 .
+docker build --pull -t workops-web:p2-alpha-1 .
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity MEDIUM,HIGH,CRITICAL --exit-code 1 workops-web:p2-alpha-1
 ```
 
@@ -130,6 +133,7 @@ git status --short
 - `apps/web/Dockerfile` の runtime stage に `apk upgrade --no-cache` を追加し、Alpine の修正版 OS package を取り込むようにした。
 - `apps/web/pom.xml` で `netty.version` を 4.2.15.Final、`tomcat.version` を 11.0.22 に固定し、Trivy の jar scan で検出された MEDIUM / HIGH / CRITICAL を解消した。
 - 初回 Trivy scan では `eclipse-temurin:25-jre` 由来の Ubuntu package と jar dependency に MEDIUM / HIGH / CRITICAL が残ったため、上記の Dockerfile / Maven dependency 対応を実施した。
+- 2026-06-22 に P2-alpha-1-03 として横断再検証を実行し、P2-alpha-1 の完了条件を再確認した。
 
 ### 確認結果
 
@@ -140,14 +144,18 @@ git status --short
 - CDK:
   - `npm run lint` は成功。
   - `npm run format:check` は成功。
-  - `npm run cdk:deploy-app -- synth` は成功。
+  - `npm run cdk:deploy-app -- synth` は成功。AWS credential 環境変数を削除した状態で再実行し、警告なしで成功した。
   - `npm run cdk:infra -- synth` は成功。
   - `npm run cdk:runtime -- synth --profile amazon-connect` は成功。AWS account は手元の AWS 認証で確認済み。実 account 値は git 管理文書に記録しない。
 - Web image / Trivy:
   - `docker build --pull -t workops-web:p2-alpha-1 .` は成功。
   - `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity MEDIUM,HIGH,CRITICAL --exit-code 1 workops-web:p2-alpha-1` は成功。
-  - Trivy report summary は OS package 0件、jar 0件。
+  - Trivy report summary は alpine 0件、jar 0件。
+- 生成物確認:
+  - `git status --short` は空であり、JaCoCo report、SpotBugs report、CDK 出力、Trivy DB などの生成物は git 管理対象に入っていない。
 - CDK synth を並列実行した際、`cdk.out/synth.lock` の競合で `cdk:deploy-app` が一度失敗した。逐次再実行では成功したため、実装上の残課題にはしない。
+- P2-alpha-1 全体:
+  - P2-alpha-1-01、P2-alpha-1-02、P2-alpha-1-03 の完了条件はすべて満たしている。
 
 ### 残課題
 
