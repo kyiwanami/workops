@@ -14,4 +14,13 @@ public record UserEditForm(
         @Size(max = 255, message = "emailは255文字以内で入力してください。")
         String email,
     Long departmentId,
-    List<String> permissionSetCodes) {}
+    List<String> permissionSetCodes) {
+
+  public UserEditForm {
+    if (permissionSetCodes == null) {
+      permissionSetCodes = List.of();
+    } else {
+      permissionSetCodes = List.copyOf(permissionSetCodes);
+    }
+  }
+}

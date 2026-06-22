@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+  <!--
+    Reason: FindSecBugs reports every Spring MVC handler as SPRING_ENDPOINT. Access control is
+    centralized in SecurityConfig and method security, so endpoint inventory is reviewed there.
+    Revisit: remove or narrow this filter when endpoint-level annotations become the project rule.
+  -->
+  <Match>
+    <Bug pattern="SPRING_ENDPOINT" />
+    <Class name="~com\.example\.workops\..*\.web\..*Controller" />
+  </Match>
+
+  <!--
+    Reason: constructor-injected Spring beans and MyBatis mappers are container-managed collaborators,
+    not externally mutable state owned by the application object.
+    Revisit: remove class/package entries from this filter if non-container collaborators are added.
+  -->
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2" />
+    <Class
+      name="~com\.example\.workops\.(admin\.(company|department|user)\.(service|web)|asset\.(service|web)|master\.(service|web)|request\.(service|web))\..*" />
+  </Match>
+
+  <!--
+    Reason: HttpSecurity#build declares Exception, and Spring Security bean methods must propagate it.
+    Revisit: remove this filter if Spring Security exposes a narrower checked exception.
+  -->
+  <Match>
+    <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION" />
+    <Class name="com.example.workops.common.security.SecurityConfig" />
+  </Match>
+
+  <!--
+    Reason: logout redirects only to the configured Cognito Hosted UI base URL after scheme/host checks.
+    Revisit: remove this filter if redirect targets become request-derived or multi-domain.
+  -->
+  <Match>
+    <Bug pattern="UNVALIDATED_REDIRECT" />
+    <Class name="com.example.workops.common.security.CognitoLogoutSuccessHandler" />
+  </Match>
+
+  <!--
+    Reason: key=value log values are normalized before formatting, and exception stack traces are
+    intentionally emitted as Throwable data rather than user-controlled log message text.
+    Revisit: remove individual classes from this filter when a logger starts writing raw request text.
+  -->
+  <Match>
+    <Bug pattern="CRLF_INJECTION_LOGS" />
+    <Class name="~com\.example\.workops\.common\.logging\..*Logger" />
+  </Match>
+</FindBugsFilter>

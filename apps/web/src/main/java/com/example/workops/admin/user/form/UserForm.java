@@ -20,6 +20,14 @@ public record UserForm(
         String email,
     List<String> permissionSetCodes) {
 
+  public UserForm {
+    if (permissionSetCodes == null) {
+      permissionSetCodes = List.of();
+    } else {
+      permissionSetCodes = List.copyOf(permissionSetCodes);
+    }
+  }
+
   public static UserForm empty() {
     return new UserForm("TENANT", null, null, null, null, null, List.of());
   }
