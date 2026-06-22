@@ -1,7 +1,6 @@
 services:
   workops-mysql:
     image: mysql:8.4
-    container_name: workops-mysql
     environment:
       MYSQL_DATABASE: workops
       MYSQL_USER: workops
@@ -22,6 +21,21 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  migration:
+    profiles:
+      - migration
+    build:
+      context: .
+      dockerfile: infra/docker/migration/Dockerfile
+    depends_on:
+      workops-mysql:
+        condition: service_healthy
+    environment:
+      WORKOPS_DB_URL: jdbc:mysql://workops-mysql:3306/workops?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Tokyo
+      WORKOPS_DB_USERNAME: workops
+      WORKOPS_DB_PASSWORD: workops
+      WORKOPS_FLYWAY_LOCATIONS: filesystem:/flyway/sql/migration,filesystem:/flyway/sql/seed/common,filesystem:/flyway/sql/seed/local
 
 volumes:
   workops_mysql_data:

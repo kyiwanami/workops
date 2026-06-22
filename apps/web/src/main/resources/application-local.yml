@@ -2,8 +2,3 @@ spring:
   config:
     activate:
       on-profile: local
-  flyway:
-    locations:
-      - classpath:db/migration
-      - classpath:db/seed/common
-      - classpath:db/seed/local

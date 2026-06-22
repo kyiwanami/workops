@@ -4,11 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.workops.master.mapper.UserAccountMapper;
 import com.example.workops.master.mapper.UserAccountRow;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-/** Flyway migrationとMVP local seedがTestcontainers MySQLで成立することを確認する。 */
+/** root SQLとMVP local seedがTestcontainers MySQLで成立することを確認する。 */
 class SeedMigrationIntegrationTests extends MapperIntegrationTestBase {
 
   @Autowired private UserAccountMapper userAccountMapper;
@@ -33,13 +32,17 @@ class SeedMigrationIntegrationTests extends MapperIntegrationTestBase {
   }
 
   @Test
-  void flywayAppliesLocalLocationsInVersionOrder() {
-    List<String> versions =
-        jdbcTemplate.queryForList(
-            "SELECT version FROM flyway_schema_history WHERE success = TRUE ORDER BY installed_rank",
-            String.class);
-
-    assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
+  void rootSqlAppliesLocalLocationsInVersionOrder() {
+    assertThat(appliedSqlScriptNames())
+        .containsExactly(
+            "V1__create_mvp_schema.sql",
+            "V2__allow_platform_users.sql",
+            "V3__insert_demo_companies_departments.sql",
+            "V4__insert_permission_sets.sql",
+            "V5__insert_business_masters.sql",
+            "V6__insert_users.sql",
+            "V7__insert_asset_sample_seed.sql",
+            "V8__insert_request_sample_seed.sql");
   }
 
   @Test

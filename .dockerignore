@@ -1,0 +1,13 @@
+.git/
+.amplify/
+node_modules/
+dist/
+dev-dist/
+playwright/
+tmp/
+**/target/
+**/node_modules/
+**/cdk.out/
+**/cdk.out.*/
+*.log
+*.tmp

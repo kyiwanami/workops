@@ -109,23 +109,75 @@ local では `docker compose run --rm migration` を migration 実行経路に�
 
 ```powershell
 cd C:\git\workops
-docker compose up -d workops-mysql
-docker compose run --rm migration
+docker compose -p workops-p2alpha-migration-test build migration
+docker compose -p workops-p2alpha-migration-test up -d workops-mysql
+docker compose -p workops-p2alpha-migration-test run --rm migration
+docker compose -p workops-p2alpha-migration-test down -v
 
 cd C:\git\workops\apps\web
 .\mvnw.cmd test
+.\mvnw.cmd spotless:check
+.\mvnw.cmd compile spotbugs:check
+.\mvnw.cmd verify
+```
+
+既存 local DB volume を壊さないため、migration 動作確認は検証用 compose project で行う。
+
+通常の local migration は次で実行する。
+
+```powershell
+cd C:\git\workops
+docker compose run --rm migration
 ```
 
 ## 実装時の記録
 
 ### 実装結果
 
-- 未実装。
+- SQL 正本を root `db/` へ移動した。
+  - `db/migration/`
+  - `db/seed/common/`
+  - `db/seed/local/`
+  - `db/seed/aws-dev/`
+- `infra/docker/migration/` に Flyway CLI 専用 image を追加した。
+  - base image は `flyway/flyway:12.9.0-alpine`
+  - MySQL Connector/J は `9.7.0`
+  - root `db/` を `/flyway/sql/` に含める
+  - entrypoint で `WORKOPS_DB_URL` / `WORKOPS_DB_USERNAME` / `WORKOPS_DB_PASSWORD` / `WORKOPS_FLYWAY_LOCATIONS` を必須にして `flyway migrate` を実行する
+- `compose.yaml` に one-shot `migration` service を追加した。
+  - `profiles: ["migration"]`
+  - local locations は `migration`、`seed/common`、`seed/local`
+  - `workops-mysql` の healthcheck 完了後に実行する
+- `compose.yaml` の `workops-mysql` から固定 `container_name` を外した。
+  - `-p workops-p2alpha-migration-test` の検証用 project が既存 local container と衝突しないようにするため。
+- `apps/web` から Spring Boot Flyway 実行経路を削除した。
+  - `spring-boot-starter-flyway`
+  - `flyway-mysql`
+  - `spring-boot-starter-flyway-test`
+  - `application*.yml` の `spring.flyway.*`
+- Mapper 統合テストは、Testcontainers MySQL 起動後に root `db/` の SQL を Spring JDBC script utility で適用する形へ変更した。
+- `SeedMigrationIntegrationTests` は `flyway_schema_history` 前提をやめ、root SQL の適用順と seed 結果を検証する形へ変更した。
+- migration build context 用に root `.dockerignore` を追加した。
 
 ### 確認結果
 
-- 未確認。
+- `cd C:\git\workops\apps\web; .\mvnw.cmd test`
+  - 成功。Tests run: 387, Failures: 0, Errors: 0, Skipped: 0
+- `cd C:\git\workops; docker compose -p workops-p2alpha-migration-test build migration`
+  - 成功。`flyway/flyway:12.9.0-alpine` tag は取得可能だった。
+- `docker compose -p workops-p2alpha-migration-test up -d workops-mysql`
+  - 成功。
+- `docker compose -p workops-p2alpha-migration-test run --rm migration`
+  - 成功。Flyway CLI 12.9.0 が 8 migrations を v8 まで適用した。
+- `docker compose -p workops-p2alpha-migration-test down -v`
+  - 成功。検証用 volume を削除した。
+- `cd C:\git\workops\apps\web; .\mvnw.cmd spotless:check`
+  - 成功。
+- `cd C:\git\workops\apps\web; .\mvnw.cmd compile spotbugs:check`
+  - 成功。SpotBugs BugInstance size 0 / Error size 0。
+- `cd C:\git\workops\apps\web; .\mvnw.cmd verify`
+  - 成功。Tests run: 387, Failures: 0, Errors: 0, Skipped: 0。JaCoCo coverage check も成功。
 
 ### 残課題
 
-- 未整理。
+- AWS dev の ECS RunTask、MigrationStack、PipelineStack 連携は本 task の除外範囲として後続 task で扱う。

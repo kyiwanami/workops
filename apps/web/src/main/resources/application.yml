@@ -8,10 +8,6 @@ spring:
     username: ${WORKOPS_DB_USERNAME:workops}
     password: ${WORKOPS_DB_PASSWORD:workops}
     driver-class-name: com.mysql.cj.jdbc.Driver
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: false
 
 logging:
   pattern:
