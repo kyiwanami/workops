@@ -483,10 +483,19 @@ describe('WorkOps CDK app', () => {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: 'ec2:DescribeAvailabilityZones',
+            Action: Match.arrayWith([
+              'ec2:DescribeAvailabilityZones',
+              'ec2:DescribeManagedPrefixLists',
+            ]),
             Effect: 'Allow',
             Resource: '*',
           }),
+        ]),
+      },
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
           Match.objectLike({
             Action: 'cloudformation:ListResources',
             Effect: 'Allow',
