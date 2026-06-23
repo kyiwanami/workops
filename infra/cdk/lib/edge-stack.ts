@@ -30,6 +30,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { join } from 'path';
+import { exportName } from './stack-exports';
 
 export interface EdgeStackProps extends StackProps {
   stage: string;
@@ -159,7 +160,16 @@ export class EdgeStack extends Stack {
       value: this.cloudFrontDomainName,
     });
     new CfnOutput(this, 'cloudFrontHttpsUrl', {
+      exportName: exportName(props.stage, 'edge-cloudfront-https-url'),
       value: this.cloudFrontHttpsUrl,
+    });
+    new CfnOutput(this, 'listenerArn', {
+      exportName: exportName(props.stage, 'edge-listener-arn'),
+      value: this.listener.listenerArn,
+    });
+    new CfnOutput(this, 'loadBalancerFullName', {
+      exportName: exportName(props.stage, 'edge-load-balancer-full-name'),
+      value: this.loadBalancer.loadBalancerFullName,
     });
   }
 }

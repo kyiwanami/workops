@@ -11,6 +11,7 @@ import {
   UserPoolDomain,
 } from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
+import { exportName } from './stack-exports';
 
 export interface IdentityStackProps extends StackProps {
   stage: string;
@@ -180,15 +181,19 @@ export class IdentityStack extends Stack {
     });
 
     new CfnOutput(this, 'userPoolId', {
+      exportName: exportName(props.stage, 'identity-user-pool-id'),
       value: this.userPoolId,
     });
     new CfnOutput(this, 'platformUserPoolClientId', {
+      exportName: exportName(props.stage, 'identity-platform-user-pool-client-id'),
       value: this.platformUserPoolClientId,
     });
     new CfnOutput(this, 'tenantUserPoolClientId', {
+      exportName: exportName(props.stage, 'identity-tenant-user-pool-client-id'),
       value: this.tenantUserPoolClientId,
     });
     new CfnOutput(this, 'hostedUiDomainBaseUrl', {
+      exportName: exportName(props.stage, 'identity-hosted-ui-domain-base-url'),
       value: this.hostedUiDomainBaseUrl,
     });
   }

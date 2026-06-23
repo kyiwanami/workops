@@ -1,6 +1,14 @@
-import { ArnFormat, Duration, Stack, StackProps } from 'aws-cdk-lib';
-import { CfnSecurityGroupIngress, ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
-import { IRepository } from 'aws-cdk-lib/aws-ecr';
+import { ArnFormat, Duration, Fn, Stack, StackProps } from 'aws-cdk-lib';
+import {
+  CfnSecurityGroupIngress,
+  ISecurityGroup,
+  ISubnet,
+  IVpc,
+  SecurityGroup,
+  Subnet,
+  Vpc,
+} from 'aws-cdk-lib/aws-ec2';
+import { IRepository, Repository } from 'aws-cdk-lib/aws-ecr';
 import {
   AlarmBehavior,
   AlternateTarget,
@@ -10,6 +18,7 @@ import {
   DeploymentStrategy,
   FargateService,
   FargateTaskDefinition,
+  ICluster,
   ListenerRuleConfiguration,
   LogDrivers,
   OperatingSystemFamily,
@@ -17,6 +26,7 @@ import {
 } from 'aws-cdk-lib/aws-ecs';
 import {
   ApplicationListener,
+  IApplicationListener,
   ApplicationListenerRule,
   ApplicationProtocol,
   ApplicationTargetGroup,
@@ -32,27 +42,31 @@ import {
   TreatMissingData,
 } from 'aws-cdk-lib/aws-cloudwatch';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { ILogGroup } from 'aws-cdk-lib/aws-logs';
+import { ILogGroup, LogGroup } from 'aws-cdk-lib/aws-logs';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { exportName } from './stack-exports';
 
-export interface AppRuntimeStackProps extends StackProps {
-  stage: string;
-  cluster: Cluster;
-  vpc: Vpc;
+export interface RuntimeResources {
+  cluster: ICluster;
+  vpc: IVpc;
   appSubnets: ISubnet[];
-  appSecurityGroup: SecurityGroup;
-  albSecurityGroup: SecurityGroup;
+  appSecurityGroup: ISecurityGroup;
+  albSecurityGroup: ISecurityGroup;
   repository: IRepository;
   webLogGroup: ILogGroup;
-  listener: ApplicationListener;
+  listener: IApplicationListener;
   loadBalancerFullName: string;
   cognitoUserPoolId: string;
   cognitoPlatformUserPoolClientId: string;
   cognitoTenantUserPoolClientId: string;
   cognitoHostedUiDomainBaseUrl: string;
   cloudFrontHttpsUrl: string;
+}
+
+export interface AppRuntimeStackProps extends StackProps {
+  stage: string;
   webImageTag: string;
 }
 
@@ -63,11 +77,13 @@ export class AppRuntimeStack extends Stack {
   constructor(scope: Construct, id: string, props: AppRuntimeStackProps) {
     super(scope, id, props);
 
+    const resources = this.createRuntimeResources(props.stage);
+
     // The ALB reaches only the Spring Boot container port exposed by the P2-3 image.
     new CfnSecurityGroupIngress(this, 'AppHttpIngressFromAlb', {
-      groupId: props.appSecurityGroup.securityGroupId,
+      groupId: resources.appSecurityGroup.securityGroupId,
       ipProtocol: 'tcp',
-      sourceSecurityGroupId: props.albSecurityGroup.securityGroupId,
+      sourceSecurityGroupId: resources.albSecurityGroup.securityGroupId,
       fromPort: 8080,
       toPort: 8080,
       description: 'Allow WorkOps ALB to reach web tasks',
@@ -111,7 +127,7 @@ export class AppRuntimeStack extends Stack {
           this.formatArn({
             service: 'cognito-idp',
             resource: 'userpool',
-            resourceName: props.cognitoUserPoolId,
+            resourceName: resources.cognitoUserPoolId,
             arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
           }),
         ],
@@ -121,16 +137,16 @@ export class AppRuntimeStack extends Stack {
     // The dev ECS task runs the non-local Spring security profile and reads Cognito settings from CDK wiring.
     this.taskDefinition.addContainer('WebContainer', {
       containerName: 'web',
-      image: ContainerImage.fromEcrRepository(props.repository, props.webImageTag),
+      image: ContainerImage.fromEcrRepository(resources.repository, props.webImageTag),
       environment: {
         AWS_REGION: Stack.of(this).region,
-        WORKOPS_COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
-        WORKOPS_COGNITO_PLATFORM_CLIENT_ID: props.cognitoPlatformUserPoolClientId,
-        WORKOPS_COGNITO_TENANT_CLIENT_ID: props.cognitoTenantUserPoolClientId,
-        WORKOPS_COGNITO_HOSTED_UI_DOMAIN_BASE_URL: props.cognitoHostedUiDomainBaseUrl,
-        WORKOPS_COGNITO_LOGOUT_URI: `${props.cloudFrontHttpsUrl}/login`,
-        WORKOPS_COGNITO_PLATFORM_REDIRECT_URI: `${props.cloudFrontHttpsUrl}/login/oauth2/code/platform`,
-        WORKOPS_COGNITO_TENANT_REDIRECT_URI: `${props.cloudFrontHttpsUrl}/login/oauth2/code/tenant`,
+        WORKOPS_COGNITO_USER_POOL_ID: resources.cognitoUserPoolId,
+        WORKOPS_COGNITO_PLATFORM_CLIENT_ID: resources.cognitoPlatformUserPoolClientId,
+        WORKOPS_COGNITO_TENANT_CLIENT_ID: resources.cognitoTenantUserPoolClientId,
+        WORKOPS_COGNITO_HOSTED_UI_DOMAIN_BASE_URL: resources.cognitoHostedUiDomainBaseUrl,
+        WORKOPS_COGNITO_LOGOUT_URI: `${resources.cloudFrontHttpsUrl}/login`,
+        WORKOPS_COGNITO_PLATFORM_REDIRECT_URI: `${resources.cloudFrontHttpsUrl}/login/oauth2/code/platform`,
+        WORKOPS_COGNITO_TENANT_REDIRECT_URI: `${resources.cloudFrontHttpsUrl}/login/oauth2/code/tenant`,
       },
       secrets: {
         SPRING_PROFILES_ACTIVE: EcsSecret.fromSsmParameter(springProfileParameter),
@@ -139,7 +155,7 @@ export class AppRuntimeStack extends Stack {
         WORKOPS_DB_PASSWORD: EcsSecret.fromSecretsManager(dbMasterSecret, 'password'),
       },
       logging: LogDrivers.awsLogs({
-        logGroup: props.webLogGroup,
+        logGroup: resources.webLogGroup,
         streamPrefix: 'web',
       }),
       portMappings: [
@@ -149,29 +165,39 @@ export class AppRuntimeStack extends Stack {
       ],
     });
 
-    const blueTargetGroup = this.createTargetGroup('WebBlueTargetGroup', props, 'blue');
-    const greenTargetGroup = this.createTargetGroup('WebGreenTargetGroup', props, 'green');
+    const blueTargetGroup = this.createTargetGroup(
+      'WebBlueTargetGroup',
+      props.stage,
+      resources,
+      'blue',
+    );
+    const greenTargetGroup = this.createTargetGroup(
+      'WebGreenTargetGroup',
+      props.stage,
+      resources,
+      'green',
+    );
     const listenerRule = new ApplicationListenerRule(this, 'WebListenerRule', {
-      listener: props.listener,
+      listener: resources.listener,
       priority: 10,
       conditions: [ListenerCondition.pathPatterns(['/*'])],
       action: ListenerAction.forward([blueTargetGroup]),
     });
     const target5xxAlarm = this.createTarget5xxAlarm(
       props.stage,
-      props.loadBalancerFullName,
+      resources.loadBalancerFullName,
       blueTargetGroup,
       greenTargetGroup,
     );
     const unhealthyHostAlarm = this.createUnhealthyHostAlarm(
       props.stage,
-      props.loadBalancerFullName,
+      resources.loadBalancerFullName,
       blueTargetGroup,
       greenTargetGroup,
     );
 
     this.service = new FargateService(this, 'WebService', {
-      cluster: props.cluster,
+      cluster: resources.cluster,
       serviceName: `workops-${props.stage}-web`,
       taskDefinition: this.taskDefinition,
       desiredCount: 1,
@@ -188,9 +214,9 @@ export class AppRuntimeStack extends Stack {
       healthCheckGracePeriod: Duration.seconds(90),
       minHealthyPercent: 100,
       maxHealthyPercent: 200,
-      securityGroups: [props.appSecurityGroup],
+      securityGroups: [resources.appSecurityGroup],
       vpcSubnets: {
-        subnets: props.appSubnets,
+        subnets: resources.appSubnets,
       },
     });
 
@@ -207,17 +233,102 @@ export class AppRuntimeStack extends Stack {
     this.service.node.addDependency(listenerRule);
   }
 
+  private createRuntimeResources(stage: string): RuntimeResources {
+    const appSubnetOneId = Fn.importValue(exportName(stage, 'foundation-app-subnet-one-id'));
+    const appSubnetTwoId = Fn.importValue(exportName(stage, 'foundation-app-subnet-two-id'));
+    const appSubnetOneAvailabilityZone = Fn.select(0, Fn.getAzs());
+    const appSubnetTwoAvailabilityZone = Fn.select(1, Fn.getAzs());
+    const appSubnetOneRouteTableId = Fn.importValue(
+      exportName(stage, 'foundation-app-subnet-one-route-table-id'),
+    );
+    const appSubnetTwoRouteTableId = Fn.importValue(
+      exportName(stage, 'foundation-app-subnet-two-route-table-id'),
+    );
+    const vpc = Vpc.fromVpcAttributes(this, 'Vpc', {
+      availabilityZones: [appSubnetOneAvailabilityZone, appSubnetTwoAvailabilityZone],
+      privateSubnetIds: [appSubnetOneId, appSubnetTwoId],
+      privateSubnetRouteTableIds: [appSubnetOneRouteTableId, appSubnetTwoRouteTableId],
+      vpcId: Fn.importValue(exportName(stage, 'foundation-vpc-id')),
+    });
+    const appSecurityGroup = SecurityGroup.fromSecurityGroupId(
+      this,
+      'AppSecurityGroup',
+      Fn.importValue(exportName(stage, 'foundation-app-security-group-id')),
+      {
+        mutable: false,
+      },
+    );
+    const albSecurityGroup = SecurityGroup.fromSecurityGroupId(
+      this,
+      'AlbSecurityGroup',
+      Fn.importValue(exportName(stage, 'foundation-alb-security-group-id')),
+      {
+        mutable: false,
+      },
+    );
+    const cluster = Cluster.fromClusterAttributes(this, 'EcsCluster', {
+      clusterName: Fn.importValue(exportName(stage, 'foundation-ecs-cluster-name')),
+      securityGroups: [appSecurityGroup],
+      vpc,
+    });
+    const listener = ApplicationListener.fromApplicationListenerAttributes(this, 'HttpListener', {
+      defaultPort: 80,
+      listenerArn: Fn.importValue(exportName(stage, 'edge-listener-arn')),
+      securityGroup: albSecurityGroup,
+    });
+    const webLogGroup = LogGroup.fromLogGroupName(
+      this,
+      'WebLogGroup',
+      Fn.importValue(exportName(stage, 'logs-web-log-group-name')),
+    );
+
+    return {
+      albSecurityGroup,
+      appSecurityGroup,
+      appSubnets: [
+        Subnet.fromSubnetAttributes(this, 'AppSubnetOne', {
+          availabilityZone: appSubnetOneAvailabilityZone,
+          routeTableId: appSubnetOneRouteTableId,
+          subnetId: appSubnetOneId,
+        }),
+        Subnet.fromSubnetAttributes(this, 'AppSubnetTwo', {
+          availabilityZone: appSubnetTwoAvailabilityZone,
+          routeTableId: appSubnetTwoRouteTableId,
+          subnetId: appSubnetTwoId,
+        }),
+      ],
+      cloudFrontHttpsUrl: Fn.importValue(exportName(stage, 'edge-cloudfront-https-url')),
+      cluster,
+      cognitoHostedUiDomainBaseUrl: Fn.importValue(
+        exportName(stage, 'identity-hosted-ui-domain-base-url'),
+      ),
+      cognitoPlatformUserPoolClientId: Fn.importValue(
+        exportName(stage, 'identity-platform-user-pool-client-id'),
+      ),
+      cognitoTenantUserPoolClientId: Fn.importValue(
+        exportName(stage, 'identity-tenant-user-pool-client-id'),
+      ),
+      cognitoUserPoolId: Fn.importValue(exportName(stage, 'identity-user-pool-id')),
+      listener,
+      loadBalancerFullName: Fn.importValue(exportName(stage, 'edge-load-balancer-full-name')),
+      repository: Repository.fromRepositoryName(this, 'WebRepository', `workops-${stage}-web`),
+      vpc,
+      webLogGroup,
+    };
+  }
+
   private createTargetGroup(
     id: string,
-    props: AppRuntimeStackProps,
+    stage: string,
+    resources: RuntimeResources,
     color: string,
   ): ApplicationTargetGroup {
     const targetGroup = new ApplicationTargetGroup(this, id, {
-      vpc: props.vpc,
+      vpc: resources.vpc,
       targetType: TargetType.IP,
       protocol: ApplicationProtocol.HTTP,
       port: 8080,
-      targetGroupName: `workops-${props.stage}-web-${color}-tg`,
+      targetGroupName: `workops-${stage}-web-${color}-tg`,
       healthCheck: {
         path: '/actuator/health',
         healthyHttpCodes: '200',

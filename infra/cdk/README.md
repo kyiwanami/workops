@@ -71,8 +71,6 @@ $env:CDK_DEFAULT_REGION = "ap-northeast-1"
 $env:WORKOPS_IMAGE_TAG = "test-sha"
 $env:GITHUB_REPOSITORY = "owner/repo"
 $env:WORKOPS_PIPELINE_NOTIFICATION_EMAIL = "pipeline@example.com"
-npm run cdk:infra -- synth --quiet --profile $env:AWS_PROFILE
-npm run cdk:runtime -- synth --quiet --profile $env:AWS_PROFILE
 npm run cdk:pipeline -- synth --quiet --profile $env:AWS_PROFILE
 ```
 
@@ -128,28 +126,10 @@ npm run cdk:pipeline -- diff PipelineStack
 npm run cdk:pipeline -- deploy PipelineStack
 ```
 
-Pipeline 実走前に手元で runtime Stack を確認する場合は、synth と diff までに留めます。
-
-```powershell
-cd C:\git\workops\infra\cdk
-$env:WORKOPS_STAGE = "dev"
-$env:AWS_PROFILE = "your-profile"
-$env:AWS_REGION = "ap-northeast-1"
-$env:WORKOPS_IMAGE_TAG = "test-sha"
-npm run cdk:runtime -- diff AppRuntimeStack
-```
-
 ## Destroy
 
-P2-alpha-3 の確認完了後、主要課金 4 stack を削除します。
-
-```powershell
-cd C:\git\workops\infra\cdk
-$env:WORKOPS_STAGE = "dev"
-$env:AWS_PROFILE = "your-profile"
-$env:AWS_REGION = "ap-northeast-1"
-npm run cdk:runtime -- destroy AppRuntimeStack EdgeStack EgressStack DataStack
-```
+P2-alpha-3 以降、runtime resource の作成・更新・削除は Pipeline 管理に寄せます。
+個別 runtime CDK entrypoint は使いません。
 
 PipelineStack、MigrationStack、FoundationStack、ConfigStack、IdentityStack、RegistryStack、LogsStack、Artifact bucket、ECR repository、CodeConnection は維持対象です。
 

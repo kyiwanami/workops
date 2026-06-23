@@ -123,11 +123,11 @@ Cleanup では `EgressStack`、`DataStack`、`EdgeStack`、`AppRuntimeStack` の
 
 | 項目 | 状態 | 根拠 |
 | --- | --- | --- |
-| `EgressStack` が destroy 済みである | 未確認 | 本 task |
-| `DataStack` が destroy 済みである | 未確認 | 本 task |
-| `EdgeStack` が destroy 済みである | 未確認 | 本 task |
-| `AppRuntimeStack` が destroy 済みである | 未確認 | 本 task |
-| 維持対象 Stack / resource が残っている | 未確認 | 本 task |
+| `EgressStack` が destroy 済みである | 確認済み | CloudFormation stack 一覧 |
+| `DataStack` が destroy 済みである | 確認済み | CloudFormation stack 一覧 |
+| `EdgeStack` が destroy 済みである | 確認済み | CloudFormation stack 一覧 |
+| `AppRuntimeStack` が destroy 済みである | 確認済み | CloudFormation stack 一覧 |
+| 維持対象 Stack / resource が残っている | 確認済み | CloudFormation stack 一覧 |
 
 ## ベースライン記録
 
@@ -151,6 +151,11 @@ Cleanup では `EgressStack`、`DataStack`、`EdgeStack`、`AppRuntimeStack` の
 | P2-alpha-3-01 `GitHubSource` 実行 | CodeConnection 接続後の Source action が権限で失敗した | Pipeline role に追加した `codeconnections:FullRepositoryId` / `codeconnections:BranchName` 不一致時の明示 Deny が `UseConnection` 実行を拒否した | 明示 Deny を削除し、repository / branch 固定は `CodePipelineSource.connection` の `githubRepository` / `main` 指定で扱う | CodeConnection の repository / branch 制限を IAM Deny ではなく Source action 定義へ寄せる判断 | ユーザー指摘を受け、認可済み接続を止めたのはCDK側のPipeline role policyと判断して修正した |
 | P2-alpha-3-01 `Synth` 実行 | Source 成功後、`Synth` CodeBuild の `npm ci` が失敗した | `infra/cdk/package.json` と `infra/cdk/package-lock.json` が npm 10 / Linux arm64 の optional dependency 解決と同期しておらず、`@emnapi/core@1.11.1` / `@emnapi/runtime@1.11.1` が lock file に不足していた | CodeBuild と同じ npm 10.8.2 で `package-lock.json` を同期し、`npm ci --dry-run`、`npm run build`、`npm run lint`、`npm run test -- --runInBand` を確認した | Pipeline Synth は CodeBuild runtime と同じ npm major で lock 同期する運用 | ユーザー許可を受けて lock file のみ更新し、`npm audit fix` は実行しない方針で進めた |
 | P2-alpha-3-01 `Synth` 実行 | lock 同期後、`npm run cdk:pipeline -- synth` が lookup 権限不足で失敗した | Synth CodeBuild role に、CDK context lookup で必要な `ec2:DescribeAvailabilityZones`、`ec2:DescribeManagedPrefixLists`、`ec2:GetManagedPrefixListEntries`、`cloudformation:ListResources` が無かった | Synth CodeBuild step の `rolePolicyStatements` に lookup 用 read-only 権限を追加し、`PipelineStack` を更新 deploy した | Synth role の lookup 用 read-only 権限を明示する判断 | ユーザー指摘のCodePipeline permission failureとして、失敗原因と対策を集約した |
+| P2-alpha-3-01 `BuildAndTest` 実行 | `./mvnw spotless:check` が `google-java-format` の `NoClassDefFoundError` で失敗した | `apps/web` は Java 25 だが、BuildAndTest の CodeBuild runtime version を明示しておらず、Spotless が Java 25 前提の formatter を古い JDK 上で実行した | BuildAndTest の buildspec に `runtime-versions` / `java: corretto25` を明示し、`java -version` をログに出す | Java 25 の Maven 品質ゲートは CodeBuild runtime を明示する判断 | CodeBuild log と AWS 公式 runtime 対応表を確認し、プロジェクトの `java.version` に合わせる方針にした |
+| P2-alpha-3 個別 stack deploy 前確認 | `DeployAppRuntime/AppRuntimeStack` の diff に `DataStack` / RDS secret 周辺の置換が出た | Pipeline の `DeployAppRuntime` stage が `FoundationStack`、`DataStack`、`IdentityStack`、`LogsStack`、`EgressStack`、`EdgeStack` を別 Stage path で再定義していた。同じ物理 stack を別 construct path から更新するため、CloudFormation logical ID が変わり、shared stack を冪等に扱えていなかった | `DeployDataNetworkMigration` 側の shared stack に明示 `Export` を追加し、`DeployAppRuntime` は `ConfigStack` と `AppRuntimeStack` だけを管理する構成にした。`AppRuntimeStack` は export import で既存 shared resource を参照する | Pipeline stage を分ける場合、同じ物理 stack を複数 Stage で再定義せず、stage 境界の参照値は明示 export/import で渡す判断 | ユーザー指示に従い、Pipeline 全体実行ではなく個別 stack diff / deploy の途中で停止し、RDS 置換を出さない構成へ修正した |
+| P2-alpha-3 AppRuntime image build | `docker build --platform linux/arm64` が runtime stage の `RUN apk upgrade` で `exec format error` になり、ECR push できなかった | ローカル Docker の既定 builder が ARM64 実行を扱えず、ARM64 image の build 中に container command を実行できなかった | `tonistiigi/binfmt --install arm64` で ARM64 emulator を登録し、`docker-container` driver の buildx builder を作り直したうえで `docker buildx build --platform linux/arm64 --push` を実行した。ECR の対象 tag / digest / pushedAt を確認した | ARM64 ECS task 用 image は build 前に buildx builder の `linux/arm64` 対応を確認する判断 | AppRuntimeStack deploy 前に現在の `apps/web` から image build / ECR push / image 確認を実施するルールに従って対応した |
+| P2-alpha-3 `AppRuntimeStack` deploy | `cdk deploy` が security-sensitive update の承認で停止した | CDK の `--require-approval` が有効なまま IAM / security group 追加を含む stack を非 TTY で deploy したため、対話承認を取得できなかった。さらに PowerShell pipe と `npm run` の組み合わせで引数渡しが崩れた | ユーザーから `--require-approval never` の明示承認を得た後、`npx cdk` を直接実行して `AppRuntimeStack` を deploy した | 非 TTY の CDK deploy で security-sensitive update を含む場合は、ユーザー明示承認後に direct `cdk` と `--require-approval never` を使う判断 | ユーザー承認後に AppRuntimeStack を作成し、CloudFormation `CREATE_COMPLETE`、ECS service `ACTIVE` / desired 1 / running 1 / rollout completed、CDK diff 0 を確認した |
+| P2-alpha-3 cleanup `AppRuntimeStack` destroy | `AppRuntimeStack` の初回 destroy が green target group 削除で `DELETE_FAILED` になった | ECS service / listener rule の削除直後に target group の参照解除が ELB 側で反映されきっておらず、CloudFormation が target group を削除できなかった | ELB listener / rule から target group 参照が外れていることを確認し、同じ CDK destroy を再実行して `AppRuntimeStack` を削除した | ECS blue/green target group を含む stack destroy では、target group 参照解除の整合待ち後に再実行する運用 | ユーザー指示の課金 stack 停止として、AppRuntime、Edge、Egress、Data の順に destroy し、維持対象 stack が残ることを確認した |
 
 ## Cleanup 確認方法
 
@@ -172,15 +177,7 @@ $env:CDK_DEFAULT_REGION = $env:AWS_REGION
 aws sts get-caller-identity --profile $env:AWS_PROFILE --region $env:AWS_REGION
 ```
 
-主要課金 4 stack destroy:
-
-```powershell
-cd C:\git\workops\infra\cdk
-npm run cdk:runtime -- destroy AppRuntimeStack --profile $env:AWS_PROFILE
-npm run cdk:runtime -- destroy EdgeStack --profile $env:AWS_PROFILE
-npm run cdk:runtime -- destroy DataStack --profile $env:AWS_PROFILE
-npm run cdk:runtime -- destroy EgressStack --profile $env:AWS_PROFILE
-```
+主要課金 4 stack は削除済みのため、今後手順として個別 runtime CDK destroy は残さない。
 
 destroy 後の状態確認:
 
@@ -206,12 +203,26 @@ aws cloudformation describe-stacks `
 
 ### 実施結果
 
-- 未実施。
+- 個別 stack deploy の手順に切り替え、Registry、Foundation、Identity、Logs、Data、Egress、Edge、Migration、AppRuntime の順に確認した。
+- `DeployAppRuntime/AppRuntimeStack` の事前 diff で shared stack の二重管理による `DataStack` / RDS secret 周辺の置換差分を検出し、deploy 前に停止した。
+- shared stack の必要値を CloudFormation export として公開し、AppRuntime 側は import 参照へ切り替えた。
+- Foundation、Identity、Logs、Edge の export 追加を個別 deploy した。
+- AppRuntime deploy 前に、現在の `apps/web` から ARM64 Docker image を build し、ECR に push した。
+- `AppRuntimeStack` を個別 deploy した。
+- 課金停止のため、`AppRuntimeStack`、`EdgeStack`、`EgressStack`、`DataStack` の順に個別 destroy した。
+- `AppRuntimeStack` は初回 destroy が target group 削除で停止したが、ELB 側の参照解除を確認後、同じ destroy を再実行して削除した。
 
 ### 確認結果
 
-- 未実施。
+- CDK local verification は `npm run build`、`npm run lint`、`npm run test -- --runInBand`、`npm run format:check` が成功した。
+- `git diff --check` は whitespace error なし。
+- `DeployAppRuntime/AppRuntimeStack` deploy 後の CloudFormation status は `CREATE_COMPLETE`。
+- ECS service は `ACTIVE`、desired 1、running 1、pending 0、rollout completed。
+- `DeployAppRuntime/AppRuntimeStack` deploy 後の CDK diff は 0。
+- `AppRuntimeStack`、`EdgeStack`、`EgressStack`、`DataStack` は CloudFormation stack 一覧に表示されない。
+- `PipelineStack`、`MigrationStack`、`FoundationStack`、`ConfigStack`、`IdentityStack`、`RegistryStack`、`LogsStack`、`SecretStack` は残っている。
 
 ### 残課題
 
-- 未実施。
+- Pipeline 全体の 1 周完走確認は未実施。
+- 現在の修正は未 commit / 未 push。Pipeline は source から `main` を取得するため、Pipeline 全体確認前に commit / push が必要。

@@ -1,6 +1,7 @@
 import { CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
+import { exportName } from './stack-exports';
 
 export interface LogsStackProps extends StackProps {
   stage: string;
@@ -43,6 +44,7 @@ export class LogsStack extends Stack {
     );
 
     new CfnOutput(this, 'webLogGroupName', {
+      exportName: exportName(props.stage, 'logs-web-log-group-name'),
       value: this.webLogGroup.logGroupName,
     });
     new CfnOutput(this, 'migrationLogGroupName', {

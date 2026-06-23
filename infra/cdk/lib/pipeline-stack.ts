@@ -9,7 +9,12 @@ import {
   StackProps,
   Stage,
 } from 'aws-cdk-lib';
-import { BuildEnvironment, ComputeType, LinuxArmBuildImage } from 'aws-cdk-lib/aws-codebuild';
+import {
+  BuildEnvironment,
+  BuildSpec,
+  ComputeType,
+  LinuxArmBuildImage,
+} from 'aws-cdk-lib/aws-codebuild';
 import { DetailType } from 'aws-cdk-lib/aws-codestarnotifications';
 import { CfnConnection } from 'aws-cdk-lib/aws-codestarconnections';
 import {
@@ -175,93 +180,21 @@ class AppRuntimeDeployStage extends Stage {
       env: props.env,
     });
 
-    const foundationStack = new FoundationStack(this, 'FoundationStack', {
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-foundation`,
-    });
-    const dataStack = new DataStack(this, 'DataStack', {
-      appSecurityGroup: foundationStack.appSecurityGroup,
-      dbSecurityGroup: foundationStack.dbSecurityGroup,
-      dbSubnets: foundationStack.dbSubnets,
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-data`,
-      vpc: foundationStack.vpc,
-    });
     const configStack = new ConfigStack(this, 'ConfigStack', {
       env: props.env,
       stage: props.stage,
       stackName: `workops-${props.stage}-config`,
     });
-    const identityStack = new IdentityStack(this, 'IdentityStack', {
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-identity`,
-    });
-    const logsStack = new LogsStack(this, 'LogsStack', {
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-logs`,
-    });
-    const egressStack = new EgressStack(this, 'EgressStack', {
-      appSubnets: foundationStack.appSubnets,
-      env: props.env,
-      publicSubnets: foundationStack.publicSubnets,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-egress`,
-      vpc: foundationStack.vpc,
-    });
-    const edgeStack = new EdgeStack(this, 'EdgeStack', {
-      albSecurityGroup: foundationStack.albSecurityGroup,
-      appSubnets: foundationStack.appSubnets,
-      cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
-      cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
-      cognitoUserPoolId: identityStack.userPoolId,
-      cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
-      cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-edge`,
-      vpc: foundationStack.vpc,
-    });
-    const webRepository = Repository.fromRepositoryName(
-      foundationStack,
-      'WebRepository',
-      `workops-${props.stage}-web`,
-    );
 
-    // AppRuntime deployment reuses support stack constructs so cross-stack references stay local.
+    // AppRuntime consumes exported support resources and owns only the ECS web runtime.
     const appRuntimeStack = new AppRuntimeStack(this, 'AppRuntimeStack', {
-      albSecurityGroup: foundationStack.albSecurityGroup,
-      appSecurityGroup: foundationStack.appSecurityGroup,
-      appSubnets: foundationStack.appSubnets,
-      cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
-      cluster: foundationStack.ecsCluster,
-      cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
-      cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
-      cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
-      cognitoUserPoolId: identityStack.userPoolId,
       env: props.env,
-      listener: edgeStack.listener,
-      loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
-      repository: webRepository,
       stage: props.stage,
       stackName: `workops-${props.stage}-app-runtime`,
-      vpc: foundationStack.vpc,
       webImageTag: props.webImageTag,
-      webLogGroup: logsStack.webLogGroup,
     });
 
-    edgeStack.addDependency(egressStack);
-    edgeStack.addDependency(identityStack);
-    edgeStack.addDependency(logsStack);
-    appRuntimeStack.addDependency(dataStack);
-    appRuntimeStack.addDependency(egressStack);
-    appRuntimeStack.addDependency(edgeStack);
-    appRuntimeStack.addDependency(identityStack);
     appRuntimeStack.addDependency(configStack);
-    appRuntimeStack.addDependency(logsStack);
   }
 }
 
@@ -355,19 +288,33 @@ export class PipelineStack extends Stack {
 
     const buildAndTestStep = new CodeBuildStep('BuildAndTest', {
       buildEnvironment,
-      commands: [
-        'cd apps/web',
-        './mvnw spotless:check',
-        './mvnw compile spotbugs:check',
-        './mvnw verify',
-        'cd ../../infra/cdk',
-        'npm ci',
-        'npm run build',
-        'npm run test',
-        'npm run lint',
-        'npm run format:check',
-      ],
+      commands: [],
       input: source,
+      partialBuildSpec: BuildSpec.fromObject({
+        phases: {
+          install: {
+            'runtime-versions': {
+              java: 'corretto25',
+            },
+          },
+          build: {
+            commands: [
+              'cd apps/web',
+              'java -version',
+              './mvnw spotless:check',
+              './mvnw compile spotbugs:check',
+              './mvnw verify',
+              'cd ../../infra/cdk',
+              'npm ci',
+              'npm run build',
+              'npm run test',
+              'npm run lint',
+              'npm run format:check',
+            ],
+          },
+        },
+        version: '0.2',
+      }),
     });
     const manualApprovalStep = new ManualApprovalStep('ManualApproval', {
       comment:
