@@ -156,13 +156,14 @@ ManualApproval 確認:
 ### 確認結果
 
 - `workops-dev-pipeline` は `CREATE_COMPLETE`。
-- `workops-dev-github` CodeConnection は、CLI では `PENDING` が返った。ユーザーの AWS Console 確認では接続認可済み。
+- CodeConnection は、CLI で `workops-dev-github` が `PENDING`、別名 `GitHub` が `AVAILABLE` と返った。Pipeline が参照する接続は `workops-dev-github`。
 - `workops-dev-pipeline-notifications` の email subscription は確認済み ARN が返っている。
 - CodePipeline は Source stage / `GitHubSource` で failed。原因は Pipeline role の `UseConnection` 明示 Deny。
 - `UseConnection` 明示 Deny 削除後も、既存の Pipeline execution は failed のまま。修正 commit / push 後に再実行して確認する。
+- 修正 commit / push 後も新規 Pipeline execution は発生していない。Pipeline が参照する `workops-dev-github` の認可が未完了のため、`GitHub` ではなく `workops-dev-github` を認可する必要がある。
 
 ### 残課題
 
-- P2-alpha-3 手順 Markdown と CDK 修正 commit の `main` push。
+- `workops-dev-github` CodeConnection 認可。
 - Pipeline 起動確認。
 - ManualApproval 通知到達と承認確認。
