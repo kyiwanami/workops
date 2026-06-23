@@ -121,6 +121,7 @@ npm run cdk:pipeline -- synth
 - 2026-06-23: buildx の registry cache は web / migration それぞれの cache repository に `buildcache` tag で push し、`mode=max` を使う構成にした。
 - 2026-06-23: Trivy は `public.ecr.aws/aquasecurity/trivy:0.71.2` の container image を使い、MEDIUM / HIGH / CRITICAL を `--exit-code 1` で gate する構成にした。
 - 2026-06-23: P2-alpha-2 の範囲どおり、AWS deploy / Pipeline 実走 / 実 ECR push は実施していない。
+- 2026-06-23: P2-alpha-3 の Pipeline 実走で、Build Images stage の `docker buildx build` が web / migration ともに `invalid tag "...:$COMMIT_SHA"` で失敗した。原因は `IMAGE_URI` の CodeBuild environment variable に `:$COMMIT_SHA` を含め、env 定義内で別 env が展開される前提にしていたこと。CodeBuild の env は値の受け渡しに限定し、CodePipeline source variable の `CommitId` は `source.sourceAttribute('CommitId')` で `COMMIT_SHA` として渡し、image URI は build command 内で `export IMAGE_URI="$IMAGE_REPOSITORY_URI:$COMMIT_SHA"` として組み立てる方針に修正する。
 
 ### 実装結果
 
@@ -146,8 +147,14 @@ npm run cdk:pipeline -- synth
   - 成功。
 - AWS credential 環境変数を削除し、dummy account / dummy email で `npm run cdk:pipeline -- synth --quiet`
   - 成功。
+- 2026-06-23 P2-alpha-3 Pipeline 実走:
+  - `DeployRegistry` まで成功。
+  - `BuildImages` で web / migration ともに `docker buildx build` が失敗。
+  - 失敗理由は Trivy scan ではなく、Docker tag に literal `$COMMIT_SHA` が残ったことによる `invalid reference format`。
+  - 修正後は `npm run build`、`npm run test -- --runInBand`、`npm run lint`、`npm run format:check` 成功。
 
 ### 残課題
 
 - Build Images の実 ECR push、Trivy 実 scan、AWS deploy、Pipeline 実走は P2-alpha-2 の範囲外。
 - Build Images stage で作った commit SHA image tag を Migration RunTask / AppRuntime へ渡す処理は P2-alpha-2-05 / P2-alpha-2-06 で扱う。
+- P2-alpha-3 で Pipeline を再実走し、Build Images が Docker build、Trivy image scan、ECR push まで成功することを確認する。
