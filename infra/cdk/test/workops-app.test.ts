@@ -479,6 +479,22 @@ describe('WorkOps CDK app', () => {
       }),
     });
     template.resourceCountIs('AWS::CodeBuild::Project', 8);
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'ec2:DescribeAvailabilityZones',
+            Effect: 'Allow',
+            Resource: '*',
+          }),
+          Match.objectLike({
+            Action: 'cloudformation:ListResources',
+            Effect: 'Allow',
+            Resource: '*',
+          }),
+        ]),
+      },
+    });
     template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
       Stages: Match.arrayWith([
         Match.objectLike({

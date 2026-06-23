@@ -333,6 +333,18 @@ export class PipelineStack extends Stack {
         },
         input: source,
         primaryOutputDirectory: 'infra/cdk/cdk.out',
+        rolePolicyStatements: [
+          new PolicyStatement({
+            actions: ['ec2:DescribeAvailabilityZones'],
+            effect: Effect.ALLOW,
+            resources: ['*'],
+          }),
+          new PolicyStatement({
+            actions: ['cloudformation:ListResources'],
+            effect: Effect.ALLOW,
+            resources: ['*'],
+          }),
+        ],
       }),
       usePipelineRoleForActions: true,
     });

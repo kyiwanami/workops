@@ -156,6 +156,8 @@ ManualApproval 確認:
 - `GitHubSource` は成功した。
 - `Synth` は `npm ci` で失敗したため、CodeBuild と同じ npm 10.8.2 で `package-lock.json` を同期した。
 - lock 同期後の `npm ci --dry-run`、`npm run build`、`npm run lint`、`npm run test -- --runInBand` は成功した。
+- lock 同期後の Pipeline execution では `npm ci` は成功し、`npm run cdk:pipeline -- synth` が lookup 権限不足で失敗した。
+- Synth CodeBuild role に `ec2:DescribeAvailabilityZones` と `cloudformation:ListResources` を追加し、`PipelineStack` 更新 deploy は成功した。
 
 ### 確認結果
 
@@ -166,6 +168,7 @@ ManualApproval 確認:
 - `UseConnection` 明示 Deny 削除後も、既存の Pipeline execution は failed のまま。修正 commit / push 後に再実行して確認する。
 - 修正 commit / push 後も新規 Pipeline execution は発生していない。Pipeline が参照する `workops-dev-github` の認可が未完了のため、`GitHub` ではなく `workops-dev-github` を認可する必要がある。
 - `workops-dev-github` 認可後の手動 execution では Source が成功し、Synth が `npm ci` で失敗した。lock 同期後に再実行して確認する。
+- lock 同期後の webhook execution では Source と `npm ci` が成功し、Synth が lookup 権限不足で失敗した。Synth role 権限追加後に再実行して確認する。
 
 ### 残課題
 
