@@ -152,18 +152,22 @@ ManualApproval 確認:
 - 修正後の `PipelineStack` deploy は成功した。
 - `PipelineStack` 更新 deploy により、artifact bucket の `DeletionPolicy` / `UpdateReplacePolicy` が `Delete` になったことを確認した。
 - `PipelineStack` 更新 deploy により、Pipeline role policy から `UseConnection` の明示 Deny が削除されたことを確認した。
+- `workops-dev-github` CodeConnection 認可後に Pipeline execution を手動開始した。
+- `GitHubSource` は成功した。
+- `Synth` は `npm ci` で失敗したため、CodeBuild と同じ npm 10.8.2 で `package-lock.json` を同期した。
+- lock 同期後の `npm ci --dry-run`、`npm run build`、`npm run lint`、`npm run test -- --runInBand` は成功した。
 
 ### 確認結果
 
 - `workops-dev-pipeline` は `CREATE_COMPLETE`。
-- CodeConnection は、CLI で `workops-dev-github` が `PENDING`、別名 `GitHub` が `AVAILABLE` と返った。Pipeline が参照する接続は `workops-dev-github`。
+- CodeConnection は、CLI で `workops-dev-github` と別名 `GitHub` がどちらも `AVAILABLE` と返った。Pipeline が参照する接続は `workops-dev-github`。
 - `workops-dev-pipeline-notifications` の email subscription は確認済み ARN が返っている。
 - CodePipeline は Source stage / `GitHubSource` で failed。原因は Pipeline role の `UseConnection` 明示 Deny。
 - `UseConnection` 明示 Deny 削除後も、既存の Pipeline execution は failed のまま。修正 commit / push 後に再実行して確認する。
 - 修正 commit / push 後も新規 Pipeline execution は発生していない。Pipeline が参照する `workops-dev-github` の認可が未完了のため、`GitHub` ではなく `workops-dev-github` を認可する必要がある。
+- `workops-dev-github` 認可後の手動 execution では Source が成功し、Synth が `npm ci` で失敗した。lock 同期後に再実行して確認する。
 
 ### 残課題
 
-- `workops-dev-github` CodeConnection 認可。
 - Pipeline 起動確認。
 - ManualApproval 通知到達と承認確認。

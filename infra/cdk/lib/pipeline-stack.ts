@@ -409,13 +409,17 @@ export class PipelineStack extends Stack {
     );
     pipeline.buildPipeline();
 
-    const pipelineNotifications = codePipeline.notifyOn('PipelineNotifications', notificationTopic, {
-      detailType: DetailType.BASIC,
-      events: [
-        PipelineNotificationEvents.MANUAL_APPROVAL_NEEDED,
-        PipelineNotificationEvents.PIPELINE_EXECUTION_FAILED,
-      ],
-    });
+    const pipelineNotifications = codePipeline.notifyOn(
+      'PipelineNotifications',
+      notificationTopic,
+      {
+        detailType: DetailType.BASIC,
+        events: [
+          PipelineNotificationEvents.MANUAL_APPROVAL_NEEDED,
+          PipelineNotificationEvents.PIPELINE_EXECUTION_FAILED,
+        ],
+      },
+    );
     pipelineNotifications.node.addDependency(codeStarNotificationsRole);
 
     new CfnOutput(this, 'pipelineName', {
