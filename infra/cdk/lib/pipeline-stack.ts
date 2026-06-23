@@ -420,7 +420,7 @@ export class PipelineStack extends Stack {
     config: BuildImageConfig,
   ): CodeBuildStep {
     const registryUri = `${Aws.ACCOUNT_ID}.dkr.ecr.${Aws.REGION}.${Aws.URL_SUFFIX}`;
-    const imageUri = `${registryUri}/${config.repositoryName}:$COMMIT_SHA`;
+    const imageRepositoryUri = `${registryUri}/${config.repositoryName}`;
     const cacheUri = `${registryUri}/${config.cacheRepositoryName}:buildcache`;
 
     // Image build steps publish immutable commit images while keeping buildx cache mutable.
@@ -430,6 +430,7 @@ export class PipelineStack extends Stack {
         'aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$REGISTRY_URI"',
         'docker buildx create --name workops-builder --driver docker-container --use',
         'docker buildx inspect --bootstrap',
+        'export IMAGE_URI="$IMAGE_REPOSITORY_URI:$COMMIT_SHA"',
         'docker buildx build --platform linux/arm64 --file "$DOCKERFILE" --tag "$IMAGE_URI" --cache-from "$CACHE_FROM" --cache-to "$CACHE_TO" --load "$BUILD_CONTEXT"',
         'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock public.ecr.aws/aquasecurity/trivy:0.71.2 image --exit-code 1 --severity MEDIUM,HIGH,CRITICAL --no-progress "$IMAGE_URI"',
         'docker push "$IMAGE_URI"',
@@ -440,7 +441,7 @@ export class PipelineStack extends Stack {
         CACHE_TO: `type=registry,ref=${cacheUri},mode=max`,
         COMMIT_SHA: source.sourceAttribute('CommitId'),
         DOCKERFILE: config.dockerfile,
-        IMAGE_URI: imageUri,
+        IMAGE_REPOSITORY_URI: imageRepositoryUri,
         REGISTRY_URI: registryUri,
       },
       input: source,
