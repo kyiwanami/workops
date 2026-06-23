@@ -1,13 +1,12 @@
 import { App, Stack, Tags } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { Topic } from 'aws-cdk-lib/aws-sns';
-import { readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { Construct } from 'constructs';
 import { AppRuntimeStack } from '../lib/app-runtime-stack';
 import { ConfigStack } from '../lib/config-stack';
 import { DataStack } from '../lib/data-stack';
-import { DeployStack } from '../lib/deploy-stack';
 import { EdgeStack } from '../lib/edge-stack';
 import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
@@ -49,12 +48,6 @@ describe('WorkOps CDK app', () => {
       env: testEnv,
       stage,
       stackName: `workops-${stage}-foundation`,
-    });
-    const deployStack = new DeployStack(app, 'DeployStack', {
-      env: testEnv,
-      githubRepository: testGitHubRepository,
-      stage,
-      stackName: `workops-${stage}-deploy`,
     });
     const secretStack = new SecretStack(app, 'SecretStack', {
       env: testEnv,
@@ -143,7 +136,6 @@ describe('WorkOps CDK app', () => {
     });
 
     expect(foundationStack.stackName).toBe('workops-dev-foundation');
-    expect(deployStack.stackName).toBe('workops-dev-deploy');
     expect(secretStack.stackName).toBe('workops-dev-secret');
     expect(dataStack.stackName).toBe('workops-dev-data');
     expect(configStack.stackName).toBe('workops-dev-config');
@@ -154,55 +146,6 @@ describe('WorkOps CDK app', () => {
     expect(egressStack.stackName).toBe('workops-dev-egress');
     expect(edgeStack.stackName).toBe('workops-dev-edge');
     expect(appRuntimeStack.stackName).toBe('workops-dev-app-runtime');
-  });
-
-  test('creates the P2-9 DeployStack GitHub Actions OIDC role', () => {
-    const app = new App();
-    const stage = 'dev';
-    const deployStack = new DeployStack(app, 'DeployStack', {
-      env: testEnv,
-      githubRepository: testGitHubRepository,
-      stage,
-      stackName: `workops-${stage}-deploy`,
-    });
-    const template = Template.fromStack(deployStack);
-    const templateText = JSON.stringify(template.toJSON());
-
-    template.resourceCountIs('Custom::AWSCDKOpenIdConnectProvider', 1);
-    template.hasResourceProperties('Custom::AWSCDKOpenIdConnectProvider', {
-      Url: 'https://token.actions.githubusercontent.com',
-      ClientIDList: ['sts.amazonaws.com'],
-    });
-    template.hasResourceProperties('AWS::IAM::Role', {
-      RoleName: 'workops-dev-github-actions-deploy',
-      AssumeRolePolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: 'sts:AssumeRoleWithWebIdentity',
-            Effect: 'Allow',
-            Condition: {
-              StringEquals: {
-                'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-                'token.actions.githubusercontent.com:sub': 'repo:owner/repo:environment:dev',
-              },
-            },
-          }),
-        ]),
-      },
-    });
-    template.hasResourceProperties('AWS::IAM::Policy', {
-      PolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: Match.arrayWith(['cloudformation:*', 'iam:*', 'sts:AssumeRole']),
-            Effect: 'Allow',
-            Resource: '*',
-          }),
-        ]),
-      },
-    });
-    template.hasOutput('githubActionsDeployRoleArn', {});
-    expect(templateText).not.toContain('AdministratorAccess');
   });
 
   test('creates the FoundationStack network and cluster resources', () => {
@@ -1881,31 +1824,28 @@ describe('WorkOps CDK app', () => {
   test('keeps CDK entrypoints scoped and independent from dotenv', () => {
     const packageJsonPath = join(__dirname, '..', 'package.json');
     const cdkJsonPath = join(__dirname, '..', 'cdk.json');
-    const deployEntrypointPath = join(__dirname, '..', 'bin', 'cdk-deploy.ts');
     const infraEntrypointPath = join(__dirname, '..', 'bin', 'cdk-infra.ts');
     const runtimeEntrypointPath = join(__dirname, '..', 'bin', 'cdk-runtime.ts');
     const pipelineEntrypointPath = join(__dirname, '..', 'bin', 'cdk-pipeline.ts');
     const packageJsonText = readFileSync(packageJsonPath, 'utf8');
     const cdkJsonText = readFileSync(cdkJsonPath, 'utf8');
-    const deployEntrypointText = readFileSync(deployEntrypointPath, 'utf8');
     const infraEntrypointText = readFileSync(infraEntrypointPath, 'utf8');
     const runtimeEntrypointText = readFileSync(runtimeEntrypointPath, 'utf8');
     const pipelineEntrypointText = readFileSync(pipelineEntrypointPath, 'utf8');
-    const allEntrypointText = `${deployEntrypointText}\n${infraEntrypointText}\n${runtimeEntrypointText}\n${pipelineEntrypointText}`;
+    const allEntrypointText = `${infraEntrypointText}\n${runtimeEntrypointText}\n${pipelineEntrypointText}`;
 
     expect(packageJsonText).toContain('"build": "tsc"');
     expect(packageJsonText).toContain('"watch": "tsc -w"');
     expect(packageJsonText).toContain('"test": "jest"');
-    expect(packageJsonText).toContain('"cdk:deploy-app": "cdk --app');
+    expect(packageJsonText).not.toContain('"cdk:deploy-app"');
     expect(packageJsonText).toContain('"cdk:infra": "cdk --app');
     expect(packageJsonText).toContain('"cdk:runtime": "cdk --app');
     expect(packageJsonText).toContain('"cdk:pipeline": "cdk --app');
     expect(packageJsonText).not.toContain('"bin"');
     expect(packageJsonText).not.toContain('"cdk": "cdk"');
     expect(cdkJsonText).not.toContain('"app"');
-    expect(deployEntrypointText).toContain('DeployStack');
-    expect(deployEntrypointText).toContain('GITHUB_REPOSITORY');
-    expect(deployEntrypointText).not.toContain('AppRuntimeStack');
+    expect(existsSync(join(__dirname, '..', 'bin', 'cdk-deploy.ts'))).toBe(false);
+    expect(existsSync(join(__dirname, '..', 'lib', 'deploy-stack.ts'))).toBe(false);
     expect(infraEntrypointText).toContain('FoundationStack');
     expect(infraEntrypointText).toContain('LogsStack');
     expect(infraEntrypointText).not.toContain('DataStack');
@@ -1933,127 +1873,10 @@ describe('WorkOps CDK app', () => {
     expect(allEntrypointText).not.toContain('.env.local');
   });
 
-  test('defines the P2-9 GitHub Actions CI and infra deploy workflows', () => {
-    const ciWorkflowPath = join(__dirname, '..', '..', '..', '.github', 'workflows', 'ci.yml');
-    const infraWorkflowPath = join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      '.github',
-      'workflows',
-      'infra-dev.yml',
-    );
-    const appWorkflowPath = join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      '.github',
-      'workflows',
-      'app-deploy-dev.yml',
-    );
-    const ciWorkflowText = readFileSync(ciWorkflowPath, 'utf8');
-    const infraWorkflowText = readFileSync(infraWorkflowPath, 'utf8');
-    const appWorkflowText = readFileSync(appWorkflowPath, 'utf8');
+  test('removes GitHub Actions workflows from Phase 2 alpha CI/CD', () => {
+    const workflowsPath = join(__dirname, '..', '..', '..', '.github', 'workflows');
+    const workflowFiles = existsSync(workflowsPath) ? readdirSync(workflowsPath) : [];
 
-    expect(ciWorkflowText).toContain('name: CI');
-    expect(ciWorkflowText).toContain('pull_request:');
-    expect(ciWorkflowText).toContain('apps/web/**');
-    expect(ciWorkflowText).toContain('infra/cdk/**');
-    expect(ciWorkflowText).toContain('.github/workflows/app-deploy-dev.yml');
-    expect(ciWorkflowText).toContain('p2-9-ci-changes');
-    expect(ciWorkflowText).toContain("CDK_DEFAULT_ACCOUNT: '000000000000'");
-    expect(ciWorkflowText).toContain('CDK_DEFAULT_REGION: ap-northeast-1');
-    expect(ciWorkflowText).toContain('infra_changed=${{ steps.changes.outputs.infra }}');
-    expect(ciWorkflowText).toContain('actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0');
-    expect(ciWorkflowText).toContain('actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287');
-    expect(ciWorkflowText).toContain('actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e');
-    expect(ciWorkflowText).toContain(
-      'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
-    );
-    expect(ciWorkflowText).toContain('dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d');
-    expect(ciWorkflowText).not.toContain('configure-aws-credentials');
-    expect(ciWorkflowText).not.toContain('cdk -- deploy');
-
-    expect(infraWorkflowText).toContain('workflow_run:');
-    expect(infraWorkflowText).toContain("github.event.workflow_run.conclusion == 'success'");
-    expect(infraWorkflowText).toContain("github.event.workflow_run.event == 'push'");
-    expect(infraWorkflowText).toContain("github.event.workflow_run.head_branch == 'main'");
-    expect(infraWorkflowText).toContain('environment: dev');
-    expect(infraWorkflowText).toContain('id-token: write');
-    expect(infraWorkflowText).toContain('group: workops-dev-deploy');
-    expect(infraWorkflowText).toContain(
-      'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c',
-    );
-    expect(infraWorkflowText).toContain(
-      'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0',
-    );
-    expect(infraWorkflowText).toContain(
-      'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e',
-    );
-    expect(infraWorkflowText).toContain(
-      'aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b',
-    );
-    expect(infraWorkflowText).toContain("needs.read-changes.outputs.infra_changed == 'true'");
-    expect(ciWorkflowText).toContain('npm run cdk:deploy-app -- synth DeployStack');
-    expect(infraWorkflowText).toContain(
-      'npm run cdk:infra -- deploy FoundationStack --require-approval never',
-    );
-    expect(infraWorkflowText).toContain(
-      'npm run cdk:infra -- deploy LogsStack --require-approval never',
-    );
-    expect(infraWorkflowText).not.toContain('deploy DeployStack');
-    expect(infraWorkflowText).not.toContain('AppRuntimeStack');
-
-    expect(appWorkflowText).toContain('name: App Deploy Dev');
-    expect(appWorkflowText).toContain('workflow_dispatch:');
-    expect(appWorkflowText).toContain('confirm_runtime_deploy:');
-    expect(appWorkflowText).toContain("github.ref == 'refs/heads/main'");
-    expect(appWorkflowText).toContain('inputs.confirm_runtime_deploy == true');
-    expect(appWorkflowText).toContain('environment: dev');
-    expect(appWorkflowText).toContain('id-token: write');
-    expect(appWorkflowText).toContain('group: workops-dev-deploy');
-    expect(appWorkflowText).toContain('WORKOPS_WEB_IMAGE_TAG: ${{ github.sha }}');
-    expect(appWorkflowText).toContain('actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0');
-    expect(appWorkflowText).toContain(
-      'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e',
-    );
-    expect(appWorkflowText).toContain(
-      'aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b',
-    );
-    expect(appWorkflowText).toContain(
-      'aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64',
-    );
-    expect(appWorkflowText).toContain('docker build -t "$IMAGE_URI" .');
-    expect(appWorkflowText).toContain('docker push "$IMAGE_URI"');
-    expect(appWorkflowText).toContain('Preflight runtime stack state');
-    expect(appWorkflowText).toContain('workops-dev-foundation');
-    expect(appWorkflowText).toContain('workops-dev-logs');
-    expect(appWorkflowText).toContain('cleanup is required before runtime deploy');
-    expect(appWorkflowText).toContain('npm run cdk:runtime -- diff DataStack --method=template');
-    expect(appWorkflowText).toContain('npm run cdk:runtime -- diff EgressStack --method=template');
-    expect(appWorkflowText).toContain('npm run cdk:runtime -- diff EdgeStack --method=template');
-    expect(appWorkflowText).toContain(
-      'npm run cdk:runtime -- diff AppRuntimeStack --method=template',
-    );
-    expect(appWorkflowText).toContain(
-      'npm run cdk:runtime -- deploy DataStack --require-approval never',
-    );
-    expect(appWorkflowText).toContain(
-      'npm run cdk:runtime -- deploy AppRuntimeStack --require-approval never',
-    );
-    expect(appWorkflowText).not.toContain('deploy LogsStack');
-    expect(appWorkflowText).toContain('aws ecs wait services-stable');
-    expect(appWorkflowText).toContain('/actuator/health');
-    expect(appWorkflowText).not.toContain(':dev');
-    expect(appWorkflowText).not.toContain(':latest');
-    expect(appWorkflowText).not.toContain('mvnw test');
-    expect(appWorkflowText).not.toContain('npm run build');
-    expect(appWorkflowText).not.toContain('npm test');
-    expect(appWorkflowText).not.toContain('cdk -- synth');
-    expect(`${ciWorkflowText}\n${infraWorkflowText}\n${appWorkflowText}`).not.toContain(
-      'npm run cdk --',
-    );
+    expect(workflowFiles).toEqual([]);
   });
 });

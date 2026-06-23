@@ -86,14 +86,33 @@ npm run format:check
 
 ## 実装時の記録
 
+- 2026-06-23: `DeployStack`、`cdk-deploy.ts`、`cdk:deploy-app`、`.github/workflows` 配下の workflow / `.gitkeep` を撤去対象として確認した。
+- 2026-06-23: README / CDK README / AGENTS に残っていた現行手順としての GitHub Actions OIDC deploy / `cdk:deploy-app` 案内を PipelineStack 前提へ更新した。
+- 2026-06-23: AWS deploy、Pipeline 実走、CodeConnection OAuth 認可、SNS メール受信、ManualApproval は P2-alpha-2 の除外範囲のため実施していない。
+
 ### 実装結果
 
-- 未実装。
+- `infra/cdk/lib/deploy-stack.ts` と `infra/cdk/bin/cdk-deploy.ts` を削除した。
+- `infra/cdk/package.json` から `cdk:deploy-app` script を削除した。
+- `.github/workflows/ci.yml`、`.github/workflows/infra-dev.yml`、`.github/workflows/app-deploy-dev.yml`、`.github/workflows/.gitkeep` を削除した。
+- CDK test から DeployStack / GitHub Actions workflow 内容前提の検証を削除し、撤去状態を検証する test に置き換えた。
+- root README、`infra/cdk/README.md`、`AGENTS.md` を Phase 2α の PipelineStack / CodePipeline 前提へ更新した。
 
 ### 確認結果
 
-- 未確認。
+- `npm run build` 成功。
+- `npm run test -- --runInBand` 成功。22 tests passed。
+- `npm run lint` 成功。
+- `npm run format:check` 成功。
+- AWS profile `amazon-connect` / region `ap-northeast-1` で `aws sts get-caller-identity` により認証先を確認済み。
+- `WORKOPS_STAGE=dev`、`WORKOPS_IMAGE_TAG=test-sha` で `npm run cdk:runtime -- synth --quiet --profile amazon-connect` 成功。
+- `WORKOPS_STAGE=dev`、`WORKOPS_IMAGE_TAG=test-sha`、`GITHUB_REPOSITORY=kyiwanami/workops`、`WORKOPS_PIPELINE_NOTIFICATION_EMAIL` 設定で `npm run cdk:pipeline -- synth --quiet --profile amazon-connect` 成功。
+- `WORKOPS_STAGE=dev` で `npm run cdk:infra -- synth --quiet --profile amazon-connect` 成功。
+- `DeployStack` / `cdk-deploy.ts` は存在しないことを確認した。
+- `.github/workflows` 配下に workflow / `.gitkeep` が存在しないことを確認した。
+- 実 AWS deploy、Pipeline 実走、ECR push、ECS RunTask は実施していない。
 
 ### 残課題
 
-- 未整理。
+- 既存 AWS dev に残っている可能性がある `workops-{stage}-deploy` stack や GitHub Environment 変数の整理は P2-alpha-3 の実環境作業で扱う。
+- CodeConnection OAuth 認可、Pipeline 自走、SNS メール受信、ManualApproval は P2-alpha-3 でユーザー確認として扱う。

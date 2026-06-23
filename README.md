@@ -209,28 +209,27 @@ cd C:\git\workops\apps\web
 
 ## Phase 2 AWS dev
 
-Phase 2 では、AWS dev に WorkOps の維持基盤、課金 runtime、Spring Boot app を構築します。
-GitHub Actions OIDC deploy は Phase 2 の暫定 deploy 手段です。長期 AWS credential は GitHub Secrets に置きません。
-Phase 2α では CodePipeline + CodeBuild へ移行し、GitHub Actions workflow は撤去します。
+Phase 2α では、AWS dev への CI/CD を CodePipeline V2 + CodeBuild + CDK Pipelines に移行します。
+GitHub Actions OIDC deploy は撤去済みで、PR チェック用途にも workflow を残しません。
 
 Phase 2 AWS dev の deploy 単位は次の通りです。
 
 | 区分 | 実行入口 | 対象 |
 | --- | --- | --- |
-| 初回 OIDC role | ローカル `npm run cdk:deploy-app` | `DeployStack` |
-| 非 runtime / 維持基盤 | `.github/workflows/infra-dev.yml` | `FoundationStack`, `SecretStack`, `ConfigStack`, `IdentityStack`, `RegistryStack`, `LogsStack` |
-| runtime / app | `.github/workflows/app-deploy-dev.yml` | Docker image push, `DataStack`, `EgressStack`, `EdgeStack`, `AppRuntimeStack` |
+| Pipeline 初回 deploy | ローカル `npm run cdk:pipeline` | `PipelineStack`, CodeConnection, SNS 通知, Artifact bucket |
+| Pipeline 自走 | CodePipeline | Source, Synth, Build & Test, ManualApproval, Registry, Images, Migration, AppRuntime |
+| 実行確認 session | Pipeline の runtime stages | `DataStack`, `EgressStack`, `EdgeStack`, `AppRuntimeStack` |
 
 AWS 実環境の deploy、Cognito Hosted UI のブラウザ操作、CloudFront 経由の画面操作、CloudWatch Logs 確認はユーザー確認として扱います。
 実 account ID、role ARN、SSO role ARN、SSO user、credential、CloudFront domain、public IP、実 Cognito `sub` は README や git 管理文書へ記録しません。
 
-### Phase 2 前提ツール
+### Phase 2α 前提ツール
 
 - AWS CLI
 - AWS profile
 - Docker Desktop
 - Node.js 24
-- GitHub Environment `dev`
+- GitHub CodeConnection 認可
 
 AWS CLI を使う前に、PowerShell で AWS profile と region を明示し、環境変数 credential を削除してから認証先を確認します。
 
@@ -250,71 +249,54 @@ $env:CDK_DEFAULT_REGION = $env:AWS_REGION
 aws sts get-caller-identity --region $env:AWS_REGION
 ```
 
-### DeployStack 初回手動 deploy
+### PipelineStack 初回 deploy
 
-初回だけ、ローカルの AWS profile から `cdk:deploy-app` entrypoint で `DeployStack` を手動 deploy し、GitHub Actions 用 role を作成します。
-`DeployStack` は GitHub Actions から更新しません。
+P2-alpha-3 で、ローカルの AWS profile から `cdk:pipeline` entrypoint で `PipelineStack` を初回 deploy します。
+CodeConnection の GitHub OAuth 認可と ManualApproval はユーザー操作です。
+`cdk deploy` は課金対象や外部連携を作成するため、実行前に AWS account、region、既存 stack 状態、`cdk diff` を確認します。
 
 ```powershell
 cd C:\git\workops\infra\cdk
 $env:GITHUB_REPOSITORY = "<owner>/<repo>"
+$env:WORKOPS_PIPELINE_NOTIFICATION_EMAIL = "<notification-email>"
+$env:WORKOPS_IMAGE_TAG = "test-sha"
 
-npm run cdk:deploy-app -- diff DeployStack
-npm run cdk:deploy-app -- deploy DeployStack
+npm run cdk:pipeline -- diff PipelineStack
+npm run cdk:pipeline -- deploy PipelineStack
 ```
 
-`DeployStack` deploy 後、CloudFormation Output の `githubActionsDeployRoleArn` を GitHub Environment `dev` の variable `AWS_ROLE_ARN` に設定します。
-同じ GitHub Environment `dev` に `AWS_REGION` も設定します。
-CloudFormation Output の実 role ARN は git 管理文書へ記録しません。
+CloudFormation Output の実値、CodeConnection ARN、実 account ID は git 管理文書へ記録しません。
 
-### GitHub Actions workflow
+### CodePipeline
 
-Phase 2 の GitHub Actions は次の役割です。
+Phase 2α の Pipeline は次の順序で実行します。
 
-| workflow | trigger | 内容 |
-| --- | --- | --- |
-| `ci.yml` | PR / main push | Java test、Docker build、CDK build / test / synth |
-| `infra-dev.yml` | `ci.yml` 成功後 | 非 runtime / 維持対象 Stack の AWS dev deploy |
-| `app-deploy-dev.yml` | 手動実行 | Docker image push と課金 runtime Stack の AWS dev deploy |
+| stage | 内容 |
+| --- | --- |
+| Source | CodeConnections で GitHub `main` を取得 |
+| Synth | CDK Pipelines synth |
+| Build & Test | Java / CDK TypeScript 品質ゲート |
+| ManualApproval | Build Images 前の手動承認 |
+| Deploy Registry | ECR repository 4 本を作成・更新 |
+| Build Images | Web / migration image を commit SHA tag で build / scan / push |
+| Deploy Data / Network / Migration | DB、egress、edge、migration task definition を deploy |
+| Migration RunTask | Flyway 専用 image を ECS RunTask で実行 |
+| Deploy AppRuntime | ECS native Blue/Green で Web runtime を deploy |
 
-`infra-dev.yml` は GitHub Environment `dev` を使い、`FoundationStack`、`SecretStack`、`ConfigStack`、`IdentityStack`、`RegistryStack`、`LogsStack` だけを deploy します。
-`DeployStack` は GitHub Actions から更新しません。
-`DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の課金 runtime deploy は `app-deploy-dev.yml` の責務です。
-
-ローカルで非 runtime Stack の synth だけ確認する場合は次を使います。
-
-```powershell
-cd C:\git\workops\infra\cdk
-$env:WORKOPS_STAGE = "dev"
-$env:GITHUB_REPOSITORY = "<owner>/<repo>"
-$env:CDK_DEFAULT_ACCOUNT = "000000000000"
-$env:CDK_DEFAULT_REGION = "ap-northeast-1"
-npm run cdk:infra -- synth FoundationStack SecretStack ConfigStack IdentityStack RegistryStack LogsStack
-```
-
-`app-deploy-dev.yml` は GitHub Actions の手動 workflow です。
-対象 commit の `ci.yml` が成功していることを確認してから、main branch で `confirm_runtime_deploy` を true にして実行します。
-この workflow は RDS、NAT Gateway、ECS、ALB、CloudFront を作成または更新する課金 runtime 操作です。
-docs のみの変更では `app-deploy-dev.yml` を実行しません。
-
-`app-deploy-dev.yml` は `apps/web` の Docker image を build し、ECR repository `workops-dev-web` に commit SHA tag だけを push します。
-`dev` tag と `latest` tag は使いません。
-その後、`cdk:runtime` entrypoint で `DataStack`、`EgressStack`、`EdgeStack`、`AppRuntimeStack` の順に `cdk diff` と `cdk deploy --require-approval never` を実行し、ECS service stable と CloudFront HTTPS `/actuator/health` を確認します。
-
-ローカルで runtime Stack の synth だけ確認する場合は次を使います。`WORKOPS_WEB_IMAGE_TAG` は placeholder であり、実 commit SHA や image digest は README に記録しません。
+ローカルで CDK synth だけ確認する場合は次を使います。
 
 ```powershell
 cd C:\git\workops\infra\cdk
 $env:WORKOPS_STAGE = "dev"
 $env:GITHUB_REPOSITORY = "<owner>/<repo>"
-$env:CDK_DEFAULT_ACCOUNT = "000000000000"
-$env:CDK_DEFAULT_REGION = "ap-northeast-1"
-$env:WORKOPS_WEB_IMAGE_TAG = "<image-tag>"
-npm run cdk:runtime -- synth DataStack EgressStack EdgeStack AppRuntimeStack
+$env:WORKOPS_PIPELINE_NOTIFICATION_EMAIL = "<notification-email>"
+$env:WORKOPS_IMAGE_TAG = "test-sha"
+npm run cdk:infra -- synth --quiet --profile $env:AWS_PROFILE
+npm run cdk:runtime -- synth --quiet --profile $env:AWS_PROFILE
+npm run cdk:pipeline -- synth --quiet --profile $env:AWS_PROFILE
 ```
 
-Workflow の `uses: owner/action@<sha>` は、外部 action を公開 Git commit SHA で固定している指定です。
-この値は secret ではなく、GitHub 上の公開 commit ID です。
+実 Pipeline 実走、ECR push、ECS RunTask、CloudFront 経由の画面確認は P2-alpha-3 の動作確認 checklist で扱います。
 
 実 account ID、role ARN、SSO role ARN、SSO user、credential、CloudFront domain、public IP、実 Cognito `sub` は git 管理文書へ記録しません。
 

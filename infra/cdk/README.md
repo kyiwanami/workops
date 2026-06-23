@@ -68,7 +68,12 @@ $env:AWS_REGION = "ap-northeast-1"
 $env:AWS_DEFAULT_REGION = "ap-northeast-1"
 $env:CDK_DEFAULT_ACCOUNT = (aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
 $env:CDK_DEFAULT_REGION = "ap-northeast-1"
-npm run cdk -- synth
+$env:WORKOPS_IMAGE_TAG = "test-sha"
+$env:GITHUB_REPOSITORY = "owner/repo"
+$env:WORKOPS_PIPELINE_NOTIFICATION_EMAIL = "pipeline@example.com"
+npm run cdk:infra -- synth --quiet --profile $env:AWS_PROFILE
+npm run cdk:runtime -- synth --quiet --profile $env:AWS_PROFILE
+npm run cdk:pipeline -- synth --quiet --profile $env:AWS_PROFILE
 ```
 
 `EdgeStack` は CloudFront origin-facing managed prefix list を `PrefixList.fromLookup` で参照します。
@@ -78,20 +83,20 @@ npm run cdk -- synth
 
 CDK app は次の Stack を管理します。
 
-- `workops-{stage}-deploy`
 - `workops-{stage}-foundation`
-- `workops-{stage}-secret`
 - `workops-{stage}-data`
 - `workops-{stage}-config`
 - `workops-{stage}-identity`
 - `workops-{stage}-registry`
 - `workops-{stage}-logs`
+- `workops-{stage}-migration`
+- `workops-{stage}-pipeline`
 
 `stage` は `WORKOPS_STAGE` の値です。
 
 `workops-{stage}-identity` は Cognito User Pool、Hosted UI domain、App Client を所有する維持対象 Stack です。CloudFront / ALB / ECS / NAT Gateway の実行確認セッション Stack とは lifecycle を分けます。
 
-`workops-{stage}-deploy` は GitHub Actions OIDC provider と deploy role を所有します。初回はローカルの AWS profile から手動 deploy し、GitHub Actions からは更新しません。
+`workops-{stage}-pipeline` は CodePipeline V2、CodeBuild、CodeConnection、SNS 通知、Artifact bucket を所有します。GitHub Actions OIDC deploy 経路は使いません。
 
 ## Bootstrap
 
@@ -101,7 +106,7 @@ CDK app は次の Stack を管理します。
 cd C:\git\workops\infra\cdk
 $env:AWS_PROFILE = "your-profile"
 $env:AWS_REGION = "ap-northeast-1"
-npm run cdk -- bootstrap
+npx cdk bootstrap
 ```
 
 `bootstrap` は CDK bootstrap stack を対象 account / region に作る操作です。
@@ -109,49 +114,44 @@ WorkOps の `stage` resource name を生成しないため、`WORKOPS_STAGE` は
 
 ## Deploy
 
-全 Stack を deploy します。
+PipelineStack を初回 deploy します。
 
 ```powershell
 cd C:\git\workops\infra\cdk
 $env:WORKOPS_STAGE = "dev"
 $env:AWS_PROFILE = "your-profile"
 $env:AWS_REGION = "ap-northeast-1"
-npm run cdk -- deploy --all
+$env:GITHUB_REPOSITORY = "owner/repo"
+$env:WORKOPS_PIPELINE_NOTIFICATION_EMAIL = "pipeline@example.com"
+$env:WORKOPS_IMAGE_TAG = "test-sha"
+npm run cdk:pipeline -- diff PipelineStack
+npm run cdk:pipeline -- deploy PipelineStack
 ```
 
-個別 Stack を deploy する場合は、Stack 名を指定します。
+Pipeline 実走前に手元で runtime Stack を確認する場合は、synth と diff までに留めます。
 
 ```powershell
 cd C:\git\workops\infra\cdk
 $env:WORKOPS_STAGE = "dev"
 $env:AWS_PROFILE = "your-profile"
 $env:AWS_REGION = "ap-northeast-1"
-npm run cdk -- deploy workops-dev-data
+$env:WORKOPS_IMAGE_TAG = "test-sha"
+npm run cdk:runtime -- diff AppRuntimeStack
 ```
 
 ## Destroy
 
-全 Stack を削除します。
+P2-alpha-3 の確認完了後、主要課金 4 stack を削除します。
 
 ```powershell
 cd C:\git\workops\infra\cdk
 $env:WORKOPS_STAGE = "dev"
 $env:AWS_PROFILE = "your-profile"
 $env:AWS_REGION = "ap-northeast-1"
-npm run cdk -- destroy --all
+npm run cdk:runtime -- destroy AppRuntimeStack EdgeStack EgressStack DataStack
 ```
 
-個別 Stack を削除する場合は、Stack 名を指定します。
-
-```powershell
-cd C:\git\workops\infra\cdk
-$env:WORKOPS_STAGE = "dev"
-$env:AWS_PROFILE = "your-profile"
-$env:AWS_REGION = "ap-northeast-1"
-npm run cdk -- destroy workops-dev-data
-```
-
-実行確認セッション後に短命 Stack を削除する場合は、`workops-{stage}-app-runtime`、`workops-{stage}-edge`、`workops-{stage}-egress`、`workops-{stage}-data` を対象にします。`workops-{stage}-identity` は残します。
+PipelineStack、MigrationStack、FoundationStack、ConfigStack、IdentityStack、RegistryStack、LogsStack、Artifact bucket、ECR repository、CodeConnection は維持対象です。
 
 ## Conventions
 

@@ -9,7 +9,6 @@
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
-    "cdk:deploy-app": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-deploy.ts\"",
     "cdk:infra": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-infra.ts\"",
     "cdk:runtime": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-runtime.ts\"",
     "cdk:pipeline": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-pipeline.ts\""
