@@ -18,7 +18,7 @@ import {
   Pipeline as CodePipelinePipeline,
 } from 'aws-cdk-lib/aws-codepipeline';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
-import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { CfnServiceLinkedRole, Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
@@ -270,6 +270,13 @@ export class PipelineStack extends Stack {
     super(scope, id, props);
 
     const buildEnvironment = this.createBuildEnvironment();
+    const codeStarNotificationsRole = new CfnServiceLinkedRole(
+      this,
+      'CodeStarNotificationsServiceRole',
+      {
+        awsServiceName: 'codestar-notifications.amazonaws.com',
+      },
+    );
     const artifactBucket = new Bucket(this, 'ArtifactBucket', {
       bucketName: `workops-${props.stage}-pipeline-artifacts`,
       encryption: BucketEncryption.S3_MANAGED,
@@ -279,7 +286,7 @@ export class PipelineStack extends Stack {
           noncurrentVersionExpiration: Duration.days(1),
         },
       ],
-      removalPolicy: RemovalPolicy.RETAIN,
+      removalPolicy: RemovalPolicy.DESTROY,
       versioned: true,
     });
     const notificationTopic = new Topic(this, 'NotificationTopic', {
@@ -299,12 +306,6 @@ export class PipelineStack extends Stack {
       pipelineType: PipelineType.V2,
       usePipelineRoleForActions: true,
     });
-
-    this.restrictConnectionUseToRepositoryAndBranch(
-      codePipeline,
-      githubConnection.attrConnectionArn,
-      props.githubRepository,
-    );
 
     const source = CodePipelineSource.connection(props.githubRepository, 'main', {
       actionName: 'GitHubSource',
@@ -408,13 +409,14 @@ export class PipelineStack extends Stack {
     );
     pipeline.buildPipeline();
 
-    codePipeline.notifyOn('PipelineNotifications', notificationTopic, {
+    const pipelineNotifications = codePipeline.notifyOn('PipelineNotifications', notificationTopic, {
       detailType: DetailType.BASIC,
       events: [
         PipelineNotificationEvents.MANUAL_APPROVAL_NEEDED,
         PipelineNotificationEvents.PIPELINE_EXECUTION_FAILED,
       ],
     });
+    pipelineNotifications.node.addDependency(codeStarNotificationsRole);
 
     new CfnOutput(this, 'pipelineName', {
       value: codePipeline.pipelineName,
@@ -557,36 +559,5 @@ export class PipelineStack extends Stack {
       resourceName: roleName,
       arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
     });
-  }
-
-  private restrictConnectionUseToRepositoryAndBranch(
-    pipeline: CodePipelinePipeline,
-    connectionArn: string,
-    githubRepository: string,
-  ): void {
-    pipeline.addToRolePolicy(
-      new PolicyStatement({
-        actions: ['codeconnections:UseConnection', 'codestar-connections:UseConnection'],
-        conditions: {
-          StringNotEquals: {
-            'codeconnections:FullRepositoryId': githubRepository,
-          },
-        },
-        effect: Effect.DENY,
-        resources: [connectionArn],
-      }),
-    );
-    pipeline.addToRolePolicy(
-      new PolicyStatement({
-        actions: ['codeconnections:UseConnection', 'codestar-connections:UseConnection'],
-        conditions: {
-          StringNotEquals: {
-            'codeconnections:BranchName': 'main',
-          },
-        },
-        effect: Effect.DENY,
-        resources: [connectionArn],
-      }),
-    );
   }
 }

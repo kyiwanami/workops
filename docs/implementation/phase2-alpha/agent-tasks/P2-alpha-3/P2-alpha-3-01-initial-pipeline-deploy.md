@@ -137,12 +137,32 @@ ManualApproval 確認:
 
 ### 実施結果
 
-- 未実施。
+- AWS profile `amazon-connect`、region `ap-northeast-1`、`WORKOPS_STAGE=dev` で実施した。
+- AWS credential 環境変数を削除し、`aws sts get-caller-identity` で認証先を確認した。実 account ID は記録しない。
+- 既存 Stack 状態を確認した。
+- `npm run cdk:pipeline -- synth --quiet --profile amazon-connect` は成功した。
+- `npm run cdk:pipeline -- diff PipelineStack --profile amazon-connect` は成功した。
+- 初回 `PipelineStack` deploy は `AWS::CodeStarNotifications::NotificationRule` 作成で失敗し、`workops-dev-pipeline` は `ROLLBACK_COMPLETE` になった。
+- 失敗時に残った空の `workops-dev-pipeline-artifacts` bucket と `ROLLBACK_COMPLETE` stack を削除した。
+- 初回失敗で AWS 側に作成された `AWSServiceRoleForCodeStarNotifications` を削除した。
+- CDK で `AWS::IAM::ServiceLinkedRole` を明示定義し、`AWS::CodeStarNotifications::NotificationRule` がその作成後に実行されるようにした。
+- Artifact bucket の `removalPolicy` を `DESTROY` に変更し、`PipelineStack` destroy 時に bucket が retain されないようにした。
+- CodePipeline Source action が権限で失敗したため、Pipeline role に入れていた `codeconnections:FullRepositoryId` / `codeconnections:BranchName` 不一致時の明示 Deny を削除した。
+- 修正後の `npm run build`、`npm run lint`、`npm run test -- --runInBand` は成功した。
+- 修正後の `PipelineStack` deploy は成功した。
+- `PipelineStack` 更新 deploy により、artifact bucket の `DeletionPolicy` / `UpdateReplacePolicy` が `Delete` になったことを確認した。
+- `PipelineStack` 更新 deploy により、Pipeline role policy から `UseConnection` の明示 Deny が削除されたことを確認した。
 
 ### 確認結果
 
-- 未実施。
+- `workops-dev-pipeline` は `CREATE_COMPLETE`。
+- `workops-dev-github` CodeConnection は、CLI では `PENDING` が返った。ユーザーの AWS Console 確認では接続認可済み。
+- `workops-dev-pipeline-notifications` の email subscription は確認済み ARN が返っている。
+- CodePipeline は Source stage / `GitHubSource` で failed。原因は Pipeline role の `UseConnection` 明示 Deny。
+- `UseConnection` 明示 Deny 削除後も、既存の Pipeline execution は failed のまま。修正 commit / push 後に再実行して確認する。
 
 ### 残課題
 
-- 未実施。
+- P2-alpha-3 手順 Markdown と CDK 修正 commit の `main` push。
+- Pipeline 起動確認。
+- ManualApproval 通知到達と承認確認。

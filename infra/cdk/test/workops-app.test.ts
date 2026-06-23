@@ -453,8 +453,8 @@ describe('WorkOps CDK app', () => {
       },
     });
     template.hasResource('AWS::S3::Bucket', {
-      DeletionPolicy: 'Retain',
-      UpdateReplacePolicy: 'Retain',
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
     });
     template.hasResourceProperties('AWS::SNS::Topic', {
       TopicName: 'workops-dev-pipeline-notifications',
@@ -752,34 +752,16 @@ describe('WorkOps CDK app', () => {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: Match.arrayWith([
-              'codeconnections:UseConnection',
-              'codestar-connections:UseConnection',
-            ]),
-            Condition: {
-              StringNotEquals: {
-                'codeconnections:FullRepositoryId': testGitHubRepository,
-              },
-            },
-            Effect: 'Deny',
-          }),
-          Match.objectLike({
-            Action: Match.arrayWith([
-              'codeconnections:UseConnection',
-              'codestar-connections:UseConnection',
-            ]),
-            Condition: {
-              StringNotEquals: {
-                'codeconnections:BranchName': 'main',
-              },
-            },
-            Effect: 'Deny',
+            Action: 'codestar-connections:UseConnection',
+            Effect: 'Allow',
           }),
         ]),
       },
     });
     expect(templateText).toContain('GitHubSource');
     expect(templateText).not.toContain('GitHubSourceCodePipelineActionRole');
+    expect(templateText).not.toContain('codeconnections:FullRepositoryId');
+    expect(templateText).not.toContain('codeconnections:BranchName');
     expect(templateText).toContain(testGitHubRepository);
     expect(templateText).toContain('BranchName');
     expect(templateText).toContain('main');

@@ -55,7 +55,8 @@ Build Images、Migration RunTask、AppRuntime Blue/Green の詳細は後続 task
 
 Artifact bucket は AWS managed key、`crossAccountKeys: false`、30日 expire、非 current version 1日 expire にする。
 
-CodeConnections IAM Policy は `FullRepositoryId` と `BranchName` の condition keys で特定 repository / branch に限定する。
+CodeConnections source は `CodePipelineSource.connection` の repository / branch 指定で `kyiwanami/workops` / `main` に固定する。
+IAM の `UseConnection` に対する `FullRepositoryId` / `BranchName` 明示 Deny は、P2-alpha-3 実走時に Source action の権限失敗原因になったため採用しない。
 
 通知は CodeStar Notifications → SNS → メールとし、通知契機は承認待ちと Pipeline 全体失敗だけにする。
 
@@ -125,7 +126,8 @@ npm run cdk:pipeline -- synth
 
 ## 実装時の記録
 
-- `CodePipelineSource.connection` は action role を直接受け取らないため、core `CodePipeline` と CDK Pipelines の両方で `usePipelineRoleForActions: true` を指定し、Pipeline role に `codeconnections:FullRepositoryId` / `codeconnections:BranchName` 不一致時の明示 Deny を追加した。
+- `CodePipelineSource.connection` は action role を直接受け取らないため、core `CodePipeline` と CDK Pipelines の両方で `usePipelineRoleForActions: true` を指定した。
+- Pipeline role への `codeconnections:FullRepositoryId` / `codeconnections:BranchName` 不一致時の明示 Deny は、P2-alpha-3 実走時に Source action の権限失敗原因になったため撤回した。
 - CodeBuild ARM image は `LinuxArmBuildImage.AMAZON_LINUX_2023_STANDARD_3_0` を使用し、生成 template 上で `aws/codebuild/amazonlinux-aarch64-standard:3.0` になることを確認した。
 - `WORKOPS_PIPELINE_NOTIFICATION_EMAIL` は環境変数で受け取り、git 管理文書には実メールアドレスを記録しない。確認では `pipeline@example.com` を使用した。
 
@@ -138,7 +140,7 @@ npm run cdk:pipeline -- synth
 - Build & Test は `./mvnw spotless:check`、`./mvnw compile spotbugs:check`、`./mvnw verify`、CDK `build` / `test` / `lint` / `format:check` を実行する。
 - CodeStar Notifications は承認待ちと Pipeline 全体失敗だけを SNS topic へ通知し、detail type は `BASIC` にした。
 - `infra/cdk/bin/cdk-pipeline.ts` と `cdk:pipeline` script を追加し、`WORKOPS_STAGE`、`GITHUB_REPOSITORY`、`WORKOPS_PIPELINE_NOTIFICATION_EMAIL` を必須入力にした。
-- CDK test に PipelineStack、entrypoint、CodeConnections IAM 条件、ARM CodeBuild image、通知契機、Build & Test command の検証を追加した。
+- CDK test に PipelineStack、entrypoint、CodeConnections source、ARM CodeBuild image、通知契機、Build & Test command の検証を追加した。
 
 ### 確認結果
 
@@ -147,7 +149,7 @@ npm run cdk:pipeline -- synth
 - `cd C:\git\workops\infra\cdk; npm run lint` 成功。
 - `cd C:\git\workops\infra\cdk; npm run format:check` 成功。
 - AWS credential 環境変数を削除し、`WORKOPS_STAGE=dev`、`GITHUB_REPOSITORY=kyiwanami/workops`、`WORKOPS_PIPELINE_NOTIFICATION_EMAIL=pipeline@example.com`、`CDK_DEFAULT_ACCOUNT=000000000000`、`CDK_DEFAULT_REGION=ap-northeast-1` で `npm run cdk:pipeline -- synth --quiet` 成功。
-- 生成 template で `PipelineType: V2`、`codeconnections:FullRepositoryId=kyiwanami/workops`、`codeconnections:BranchName=main`、`aws/codebuild/amazonlinux-aarch64-standard:3.0`、通知 `DetailType: BASIC` を確認した。
+- 生成 template で `PipelineType: V2`、Source action の `FullRepositoryId=kyiwanami/workops`、`BranchName=main`、`aws/codebuild/amazonlinux-aarch64-standard:3.0`、通知 `DetailType: BASIC` を確認した。
 
 ### 残課題
 

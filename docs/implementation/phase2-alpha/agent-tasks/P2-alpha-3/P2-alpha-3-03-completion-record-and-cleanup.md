@@ -147,7 +147,8 @@ Cleanup では `EgressStack`、`DataStack`、`EdgeStack`、`AppRuntimeStack` の
 
 | 発生箇所 | 事象 | 原因 | 対策 | ADR 化候補 | 壁打ち結果 |
 | --- | --- | --- | --- | --- | --- |
-| なし | なし | なし | なし | なし | なし |
+| P2-alpha-3-01 初回 `PipelineStack` deploy | `AWS::CodeStarNotifications::NotificationRule` 作成が `ConfigurationException` で失敗し、`workops-dev-pipeline` が rollback した | CodeStar Notifications の service-linked role が `NotificationRule` 作成直前に初回作成され、CloudFormation 依存関係上は role 作成後でも通知ルール作成側が失敗した | `AWS::IAM::ServiceLinkedRole` を CDK に明示定義し、`NotificationRule` がその作成後に実行される依存関係を持つようにした。初回失敗で残った service-linked role、rollback stack、空 artifact bucket は削除した。Artifact bucket は `RemovalPolicy.DESTROY` に変更した | CodeStar Notifications の service-linked role を PipelineStack の明示リソースとして管理する判断 | ユーザーと壁打ちし、Custom Resource ではなく `AWS::IAM::ServiceLinkedRole` を定義する方針に修正した |
+| P2-alpha-3-01 `GitHubSource` 実行 | CodeConnection 接続後の Source action が権限で失敗した | Pipeline role に追加した `codeconnections:FullRepositoryId` / `codeconnections:BranchName` 不一致時の明示 Deny が `UseConnection` 実行を拒否した | 明示 Deny を削除し、repository / branch 固定は `CodePipelineSource.connection` の `githubRepository` / `main` 指定で扱う | CodeConnection の repository / branch 制限を IAM Deny ではなく Source action 定義へ寄せる判断 | ユーザー指摘を受け、認可済み接続を止めたのはCDK側のPipeline role policyと判断して修正した |
 
 ## Cleanup 確認方法
 
