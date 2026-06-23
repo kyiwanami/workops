@@ -29,7 +29,7 @@ export class MigrationStack extends Stack {
     super(scope, id, props);
 
     const flywayLocations =
-      'filesystem:apps/web/src/main/resources/db/migration,filesystem:apps/web/src/main/resources/db/seed/common,filesystem:apps/web/src/main/resources/db/seed/aws-dev';
+      'filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/aws-dev';
     const flywayVersion = '12.9.0';
     const flywayDownloadUrl = `https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${flywayVersion}/flyway-commandline-${flywayVersion}-linux-x64.tar.gz`;
     const dbUrlParameter = StringParameter.fromStringParameterName(
@@ -50,7 +50,7 @@ export class MigrationStack extends Stack {
           build: {
             commands: [
               'set -euo pipefail',
-              'test -d apps/web/src/main/resources/db/migration',
+              'test -d db/migration',
               'curl -fsSL "$FLYWAY_DOWNLOAD_URL" -o flyway-commandline.tar.gz',
               'tar -xzf flyway-commandline.tar.gz',
               'export FLYWAY_URL="$WORKOPS_DB_URL"',

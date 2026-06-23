@@ -46,7 +46,7 @@ services:
       WORKOPS_DB_URL: jdbc:mysql://workops-mysql:3306/workops?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Tokyo
       WORKOPS_DB_USERNAME: workops
       WORKOPS_DB_PASSWORD: workops
-      WORKOPS_FLYWAY_LOCATIONS: filesystem:apps/web/src/main/resources/db/migration,filesystem:apps/web/src/main/resources/db/seed/common,filesystem:apps/web/src/main/resources/db/seed/local
+      WORKOPS_FLYWAY_LOCATIONS: filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/local
 
 volumes:
   workops_mysql_data:

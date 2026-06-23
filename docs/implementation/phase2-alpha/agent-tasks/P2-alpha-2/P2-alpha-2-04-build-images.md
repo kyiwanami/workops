@@ -154,6 +154,7 @@ npm run cdk:pipeline -- synth
 - 2026-06-24: Maven runner / Java API runner は過剰なので撤回する。Flyway 自体は JVM 系ツールであり、公式 CLI でも内部的に Java は残る。ただし、Maven package、独自 runner、Spring、migration image、ECS task を migration 実行のために増やす必要はない。ここを曖昧にすると、また重い実行単位や不要な脆弱性 gate を増やすため、CodeBuild では固定 version の Redgate Flyway CLI を直接実行する。
 - 2026-06-24: Redgate Flyway CLI の Linux 配布物は x64 を使うため、migration CodeBuild は ARM image ではなく x86_64 の `LinuxBuildImage.AMAZON_LINUX_2023_5` を使う。BuildWebImage は ARM build のままでよいが、migration 実行側まで ARM に寄せない。
 - 2026-06-24: 根拠は Redgate Flyway CLI docs、Redgate Flyway Maven plugin docs、AWS の CodePipeline + CodeBuild + Secrets Manager によるDB deployment記事。CLI docs は「build toolに統合せずcommand-lineからmigrateする用途」を説明しており、今回の CodeBuild migration には Maven plugin / Java API runner より CLI 直接実行を優先する。
+- 2026-06-24: Pipeline 実走で `RunMigration` が `test -d apps/web/src/main/resources/db/migration` に失敗した。WorkOps の SQL 正本は Spring resources 配下ではなく repository root の `db/migration`、`db/seed/common`、`db/seed/aws-dev` である。Source artifact を使う設計は正しいが、CodeBuild buildspec の locations が誤っていたため、`filesystem:db/...` へ修正する。
 
 ### 実装結果
 
@@ -181,6 +182,7 @@ npm run cdk:pipeline -- synth
   - Flyway は Maven runner ではなく Redgate Flyway CLI `12.9.0` を CodeBuild 内で取得して直接 `flyway migrate` を実行する。
   - secrets は CLI 引数へ直書きせず、`FLYWAY_URL`、`FLYWAY_USER`、`FLYWAY_PASSWORD`、`FLYWAY_LOCATIONS` に export して渡す。
   - migration CodeBuild は Flyway CLI Linux x64 配布物に合わせ、x86_64 の Amazon Linux 2023 standard image を使う。
+  - SQL locations は repository root の `db/migration`、`db/seed/common`、`db/seed/aws-dev` を使う。
 - `infra/cdk/lib/registry-stack.ts`
   - migration repository と migration cache repository を削除し、web repository と web cache repository のみを作成する構成にした。
 - `compose.yaml`

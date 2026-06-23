@@ -777,8 +777,7 @@ describe('WorkOps CDK app', () => {
           }),
           Match.objectLike({
             Name: 'WORKOPS_FLYWAY_LOCATIONS',
-            Value:
-              'filesystem:apps/web/src/main/resources/db/migration,filesystem:apps/web/src/main/resources/db/seed/common,filesystem:apps/web/src/main/resources/db/seed/aws-dev',
+            Value: 'filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/aws-dev',
           }),
         ]),
       }),
@@ -811,6 +810,8 @@ describe('WorkOps CDK app', () => {
     expect(templateText).toContain('flyway-commandline-12.9.0-linux-x64.tar.gz');
     expect(templateText).toContain('FLYWAY_LOCATIONS');
     expect(templateText).toContain('./flyway-12.9.0/flyway migrate');
+    expect(templateText).toContain('test -d db/migration');
+    expect(templateText).not.toContain('apps/web/src/main/resources/db');
     expect(templateText).not.toContain('mvn -B');
     expect(templateText).not.toContain('migration-runner.jar');
     expect(templateText).not.toContain('infra/migration-runner');
