@@ -157,7 +157,7 @@ ManualApproval 確認:
 - `Synth` は `npm ci` で失敗したため、CodeBuild と同じ npm 10.8.2 で `package-lock.json` を同期した。
 - lock 同期後の `npm ci --dry-run`、`npm run build`、`npm run lint`、`npm run test -- --runInBand` は成功した。
 - lock 同期後の Pipeline execution では `npm ci` は成功し、`npm run cdk:pipeline -- synth` が lookup 権限不足で失敗した。
-- Synth CodeBuild role に `ec2:DescribeAvailabilityZones`、`ec2:DescribeManagedPrefixLists`、`cloudformation:ListResources` を追加し、`PipelineStack` 更新 deploy は成功した。
+- Synth CodeBuild role に `ec2:DescribeAvailabilityZones`、`ec2:DescribeManagedPrefixLists`、`ec2:GetManagedPrefixListEntries`、`cloudformation:ListResources` を追加し、`PipelineStack` 更新 deploy は成功した。
 
 ### 確認結果
 

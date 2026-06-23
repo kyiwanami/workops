@@ -335,7 +335,11 @@ export class PipelineStack extends Stack {
         primaryOutputDirectory: 'infra/cdk/cdk.out',
         rolePolicyStatements: [
           new PolicyStatement({
-            actions: ['ec2:DescribeAvailabilityZones', 'ec2:DescribeManagedPrefixLists'],
+            actions: [
+              'ec2:DescribeAvailabilityZones',
+              'ec2:DescribeManagedPrefixLists',
+              'ec2:GetManagedPrefixListEntries',
+            ],
             effect: Effect.ALLOW,
             resources: ['*'],
           }),
