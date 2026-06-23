@@ -114,6 +114,22 @@ describe('WorkOps CDK app', () => {
     });
     const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
       env: testEnv,
+      runtimeResources: {
+        albSecurityGroup: foundationStack.albSecurityGroup,
+        appSecurityGroup: foundationStack.appSecurityGroup,
+        appSubnets: foundationStack.appSubnets,
+        cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
+        cluster: foundationStack.ecsCluster,
+        cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
+        cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
+        cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
+        cognitoUserPoolId: identityStack.userPoolId,
+        listener: edgeStack.listener,
+        loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
+        repository: registryStack.webRepository,
+        vpc: foundationStack.vpc,
+        webLogGroup: logsStack.webLogGroup,
+      },
       stage,
       stackName: `workops-${stage}-app-runtime`,
       webImageTag: testWebImageTag,
@@ -434,17 +450,9 @@ describe('WorkOps CDK app', () => {
       join(__dirname, '..', 'scripts', 'run-migration-task.py'),
       'utf8',
     );
-    const pipelineStackText = readFileSync(
-      join(__dirname, '..', 'lib', 'pipeline-stack.ts'),
-      'utf8',
-    );
     const appRuntimeStackText = readFileSync(
       join(__dirname, '..', 'lib', 'app-runtime-stack.ts'),
       'utf8',
-    );
-    const appRuntimeStageText = pipelineStackText.slice(
-      pipelineStackText.indexOf('class AppRuntimeDeployStage'),
-      pipelineStackText.indexOf('export class PipelineStack'),
     );
 
     template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
@@ -506,10 +514,10 @@ describe('WorkOps CDK app', () => {
         Type: 'ARM_CONTAINER',
       }),
     });
-    template.resourceCountIs('AWS::CodeBuild::Project', 8);
+    template.resourceCountIs('AWS::CodeBuild::Project', 9);
     expect(templateText).toContain('ec2:DescribeAvailabilityZones');
-    expect(templateText).toContain('ec2:DescribeManagedPrefixLists');
-    expect(templateText).toContain('ec2:GetManagedPrefixListEntries');
+    expect(templateText).not.toContain('ec2:DescribeManagedPrefixLists');
+    expect(templateText).not.toContain('ec2:GetManagedPrefixListEntries');
     expect(templateText).toContain('cloudformation:ListResources');
     expect(templateText).toContain('runtime-versions');
     expect(templateText).toContain('corretto25');
@@ -547,6 +555,9 @@ describe('WorkOps CDK app', () => {
         Match.objectLike({
           Actions: Match.arrayWith([
             Match.objectLike({
+              Name: Match.stringLikeRegexp('workops-dev-config.Prepare'),
+            }),
+            Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-data.Prepare'),
             }),
             Match.objectLike({
@@ -557,6 +568,9 @@ describe('WorkOps CDK app', () => {
             }),
             Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-migration.Prepare'),
+            }),
+            Match.objectLike({
+              Name: Match.stringLikeRegexp('workops-dev-app-runtime.Prepare'),
             }),
           ]),
           Name: 'DeployDataNetworkMigration',
@@ -571,32 +585,10 @@ describe('WorkOps CDK app', () => {
               Configuration: Match.objectLike({
                 EnvironmentVariables: Match.stringLikeRegexp('MIGRATION_TASK_DEFINITION_ARN'),
               }),
-              Name: 'RunMigration',
-              RunOrder: 1,
+              Name: Match.stringLikeRegexp('workops-dev-app-runtime.RunMigration'),
             }),
           ]),
-          Name: 'MigrationRunTask',
-        }),
-      ]),
-    });
-    template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
-      Stages: Match.arrayWith([
-        Match.objectLike({
-          Actions: Match.arrayWith([
-            Match.objectLike({
-              Name: Match.stringLikeRegexp('workops-dev-config.Prepare'),
-            }),
-            Match.objectLike({
-              Name: Match.stringLikeRegexp('workops-dev-config.Deploy'),
-            }),
-            Match.objectLike({
-              Name: Match.stringLikeRegexp('workops-dev-app-runtime.Prepare'),
-            }),
-            Match.objectLike({
-              Name: Match.stringLikeRegexp('workops-dev-app-runtime.Deploy'),
-            }),
-          ]),
-          Name: 'DeployAppRuntime',
+          Name: 'DeployDataNetworkMigration',
         }),
       ]),
     });
@@ -834,19 +826,11 @@ describe('WorkOps CDK app', () => {
     expect(templateText).toContain('$COMMIT_SHA');
     expect(templateText).toContain('WORKOPS_IMAGE_TAG');
     expect(templateText).toContain('DeployDataNetworkMigration');
-    expect(templateText).toContain('MigrationRunTask');
     expect(templateText).toContain('RunMigration');
-    expect(templateText).toContain('DeployAppRuntime');
     expect(templateText).toContain('workops-dev-app-runtime');
-    expect(appRuntimeStackText).toContain('foundation-vpc-id');
-    expect(appRuntimeStackText).toContain('edge-listener-arn');
-    expect(appRuntimeStackText).toContain('logs-web-log-group-name');
-    expect(appRuntimeStageText).not.toContain('new DataStack');
-    expect(appRuntimeStageText).not.toContain('new FoundationStack');
-    expect(appRuntimeStageText).not.toContain('new IdentityStack');
-    expect(appRuntimeStageText).not.toContain('new LogsStack');
-    expect(appRuntimeStageText).not.toContain('new EgressStack');
-    expect(appRuntimeStageText).not.toContain('new EdgeStack');
+    expect(appRuntimeStackText).toContain('runtimeResources: RuntimeResources');
+    expect(appRuntimeStackText).not.toContain('Fn.importValue');
+    expect(appRuntimeStackText).not.toContain('createRuntimeResources');
     expect(templateText).toContain('python3 infra/cdk/scripts/run-migration-task.py');
     expect(templateText).not.toContain('cat > run-migration');
     expect(migrationRunTaskScriptText).toContain('run-task');
@@ -1140,9 +1124,15 @@ describe('WorkOps CDK app', () => {
       FromPort: 80,
       GroupId: Match.anyValue(),
       IpProtocol: 'tcp',
-      SourcePrefixListId: Match.stringLikeRegexp('^pl-'),
+      SourcePrefixListId: Match.anyValue(),
       ToPort: 80,
     });
+    template.hasResourceProperties('Custom::AWS', {
+      Create: Match.stringLikeRegexp('describeManagedPrefixLists'),
+      InstallLatestAwsSdk: false,
+      Update: Match.stringLikeRegexp('describeManagedPrefixLists'),
+    });
+    expect(templateText).toContain('com.amazonaws.global.cloudfront.origin-facing');
     template.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
       Name: 'workops-dev-web-alb',
       Scheme: 'internal',
@@ -1413,8 +1403,57 @@ describe('WorkOps CDK app', () => {
   test('creates the P2-3 AppRuntimeStack web service', () => {
     const app = new App();
     const stage = 'dev';
+    const foundationStack = new FoundationStack(app, 'FoundationStack', {
+      env: testEnv,
+      stage,
+      stackName: `workops-${stage}-foundation`,
+    });
+    const identityStack = new IdentityStack(app, 'IdentityStack', {
+      env: testEnv,
+      stage,
+      stackName: `workops-${stage}-identity`,
+    });
+    const registryStack = new RegistryStack(app, 'RegistryStack', {
+      env: testEnv,
+      stage,
+      stackName: `workops-${stage}-registry`,
+    });
+    const logsStack = new LogsStack(app, 'LogsStack', {
+      env: testEnv,
+      stage,
+      stackName: `workops-${stage}-logs`,
+    });
+    const edgeStack = new EdgeStack(app, 'EdgeStack', {
+      albSecurityGroup: foundationStack.albSecurityGroup,
+      appSubnets: foundationStack.appSubnets,
+      cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
+      cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
+      cognitoUserPoolId: identityStack.userPoolId,
+      cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
+      cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
+      env: testEnv,
+      stage,
+      stackName: `workops-${stage}-edge`,
+      vpc: foundationStack.vpc,
+    });
     const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
       env: testEnv,
+      runtimeResources: {
+        albSecurityGroup: foundationStack.albSecurityGroup,
+        appSecurityGroup: foundationStack.appSecurityGroup,
+        appSubnets: foundationStack.appSubnets,
+        cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
+        cluster: foundationStack.ecsCluster,
+        cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
+        cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
+        cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
+        cognitoUserPoolId: identityStack.userPoolId,
+        listener: edgeStack.listener,
+        loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
+        repository: registryStack.webRepository,
+        vpc: foundationStack.vpc,
+        webLogGroup: logsStack.webLogGroup,
+      },
       stage,
       stackName: `workops-${stage}-app-runtime`,
       webImageTag: testWebImageTag,
@@ -1447,27 +1486,19 @@ describe('WorkOps CDK app', () => {
             },
             {
               Name: 'WORKOPS_COGNITO_USER_POOL_ID',
-              Value: {
-                'Fn::ImportValue': 'workops-dev-identity-user-pool-id',
-              },
+              Value: Match.anyValue(),
             },
             {
               Name: 'WORKOPS_COGNITO_PLATFORM_CLIENT_ID',
-              Value: {
-                'Fn::ImportValue': 'workops-dev-identity-platform-user-pool-client-id',
-              },
+              Value: Match.anyValue(),
             },
             {
               Name: 'WORKOPS_COGNITO_TENANT_CLIENT_ID',
-              Value: {
-                'Fn::ImportValue': 'workops-dev-identity-tenant-user-pool-client-id',
-              },
+              Value: Match.anyValue(),
             },
             {
               Name: 'WORKOPS_COGNITO_HOSTED_UI_DOMAIN_BASE_URL',
-              Value: {
-                'Fn::ImportValue': 'workops-dev-identity-hosted-ui-domain-base-url',
-              },
+              Value: Match.anyValue(),
             },
             {
               Name: 'WORKOPS_COGNITO_LOGOUT_URI',
@@ -1520,7 +1551,8 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('"Name":"SPRING_PROFILES_ACTIVE","Value":"local"');
     expect(templateText).toContain(testWebImageTag);
     expect(templateText).not.toContain('p2-3-manual');
-    expect(templateText).toContain('workops-dev-identity-hosted-ui-domain-base-url');
+    expect(templateText).toContain('WORKOPS_COGNITO_HOSTED_UI_DOMAIN_BASE_URL');
+    expect(templateText).toContain('amazoncognito.com');
     expect(templateText).toContain('/login');
     expect(templateText).toContain('/login/oauth2/code/platform');
     expect(templateText).toContain('/login/oauth2/code/tenant');
@@ -1677,12 +1709,12 @@ describe('WorkOps CDK app', () => {
         ]),
       },
     });
-    expect(templateText).toContain('workops-dev-identity-user-pool-id');
+    expect(templateText).toContain('WORKOPS_COGNITO_USER_POOL_ID');
     expect(templateText).not.toContain('cognito-idp:AdminDeleteUser');
     expect(templateText).not.toContain('cognito-idp:AdminGetUser');
     expect(templateText).not.toContain('cognito-idp:AdminUpdateUserAttributes');
     expect(templateText).not.toContain('cognito-idp:AdminDisableUser');
-    expect(templateText).toContain('workops-dev-logs-web-log-group-name');
+    expect(templateText).toContain('awslogs-stream-prefix');
     expect(templateText).not.toContain('/workops/dev/migration');
     expect(templateText).not.toContain('AWS::CodeDeploy');
   });

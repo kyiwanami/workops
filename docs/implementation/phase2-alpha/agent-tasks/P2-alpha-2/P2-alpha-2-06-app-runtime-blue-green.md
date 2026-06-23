@@ -31,6 +31,7 @@ EdgeStack は次を所有する。
 - Listener 本体
 - CloudFront distribution
 - Cognito client URL updater
+- CloudFront origin-facing managed prefix list ID の deploy 時解決 custom resource
 
 AppRuntimeStack は次を所有する。
 
@@ -67,6 +68,10 @@ Alarm は P2-alpha-3 で実走確認するが、P2-alpha-2 では CDK code と s
 - Listener 本体は EdgeStack に残す。CloudFront / ALB / Listener の入口責務を EdgeStack に残すため。
 - CodeDeploy は採用しない。Phase 2α は ECS ネイティブ Blue/Green を採用するため。
 - desiredCount=0 で AppRuntimeStack を残す運用は採用しない。主要課金 4 stack destroy の方針に合わせるため。
+- CloudFront origin-facing managed prefix list ID は `PrefixList.fromLookup` / `cdk.context.json` に固定しない。CDK context lookup は AWS CDK の一般的な運用として有効だが、context key に account ID / region / lookup 条件が入り、lookup 結果も環境依存値になるため、本 project の「実 account ID と環境依存 lookup 結果を git 管理しない」方針と合わない。
+- CloudFront origin-facing managed prefix list は AWS managed shared value であり、project-owned resource の props 参照では生成できないため、`EdgeStack` deploy 時の custom resource lookup を採用する。
+- custom resource は EC2 `DescribeManagedPrefixLists` を AWS owner と prefix list name で絞り込む read-only lookup に限定する。VPC / subnet / security group など通常の project-owned resource 参照へ拡大しない。
+- `AwsCustomResource` は deploy 時の最新 SDK 取得を避けるため `installLatestAwsSdk: false` を明示する。
 
 ## 対応範囲
 
@@ -136,12 +141,15 @@ npm run cdk:pipeline -- synth --quiet --profile $env:AWS_PROFILE
 ### 実装結果
 
 - `EdgeStack` は internal ALB、listener、CloudFront、Cognito client URL updater の所有に絞り、listener default action は fixed 404 にした。
+- `EdgeStack` の CloudFront origin-facing managed prefix list ID 解決は `PrefixList.fromLookup` から `AwsCustomResource` に変更した。`cdk.context.json` に account ID と lookup 結果を固定しないため。
+- `AwsCustomResource` は EC2 `describeManagedPrefixLists` の read-only lookup に限定し、`installLatestAwsSdk: false` を明示した。
+- custom resource の結果は ALB security group ingress の `SourcePrefixListId` にだけ使う。
 - `AppRuntimeStack` は blue / green target group、listener rule、ARM64 Fargate task definition、ECS native blue/green service、deployment alarms を所有する構成にした。
 - Web ECS service は `DeploymentStrategy.BLUE_GREEN`、bake time 3分、rollback enabled deployment alarms を使う。
 - Web ECS service は task 起動失敗を早く検出するため、ECS deployment circuit breaker も rollback enabled で維持する。
 - Web image tag は `WORKOPS_IMAGE_TAG` から渡し、`WORKOPS_WEB_IMAGE_TAG` は復活させない。
 - `PipelineStack` に `DeployAppRuntime` stage を追加し、`MigrationRunTask` 後に AppRuntimeStack を deploy する配線にした。
-- CodeDeploy application、deployment group、appspec.yml、Lambda / Step Functions / custom resource による deploy hook は追加していない。
+- CodeDeploy application、deployment group、appspec.yml、Lambda / Step Functions / custom resource による deploy hook は追加していない。CloudFront origin-facing managed prefix list ID 解決 custom resource は deploy hook ではなく、ALB ingress の source prefix list ID を解決する read-only lookup である。
 
 ### 確認結果
 

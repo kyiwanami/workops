@@ -35,6 +35,7 @@ import {
 } from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
 import { AppRuntimeStack } from './app-runtime-stack';
+import { RuntimeResources } from './app-runtime-stack';
 import { ConfigStack } from './config-stack';
 import { DataStack } from './data-stack';
 import { EdgeStack } from './edge-stack';
@@ -71,11 +72,6 @@ interface DataNetworkMigrationDeployStageProps {
   env: Environment;
   stage: string;
   migrationImageTag: string;
-}
-
-interface AppRuntimeDeployStageProps {
-  env: Environment;
-  stage: string;
   webImageTag: string;
 }
 
@@ -94,6 +90,7 @@ class RegistryDeployStage extends Stage {
 }
 
 class DataNetworkMigrationDeployStage extends Stage {
+  public readonly appRuntimeStack: AppRuntimeStack;
   public readonly migrationStack: MigrationStack;
 
   constructor(scope: Construct, id: string, props: DataNetworkMigrationDeployStageProps) {
@@ -151,6 +148,11 @@ class DataNetworkMigrationDeployStage extends Stage {
       'MigrationRepository',
       `workops-${props.stage}-migration`,
     );
+    const webRepository = Repository.fromRepositoryName(
+      foundationStack,
+      'WebRepository',
+      `workops-${props.stage}-web`,
+    );
 
     // MigrationStack consumes the runtime network and log resources but owns only RunTask assets.
     this.migrationStack = new MigrationStack(this, 'MigrationStack', {
@@ -171,14 +173,6 @@ class DataNetworkMigrationDeployStage extends Stage {
     this.migrationStack.addDependency(dataStack);
     this.migrationStack.addDependency(egressStack);
     this.migrationStack.addDependency(logsStack);
-  }
-}
-
-class AppRuntimeDeployStage extends Stage {
-  constructor(scope: Construct, id: string, props: AppRuntimeDeployStageProps) {
-    super(scope, id, {
-      env: props.env,
-    });
 
     const configStack = new ConfigStack(this, 'ConfigStack', {
       env: props.env,
@@ -186,15 +180,33 @@ class AppRuntimeDeployStage extends Stage {
       stackName: `workops-${props.stage}-config`,
     });
 
-    // AppRuntime consumes exported support resources and owns only the ECS web runtime.
-    const appRuntimeStack = new AppRuntimeStack(this, 'AppRuntimeStack', {
+    const runtimeResources: RuntimeResources = {
+      albSecurityGroup: foundationStack.albSecurityGroup,
+      appSecurityGroup: foundationStack.appSecurityGroup,
+      appSubnets: foundationStack.appSubnets,
+      cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
+      cluster: foundationStack.ecsCluster,
+      cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
+      cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
+      cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
+      cognitoUserPoolId: identityStack.userPoolId,
+      listener: edgeStack.listener,
+      loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
+      repository: webRepository,
+      vpc: foundationStack.vpc,
+      webLogGroup: logsStack.webLogGroup,
+    };
+
+    // AppRuntime consumes support resources through construct references within this CDK Stage.
+    this.appRuntimeStack = new AppRuntimeStack(this, 'AppRuntimeStack', {
       env: props.env,
+      runtimeResources,
       stage: props.stage,
       stackName: `workops-${props.stage}-app-runtime`,
       webImageTag: props.webImageTag,
     });
 
-    appRuntimeStack.addDependency(configStack);
+    this.appRuntimeStack.addDependency(configStack);
   }
 }
 
@@ -268,11 +280,7 @@ export class PipelineStack extends Stack {
         primaryOutputDirectory: 'infra/cdk/cdk.out',
         rolePolicyStatements: [
           new PolicyStatement({
-            actions: [
-              'ec2:DescribeAvailabilityZones',
-              'ec2:DescribeManagedPrefixLists',
-              'ec2:GetManagedPrefixListEntries',
-            ],
+            actions: ['ec2:DescribeAvailabilityZones'],
             effect: Effect.ALLOW,
             resources: ['*'],
           }),
@@ -357,19 +365,19 @@ export class PipelineStack extends Stack {
         env: props.env,
         migrationImageTag: props.migrationImageTag,
         stage: props.stage,
+        webImageTag: props.webImageTag,
       },
     );
-    pipeline.addStage(dataNetworkMigrationStage);
-    pipeline.addWave('MigrationRunTask', {
-      pre: [this.createMigrationRunTaskStep(dataNetworkMigrationStage.migrationStack, props.stage)],
+    pipeline.addStage(dataNetworkMigrationStage, {
+      stackSteps: [
+        {
+          stack: dataNetworkMigrationStage.appRuntimeStack,
+          pre: [
+            this.createMigrationRunTaskStep(dataNetworkMigrationStage.migrationStack, props.stage),
+          ],
+        },
+      ],
     });
-    pipeline.addStage(
-      new AppRuntimeDeployStage(this, 'DeployAppRuntime', {
-        env: props.env,
-        stage: props.stage,
-        webImageTag: props.webImageTag,
-      }),
-    );
     pipeline.buildPipeline();
 
     const pipelineNotifications = codePipeline.notifyOn(

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreateUserRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreateUserResponse;
@@ -75,6 +76,19 @@ class AwsCognitoUserProvisionerTests {
     when(cognitoIdentityProviderClient.adminCreateUser(
             org.mockito.ArgumentMatchers.any(AdminCreateUserRequest.class)))
         .thenThrow(CognitoIdentityProviderException.builder().message("failed").build());
+
+    assertThatThrownBy(() -> provisioner.provision(request()))
+        .isInstanceOfSatisfying(
+            ResponseStatusException.class,
+            exception ->
+                assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR));
+  }
+
+  @Test
+  void sdkClientExceptionIsConverted() {
+    when(cognitoIdentityProviderClient.adminCreateUser(
+            org.mockito.ArgumentMatchers.any(AdminCreateUserRequest.class)))
+        .thenThrow(SdkClientException.builder().message("network failed").build());
 
     assertThatThrownBy(() -> provisioner.provision(request()))
         .isInstanceOfSatisfying(

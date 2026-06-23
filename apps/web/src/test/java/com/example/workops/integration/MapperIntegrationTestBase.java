@@ -39,7 +39,6 @@ abstract class MapperIntegrationTestBase {
   private static final List<String> APPLIED_SQL_SCRIPT_NAMES = new ArrayList<>();
   private static boolean databaseInitialized;
 
-  @SuppressWarnings("resource")
   // Testcontainers singleton container pattern keeps this container for the test JVM lifecycle.
   private static final MySQLContainer MYSQL = createMysqlContainer();
 
@@ -100,6 +99,7 @@ abstract class MapperIntegrationTestBase {
     }
   }
 
+  @SuppressWarnings("resource")
   private static MySQLContainer createMysqlContainer() {
     configureDockerClientStrategy();
     return new MySQLContainer(DockerImageName.parse("mysql:8.4"))

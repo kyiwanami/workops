@@ -71,6 +71,8 @@ IAM の `UseConnection` に対する `FullRepositoryId` / `BranchName` 明示 De
 - ManualApproval は Build Images の前に置く。image build と deploy 系 AWS 更新の前にユーザー承認を挟むため。
 - PR review gate は設けない。品質チェックは CodeBuild 内の lint / test / synth で扱うため。
 - GitHub Actions は source trigger としても使わない。Phase 2α の正本 CI/CD を AWS 側に寄せるため。
+- CDK Pipelines の `Stage` 境界をまたいだ construct 参照はできないため、props 参照を維持する Stack は同一 CDK `Stage` 内に置く。
+- Migration RunTask は論理 stage としては AppRuntime deploy の前に置くが、実装上は `stackSteps` で `AppRuntimeStack` の pre step として差し込む。CloudFormation Export / SSM Parameter / 手書き `Fn.importValue` 復元 helper で stage 分割を維持する方針は採用しない。
 
 ## 対応範囲
 
@@ -141,6 +143,8 @@ npm run cdk:pipeline -- synth
 - CodeStar Notifications は承認待ちと Pipeline 全体失敗だけを SNS topic へ通知し、detail type は `BASIC` にした。
 - `infra/cdk/bin/cdk-pipeline.ts` と `cdk:pipeline` script を追加し、`WORKOPS_STAGE`、`GITHUB_REPOSITORY`、`WORKOPS_PIPELINE_NOTIFICATION_EMAIL` を必須入力にした。
 - CDK test に PipelineStack、entrypoint、CodeConnections source、ARM CodeBuild image、通知契機、Build & Test command の検証を追加した。
+- 2026-06-23 review 修正で、`AppRuntimeStack` が必要とする Foundation / Identity / Edge / Logs / Registry 由来 resource は同一 CDK `Stage` 内の props 参照に統一した。
+- Migration RunTask は `stackSteps` により `workops-${stage}-app-runtime.RunMigration` として `AppRuntimeStack` deploy 前に実行する構成にした。
 
 ### 確認結果
 

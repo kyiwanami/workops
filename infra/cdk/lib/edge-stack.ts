@@ -10,14 +10,13 @@ import {
   ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
 import { VpcOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
-import { Provider } from 'aws-cdk-lib/custom-resources';
 import {
-  CfnSecurityGroupIngress,
-  ISubnet,
-  PrefixList,
-  SecurityGroup,
-  Vpc,
-} from 'aws-cdk-lib/aws-ec2';
+  AwsCustomResource,
+  AwsCustomResourcePolicy,
+  PhysicalResourceId,
+  Provider,
+} from 'aws-cdk-lib/custom-resources';
+import { CfnSecurityGroupIngress, ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import {
   ApplicationLoadBalancer,
   ApplicationListener,
@@ -74,19 +73,41 @@ export class EdgeStack extends Stack {
       }),
     });
 
-    const cloudFrontOriginPrefixList = PrefixList.fromLookup(
+    const cloudFrontOriginPrefixListId = new AwsCustomResource(
       this,
-      'CloudFrontOriginFacingPrefixList',
+      'CloudFrontOriginPrefixListId',
       {
-        ownerId: 'AWS',
-        prefixListName: 'com.amazonaws.global.cloudfront.origin-facing',
+        installLatestAwsSdk: false,
+        onUpdate: {
+          service: 'EC2',
+          action: 'describeManagedPrefixLists',
+          parameters: {
+            Filters: [
+              {
+                Name: 'owner-id',
+                Values: ['AWS'],
+              },
+              {
+                Name: 'prefix-list-name',
+                Values: ['com.amazonaws.global.cloudfront.origin-facing'],
+              },
+            ],
+          },
+          physicalResourceId: PhysicalResourceId.of(
+            `workops-${props.stage}-cloudfront-origin-prefix-list`,
+          ),
+        },
+        policy: AwsCustomResourcePolicy.fromSdkCalls({
+          resources: AwsCustomResourcePolicy.ANY_RESOURCE,
+        }),
       },
-    );
+    ).getResponseField('PrefixLists.0.PrefixListId');
+
     // CloudFront VPC Origin still needs ALB inbound permission; use the AWS managed list without static pl-* IDs.
     new CfnSecurityGroupIngress(this, 'AlbHttpIngressFromCloudFront', {
       groupId: props.albSecurityGroup.securityGroupId,
       ipProtocol: 'tcp',
-      sourcePrefixListId: cloudFrontOriginPrefixList.prefixListId,
+      sourcePrefixListId: cloudFrontOriginPrefixListId,
       fromPort: 80,
       toPort: 80,
       description: 'Allow CloudFront VPC origin to reach WorkOps ALB',

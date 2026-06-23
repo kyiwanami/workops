@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreateUserRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreateUserResponse;
@@ -56,6 +57,9 @@ public class AwsCognitoUserProvisioner implements CognitoUserProvisioner {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Cognitoユーザー名は既に使用されています。", exception);
     } catch (CognitoIdentityProviderException exception) {
+      throw new ResponseStatusException(
+          HttpStatus.INTERNAL_SERVER_ERROR, "Cognitoユーザー作成に失敗しました。", exception);
+    } catch (SdkClientException exception) {
       throw new ResponseStatusException(
           HttpStatus.INTERNAL_SERVER_ERROR, "Cognitoユーザー作成に失敗しました。", exception);
     }

@@ -1,9 +1,11 @@
 package com.example.workops.admin.user.service;
 
+import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
 
@@ -26,6 +28,13 @@ public class CognitoIdentityProviderClientConfig {
   @Bean
   CognitoIdentityProviderClient cognitoIdentityProviderClient(
       @Value("${AWS_REGION}") String region) {
-    return CognitoIdentityProviderClient.builder().region(Region.of(region)).build();
+    return CognitoIdentityProviderClient.builder()
+        .region(Region.of(region))
+        .overrideConfiguration(
+            ClientOverrideConfiguration.builder()
+                .apiCallAttemptTimeout(Duration.ofSeconds(5))
+                .apiCallTimeout(Duration.ofSeconds(20))
+                .build())
+        .build();
   }
 }

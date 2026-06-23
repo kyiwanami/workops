@@ -1,18 +1,9 @@
-import { ArnFormat, Duration, Fn, Stack, StackProps } from 'aws-cdk-lib';
-import {
-  CfnSecurityGroupIngress,
-  ISecurityGroup,
-  ISubnet,
-  IVpc,
-  SecurityGroup,
-  Subnet,
-  Vpc,
-} from 'aws-cdk-lib/aws-ec2';
-import { IRepository, Repository } from 'aws-cdk-lib/aws-ecr';
+import { ArnFormat, Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { CfnSecurityGroupIngress, ISecurityGroup, ISubnet, IVpc } from 'aws-cdk-lib/aws-ec2';
+import { IRepository } from 'aws-cdk-lib/aws-ecr';
 import {
   AlarmBehavior,
   AlternateTarget,
-  Cluster,
   ContainerImage,
   CpuArchitecture,
   DeploymentStrategy,
@@ -25,7 +16,6 @@ import {
   Secret as EcsSecret,
 } from 'aws-cdk-lib/aws-ecs';
 import {
-  ApplicationListener,
   IApplicationListener,
   ApplicationListenerRule,
   ApplicationProtocol,
@@ -42,11 +32,10 @@ import {
   TreatMissingData,
 } from 'aws-cdk-lib/aws-cloudwatch';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { ILogGroup, LogGroup } from 'aws-cdk-lib/aws-logs';
+import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { exportName } from './stack-exports';
 
 export interface RuntimeResources {
   cluster: ICluster;
@@ -68,6 +57,7 @@ export interface RuntimeResources {
 export interface AppRuntimeStackProps extends StackProps {
   stage: string;
   webImageTag: string;
+  runtimeResources: RuntimeResources;
 }
 
 export class AppRuntimeStack extends Stack {
@@ -77,7 +67,7 @@ export class AppRuntimeStack extends Stack {
   constructor(scope: Construct, id: string, props: AppRuntimeStackProps) {
     super(scope, id, props);
 
-    const resources = this.createRuntimeResources(props.stage);
+    const resources = props.runtimeResources;
 
     // The ALB reaches only the Spring Boot container port exposed by the P2-3 image.
     new CfnSecurityGroupIngress(this, 'AppHttpIngressFromAlb', {
@@ -231,90 +221,6 @@ export class AppRuntimeStack extends Stack {
     });
     target.attachToApplicationTargetGroup(blueTargetGroup);
     this.service.node.addDependency(listenerRule);
-  }
-
-  private createRuntimeResources(stage: string): RuntimeResources {
-    const appSubnetOneId = Fn.importValue(exportName(stage, 'foundation-app-subnet-one-id'));
-    const appSubnetTwoId = Fn.importValue(exportName(stage, 'foundation-app-subnet-two-id'));
-    const appSubnetOneAvailabilityZone = Fn.select(0, Fn.getAzs());
-    const appSubnetTwoAvailabilityZone = Fn.select(1, Fn.getAzs());
-    const appSubnetOneRouteTableId = Fn.importValue(
-      exportName(stage, 'foundation-app-subnet-one-route-table-id'),
-    );
-    const appSubnetTwoRouteTableId = Fn.importValue(
-      exportName(stage, 'foundation-app-subnet-two-route-table-id'),
-    );
-    const vpc = Vpc.fromVpcAttributes(this, 'Vpc', {
-      availabilityZones: [appSubnetOneAvailabilityZone, appSubnetTwoAvailabilityZone],
-      privateSubnetIds: [appSubnetOneId, appSubnetTwoId],
-      privateSubnetRouteTableIds: [appSubnetOneRouteTableId, appSubnetTwoRouteTableId],
-      vpcId: Fn.importValue(exportName(stage, 'foundation-vpc-id')),
-    });
-    const appSecurityGroup = SecurityGroup.fromSecurityGroupId(
-      this,
-      'AppSecurityGroup',
-      Fn.importValue(exportName(stage, 'foundation-app-security-group-id')),
-      {
-        mutable: false,
-      },
-    );
-    const albSecurityGroup = SecurityGroup.fromSecurityGroupId(
-      this,
-      'AlbSecurityGroup',
-      Fn.importValue(exportName(stage, 'foundation-alb-security-group-id')),
-      {
-        mutable: false,
-      },
-    );
-    const cluster = Cluster.fromClusterAttributes(this, 'EcsCluster', {
-      clusterName: Fn.importValue(exportName(stage, 'foundation-ecs-cluster-name')),
-      securityGroups: [appSecurityGroup],
-      vpc,
-    });
-    const listener = ApplicationListener.fromApplicationListenerAttributes(this, 'HttpListener', {
-      defaultPort: 80,
-      listenerArn: Fn.importValue(exportName(stage, 'edge-listener-arn')),
-      securityGroup: albSecurityGroup,
-    });
-    const webLogGroup = LogGroup.fromLogGroupName(
-      this,
-      'WebLogGroup',
-      Fn.importValue(exportName(stage, 'logs-web-log-group-name')),
-    );
-
-    return {
-      albSecurityGroup,
-      appSecurityGroup,
-      appSubnets: [
-        Subnet.fromSubnetAttributes(this, 'AppSubnetOne', {
-          availabilityZone: appSubnetOneAvailabilityZone,
-          routeTableId: appSubnetOneRouteTableId,
-          subnetId: appSubnetOneId,
-        }),
-        Subnet.fromSubnetAttributes(this, 'AppSubnetTwo', {
-          availabilityZone: appSubnetTwoAvailabilityZone,
-          routeTableId: appSubnetTwoRouteTableId,
-          subnetId: appSubnetTwoId,
-        }),
-      ],
-      cloudFrontHttpsUrl: Fn.importValue(exportName(stage, 'edge-cloudfront-https-url')),
-      cluster,
-      cognitoHostedUiDomainBaseUrl: Fn.importValue(
-        exportName(stage, 'identity-hosted-ui-domain-base-url'),
-      ),
-      cognitoPlatformUserPoolClientId: Fn.importValue(
-        exportName(stage, 'identity-platform-user-pool-client-id'),
-      ),
-      cognitoTenantUserPoolClientId: Fn.importValue(
-        exportName(stage, 'identity-tenant-user-pool-client-id'),
-      ),
-      cognitoUserPoolId: Fn.importValue(exportName(stage, 'identity-user-pool-id')),
-      listener,
-      loadBalancerFullName: Fn.importValue(exportName(stage, 'edge-load-balancer-full-name')),
-      repository: Repository.fromRepositoryName(this, 'WebRepository', `workops-${stage}-web`),
-      vpc,
-      webLogGroup,
-    };
   }
 
   private createTargetGroup(

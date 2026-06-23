@@ -29,8 +29,11 @@ public class RequestIdMdcFilter extends OncePerRequestFilter {
     request.setAttribute(REQUEST_ATTRIBUTE_REQUEST_ID, requestId);
     response.setHeader(RESPONSE_HEADER_REQUEST_ID, requestId);
 
-    try (MDC.MDCCloseable ignored = MDC.putCloseable(MDC_REQUEST_ID, requestId)) {
+    MDC.put(MDC_REQUEST_ID, requestId);
+    try {
       filterChain.doFilter(request, response);
+    } finally {
+      MDC.remove(MDC_REQUEST_ID);
     }
   }
 }
