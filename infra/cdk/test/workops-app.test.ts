@@ -32,7 +32,6 @@ const testCognitoTenantUserPoolClientId = 'tenantclientid';
 const testGitHubRepository = 'owner/repo';
 const testPipelineNotificationEmail = 'pipeline@example.com';
 const testWebImageTag = 'test-sha';
-const testMigrationImageTag = 'test-sha';
 const testEnv = {
   account: '123456789012',
   region: 'ap-northeast-1',
@@ -56,6 +55,7 @@ describe('WorkOps CDK app', () => {
       dbSecurityGroup: foundationStack.dbSecurityGroup,
       dbSubnets: foundationStack.dbSubnets,
       env: testEnv,
+      migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       stage,
       stackName: `workops-${stage}-data`,
       vpc: foundationStack.vpc,
@@ -81,15 +81,13 @@ describe('WorkOps CDK app', () => {
       stackName: `workops-${stage}-logs`,
     });
     const migrationStack = new MigrationStack(app, 'MigrationStack', {
-      appSecurityGroup: foundationStack.appSecurityGroup,
       appSubnets: foundationStack.appSubnets,
-      cluster: foundationStack.ecsCluster,
       env: testEnv,
-      migrationImageTag: testMigrationImageTag,
+      migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       migrationLogGroup: logsStack.migrationLogGroup,
-      migrationRepository: registryStack.migrationRepository,
       stage,
       stackName: `workops-${stage}-migration`,
+      vpc: foundationStack.vpc,
     });
     const egressStack = new EgressStack(app, 'EgressStack', {
       appSubnets: foundationStack.appSubnets,
@@ -170,7 +168,7 @@ describe('WorkOps CDK app', () => {
     });
     template.resourceCountIs('AWS::EC2::Subnet', 6);
     template.resourceCountIs('AWS::EC2::NatGateway', 0);
-    template.resourceCountIs('AWS::EC2::SecurityGroup', 3);
+    template.resourceCountIs('AWS::EC2::SecurityGroup', 4);
     template.hasResourceProperties('AWS::EC2::SecurityGroup', {
       GroupName: 'workops-dev-alb-sg',
     });
@@ -179,6 +177,9 @@ describe('WorkOps CDK app', () => {
     });
     template.hasResourceProperties('AWS::EC2::SecurityGroup', {
       GroupName: 'workops-dev-db-sg',
+    });
+    template.hasResourceProperties('AWS::EC2::SecurityGroup', {
+      GroupName: 'workops-dev-migration-sg',
     });
     template.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
     template.hasResourceProperties('AWS::ECS::Cluster', {
@@ -224,6 +225,7 @@ describe('WorkOps CDK app', () => {
       },
     });
     template.hasOutput('dbSecurityGroupId', {});
+    template.hasOutput('migrationSecurityGroupId', {});
   });
 
   test('applies common WorkOps tags', () => {
@@ -273,38 +275,10 @@ describe('WorkOps CDK app', () => {
     });
     const template = Template.fromStack(registryStack);
 
-    template.resourceCountIs('AWS::ECR::Repository', 4);
+    template.resourceCountIs('AWS::ECR::Repository', 2);
+    const templateText = JSON.stringify(template.toJSON());
     template.hasResourceProperties('AWS::ECR::Repository', {
       RepositoryName: 'workops-dev-web',
-      ImageTagMutability: 'IMMUTABLE',
-      EmptyOnDelete: true,
-      LifecyclePolicy: {
-        LifecyclePolicyText: Match.serializedJson(
-          Match.objectLike({
-            rules: Match.arrayWith([
-              Match.objectLike({
-                selection: Match.objectLike({
-                  tagStatus: 'tagged',
-                  tagPatternList: ['*'],
-                  countType: 'imageCountMoreThan',
-                  countNumber: 10,
-                }),
-              }),
-              Match.objectLike({
-                selection: Match.objectLike({
-                  tagStatus: 'untagged',
-                  countType: 'sinceImagePushed',
-                  countUnit: 'days',
-                  countNumber: 1,
-                }),
-              }),
-            ]),
-          }),
-        ),
-      },
-    });
-    template.hasResourceProperties('AWS::ECR::Repository', {
-      RepositoryName: 'workops-dev-migration',
       ImageTagMutability: 'IMMUTABLE',
       EmptyOnDelete: true,
       LifecyclePolicy: {
@@ -361,46 +335,9 @@ describe('WorkOps CDK app', () => {
         ),
       },
     });
-    template.hasResourceProperties('AWS::ECR::Repository', {
-      RepositoryName: 'workops-dev-migration-cache',
-      ImageTagMutability: 'MUTABLE',
-      EmptyOnDelete: true,
-      LifecyclePolicy: {
-        LifecyclePolicyText: Match.serializedJson(
-          Match.objectLike({
-            rules: Match.arrayWith([
-              Match.objectLike({
-                selection: Match.objectLike({
-                  tagStatus: 'tagged',
-                  tagPatternList: ['*'],
-                  countType: 'imageCountMoreThan',
-                  countNumber: 5,
-                }),
-              }),
-              Match.objectLike({
-                selection: Match.objectLike({
-                  tagStatus: 'untagged',
-                  countType: 'sinceImagePushed',
-                  countUnit: 'days',
-                  countNumber: 1,
-                }),
-              }),
-            ]),
-          }),
-        ),
-      },
-    });
     template.hasResource('AWS::ECR::Repository', {
       Properties: {
         RepositoryName: 'workops-dev-web',
-        EmptyOnDelete: true,
-      },
-      DeletionPolicy: 'Delete',
-      UpdateReplacePolicy: 'Delete',
-    });
-    template.hasResource('AWS::ECR::Repository', {
-      Properties: {
-        RepositoryName: 'workops-dev-migration',
         EmptyOnDelete: true,
       },
       DeletionPolicy: 'Delete',
@@ -414,22 +351,12 @@ describe('WorkOps CDK app', () => {
       DeletionPolicy: 'Delete',
       UpdateReplacePolicy: 'Delete',
     });
-    template.hasResource('AWS::ECR::Repository', {
-      Properties: {
-        RepositoryName: 'workops-dev-migration-cache',
-        EmptyOnDelete: true,
-      },
-      DeletionPolicy: 'Delete',
-      UpdateReplacePolicy: 'Delete',
-    });
     template.hasOutput('webRepositoryName', {});
     template.hasOutput('webRepositoryUri', {});
-    template.hasOutput('migrationRepositoryName', {});
-    template.hasOutput('migrationRepositoryUri', {});
     template.hasOutput('webCacheRepositoryName', {});
     template.hasOutput('webCacheRepositoryUri', {});
-    template.hasOutput('migrationCacheRepositoryName', {});
-    template.hasOutput('migrationCacheRepositoryUri', {});
+    expect(templateText).not.toContain('workops-dev-migration-cache');
+    expect(templateText).not.toContain('workops-dev-migration');
   });
 
   test('creates the PipelineStack source, quality gate, image builds, migration run, and app runtime deploy', () => {
@@ -438,7 +365,6 @@ describe('WorkOps CDK app', () => {
     const pipelineStack = new PipelineStack(app, 'PipelineStack', {
       env: testEnv,
       githubRepository: testGitHubRepository,
-      migrationImageTag: testMigrationImageTag,
       notificationEmail: testPipelineNotificationEmail,
       stage,
       stackName: `workops-${stage}-pipeline`,
@@ -446,10 +372,6 @@ describe('WorkOps CDK app', () => {
     });
     const template = Template.fromStack(pipelineStack);
     const templateText = JSON.stringify(template.toJSON());
-    const migrationRunTaskScriptText = readFileSync(
-      join(__dirname, '..', 'scripts', 'run-migration-task.py'),
-      'utf8',
-    );
     const appRuntimeStackText = readFileSync(
       join(__dirname, '..', 'lib', 'app-runtime-stack.ts'),
       'utf8',
@@ -514,7 +436,7 @@ describe('WorkOps CDK app', () => {
         Type: 'ARM_CONTAINER',
       }),
     });
-    template.resourceCountIs('AWS::CodeBuild::Project', 9);
+    template.resourceCountIs('AWS::CodeBuild::Project', 7);
     expect(templateText).toContain('ec2:DescribeAvailabilityZones');
     expect(templateText).not.toContain('ec2:DescribeManagedPrefixLists');
     expect(templateText).not.toContain('ec2:GetManagedPrefixListEntries');
@@ -582,8 +504,12 @@ describe('WorkOps CDK app', () => {
         Match.objectLike({
           Actions: Match.arrayWith([
             Match.objectLike({
+              ActionTypeId: Match.objectLike({
+                Provider: 'CodeBuild',
+              }),
               Configuration: Match.objectLike({
-                EnvironmentVariables: Match.stringLikeRegexp('MIGRATION_TASK_DEFINITION_ARN'),
+                EnvironmentVariables: Match.stringLikeRegexp('COMMIT_SHA.*CommitId'),
+                ProjectName: 'workops-dev-migration',
               }),
               Name: Match.stringLikeRegexp('workops-dev-app-runtime.RunMigration'),
             }),
@@ -597,14 +523,15 @@ describe('WorkOps CDK app', () => {
         Match.objectLike({
           Actions: Match.arrayWith([
             Match.objectLike({
-              Configuration: Match.objectLike({
-                EnvironmentVariables: Match.stringLikeRegexp('COMMIT_SHA.*CommitId'),
-              }),
-              Name: 'BuildMigrationImage',
-              RunOrder: 1,
+              InputArtifacts: Match.arrayWith([
+                Match.objectLike({
+                  Name: 'SourceArtifact',
+                }),
+              ]),
+              Name: Match.stringLikeRegexp('workops-dev-app-runtime.RunMigration'),
             }),
           ]),
-          Name: 'BuildImages',
+          Name: 'DeployDataNetworkMigration',
         }),
       ]),
     });
@@ -619,29 +546,6 @@ describe('WorkOps CDK app', () => {
           Match.objectLike({
             Name: 'DOCKERFILE',
             Value: 'apps/web/Dockerfile',
-          }),
-        ]),
-        Image: 'aws/codebuild/amazonlinux-aarch64-standard:3.0',
-        PrivilegedMode: true,
-        Type: 'ARM_CONTAINER',
-      }),
-      Source: Match.objectLike({
-        BuildSpec: Match.stringLikeRegexp(
-          'docker buildx build --platform linux/arm64.*--cache-to.*--load',
-        ),
-      }),
-    });
-    template.hasResourceProperties('AWS::CodeBuild::Project', {
-      Environment: Match.objectLike({
-        ComputeType: 'BUILD_GENERAL1_MEDIUM',
-        EnvironmentVariables: Match.arrayWith([
-          Match.objectLike({
-            Name: 'BUILD_CONTEXT',
-            Value: '.',
-          }),
-          Match.objectLike({
-            Name: 'DOCKERFILE',
-            Value: 'infra/docker/migration/Dockerfile',
           }),
         ]),
         Image: 'aws/codebuild/amazonlinux-aarch64-standard:3.0',
@@ -697,52 +601,6 @@ describe('WorkOps CDK app', () => {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: 'ecs:RunTask',
-            Effect: 'Allow',
-            Resource: Match.objectLike({
-              'Fn::Join': Match.arrayWith([
-                '',
-                Match.arrayWith([
-                  ':ecs:ap-northeast-1:123456789012:task-definition/workops-dev-migration:*',
-                ]),
-              ]),
-            }),
-          }),
-          Match.objectLike({
-            Action: 'ecs:DescribeTasks',
-            Effect: 'Allow',
-            Resource: '*',
-          }),
-          Match.objectLike({
-            Action: 'iam:PassRole',
-            Condition: {
-              StringEquals: {
-                'iam:PassedToService': 'ecs-tasks.amazonaws.com',
-              },
-            },
-            Effect: 'Allow',
-            Resource: Match.arrayWith([
-              Match.objectLike({
-                'Fn::Join': Match.arrayWith([
-                  '',
-                  Match.arrayWith([':iam::123456789012:role/workops-dev-migration-execution']),
-                ]),
-              }),
-              Match.objectLike({
-                'Fn::Join': Match.arrayWith([
-                  '',
-                  Match.arrayWith([':iam::123456789012:role/workops-dev-migration-task']),
-                ]),
-              }),
-            ]),
-          }),
-        ]),
-      },
-    });
-    template.hasResourceProperties('AWS::IAM::Policy', {
-      PolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
             Action: 'ecr:GetAuthorizationToken',
             Effect: 'Allow',
             Resource: '*',
@@ -758,24 +616,7 @@ describe('WorkOps CDK app', () => {
               'ecr:UploadLayerPart',
             ]),
             Effect: 'Allow',
-            Resource: Match.arrayWith([
-              Match.objectLike({
-                'Fn::Join': Match.arrayWith([
-                  '',
-                  Match.arrayWith([
-                    ':ecr:ap-northeast-1:123456789012:repository/workops-dev-migration',
-                  ]),
-                ]),
-              }),
-              Match.objectLike({
-                'Fn::Join': Match.arrayWith([
-                  '',
-                  Match.arrayWith([
-                    ':ecr:ap-northeast-1:123456789012:repository/workops-dev-migration-cache',
-                  ]),
-                ]),
-              }),
-            ]),
+            Resource: Match.arrayWith([]),
           }),
         ]),
       },
@@ -809,11 +650,8 @@ describe('WorkOps CDK app', () => {
     expect(templateText).toContain('workops-dev-registry');
     expect(templateText).toContain('BuildImages');
     expect(templateText).toContain('BuildWebImage');
-    expect(templateText).toContain('BuildMigrationImage');
     expect(templateText).toContain('workops-dev-web');
     expect(templateText).toContain('workops-dev-web-cache:buildcache');
-    expect(templateText).toContain('workops-dev-migration');
-    expect(templateText).toContain('workops-dev-migration-cache:buildcache');
     expect(templateText).toContain('docker buildx create --name workops-builder');
     expect(templateText).toContain('--driver docker-container --use');
     expect(templateText).toContain('docker buildx inspect --bootstrap');
@@ -831,21 +669,14 @@ describe('WorkOps CDK app', () => {
     expect(appRuntimeStackText).toContain('runtimeResources: RuntimeResources');
     expect(appRuntimeStackText).not.toContain('Fn.importValue');
     expect(appRuntimeStackText).not.toContain('createRuntimeResources');
-    expect(templateText).toContain('python3 infra/cdk/scripts/run-migration-task.py');
+    expect(templateText).toContain('workops-dev-migration');
+    expect(templateText).toContain('SourceArtifact');
     expect(templateText).not.toContain('cat > run-migration');
-    expect(migrationRunTaskScriptText).toContain('run-task');
-    expect(migrationRunTaskScriptText).toContain('tasks-stopped');
-    expect(migrationRunTaskScriptText).toContain('describe-tasks');
-    expect(migrationRunTaskScriptText).toContain('assignPublicIp=DISABLED');
-    expect(templateText).toContain('MIGRATION_CLUSTER_NAME');
-    expect(templateText).toContain('MIGRATION_TASK_DEFINITION_ARN');
-    expect(templateText).toContain('MIGRATION_SUBNET_IDS');
-    expect(templateText).toContain('MIGRATION_SECURITY_GROUP_ID');
-    expect(templateText).toContain('MIGRATION_CONTAINER_NAME');
-    expect(migrationRunTaskScriptText).toContain('EssentialContainerExited');
-    expect(migrationRunTaskScriptText).toContain('exitCode');
-    expect(migrationRunTaskScriptText).toContain('run-task response did not include taskArn');
-    expect(migrationRunTaskScriptText).toContain('did not return exactly one task');
+    expect(templateText).not.toContain('python3 infra/cdk/scripts/run-migration-task.py');
+    expect(templateText).not.toContain('python3 infra/cdk/scripts/start-migration-build.py');
+    expect(templateText).not.toContain('MIGRATION_CLUSTER_NAME');
+    expect(templateText).not.toContain('MIGRATION_TASK_DEFINITION_ARN');
+    expect(templateText).not.toContain('MIGRATION_SOURCE_BUCKET');
     expect(templateText).toContain('npm run cdk:pipeline -- synth');
     expect(templateText).not.toContain('AWS::StepFunctions::StateMachine');
     expect(templateText).not.toContain('AWS::Lambda::Function');
@@ -861,7 +692,7 @@ describe('WorkOps CDK app', () => {
     template.hasOutput('notificationTopicName', {});
   });
 
-  test('creates the MigrationStack run task definition without an ECS service', () => {
+  test('creates the MigrationStack VPC CodeBuild project without an ECS task', () => {
     const app = new App();
     const stage = 'dev';
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
@@ -869,102 +700,101 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-foundation`,
     });
-    const registryStack = new RegistryStack(app, 'RegistryStack', {
-      env: testEnv,
-      stage,
-      stackName: `workops-${stage}-registry`,
-    });
     const logsStack = new LogsStack(app, 'LogsStack', {
       env: testEnv,
       stage,
       stackName: `workops-${stage}-logs`,
     });
     const migrationStack = new MigrationStack(app, 'MigrationStack', {
-      appSecurityGroup: foundationStack.appSecurityGroup,
       appSubnets: foundationStack.appSubnets,
-      cluster: foundationStack.ecsCluster,
       env: testEnv,
-      migrationImageTag: testMigrationImageTag,
+      migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       migrationLogGroup: logsStack.migrationLogGroup,
-      migrationRepository: registryStack.migrationRepository,
       stage,
       stackName: `workops-${stage}-migration`,
+      vpc: foundationStack.vpc,
     });
     const template = Template.fromStack(migrationStack);
     const templateText = JSON.stringify(template.toJSON());
 
-    template.resourceCountIs('AWS::ECS::TaskDefinition', 1);
+    template.resourceCountIs('AWS::CodeBuild::Project', 1);
+    template.resourceCountIs('AWS::ECS::TaskDefinition', 0);
     template.resourceCountIs('AWS::ECS::Service', 0);
+    template.resourceCountIs('AWS::S3::Bucket', 0);
+    template.hasResourceProperties('AWS::CodeBuild::Project', {
+      Name: 'workops-dev-migration',
+      Environment: Match.objectLike({
+        ComputeType: 'BUILD_GENERAL1_SMALL',
+        Image: 'aws/codebuild/amazonlinux-x86_64-standard:5.0',
+        PrivilegedMode: false,
+        Type: 'LINUX_CONTAINER',
+      }),
+      Source: Match.objectLike({
+        Type: 'CODEPIPELINE',
+      }),
+      VpcConfig: Match.objectLike({
+        SecurityGroupIds: Match.anyValue(),
+        Subnets: Match.anyValue(),
+      }),
+    });
+    template.hasResourceProperties('AWS::CodeBuild::Project', {
+      Environment: Match.objectLike({
+        EnvironmentVariables: Match.arrayWith([
+          Match.objectLike({
+            Name: 'WORKOPS_DB_URL',
+            Type: 'PARAMETER_STORE',
+          }),
+        ]),
+      }),
+    });
+    template.hasResourceProperties('AWS::CodeBuild::Project', {
+      Environment: Match.objectLike({
+        EnvironmentVariables: Match.arrayWith([
+          Match.objectLike({
+            Name: 'WORKOPS_DB_USERNAME',
+            Type: 'SECRETS_MANAGER',
+          }),
+        ]),
+      }),
+    });
+    template.hasResourceProperties('AWS::CodeBuild::Project', {
+      Environment: Match.objectLike({
+        EnvironmentVariables: Match.arrayWith([
+          Match.objectLike({
+            Name: 'WORKOPS_DB_PASSWORD',
+            Type: 'SECRETS_MANAGER',
+          }),
+        ]),
+      }),
+    });
+    template.hasResourceProperties('AWS::CodeBuild::Project', {
+      Environment: Match.objectLike({
+        EnvironmentVariables: Match.arrayWith([
+          Match.objectLike({
+            Name: 'FLYWAY_DOWNLOAD_URL',
+            Value:
+              'https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/12.9.0/flyway-commandline-12.9.0-linux-x64.tar.gz',
+          }),
+          Match.objectLike({
+            Name: 'WORKOPS_FLYWAY_LOCATIONS',
+            Value:
+              'filesystem:apps/web/src/main/resources/db/migration,filesystem:apps/web/src/main/resources/db/seed/common,filesystem:apps/web/src/main/resources/db/seed/aws-dev',
+          }),
+        ]),
+      }),
+    });
+    template.resourceCountIs('AWS::EC2::SecurityGroup', 0);
+    template.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
     template.hasResourceProperties('AWS::IAM::Role', {
-      RoleName: 'workops-dev-migration-execution',
       AssumeRolePolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: 'sts:AssumeRole',
             Principal: {
-              Service: 'ecs-tasks.amazonaws.com',
+              Service: 'codebuild.amazonaws.com',
             },
           }),
         ]),
       },
-    });
-    template.hasResourceProperties('AWS::IAM::Role', {
-      RoleName: 'workops-dev-migration-task',
-      AssumeRolePolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: 'sts:AssumeRole',
-            Principal: {
-              Service: 'ecs-tasks.amazonaws.com',
-            },
-          }),
-        ]),
-      },
-    });
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      Cpu: '512',
-      Family: 'workops-dev-migration',
-      Memory: '1024',
-      NetworkMode: 'awsvpc',
-      RequiresCompatibilities: ['FARGATE'],
-      RuntimePlatform: {
-        CpuArchitecture: 'ARM64',
-        OperatingSystemFamily: 'LINUX',
-      },
-      ContainerDefinitions: Match.arrayWith([
-        Match.objectLike({
-          Essential: true,
-          Name: 'migration',
-          Environment: Match.arrayWith([
-            {
-              Name: 'AWS_REGION',
-              Value: 'ap-northeast-1',
-            },
-            {
-              Name: 'WORKOPS_FLYWAY_LOCATIONS',
-              Value:
-                'filesystem:/flyway/sql/migration,filesystem:/flyway/sql/seed/common,filesystem:/flyway/sql/seed/aws-dev',
-            },
-          ]),
-          LogConfiguration: Match.objectLike({
-            LogDriver: 'awslogs',
-            Options: Match.objectLike({
-              'awslogs-stream-prefix': 'migration',
-            }),
-          }),
-          Secrets: Match.arrayWith([
-            Match.objectLike({
-              Name: 'WORKOPS_DB_URL',
-            }),
-            Match.objectLike({
-              Name: 'WORKOPS_DB_USERNAME',
-            }),
-            Match.objectLike({
-              Name: 'WORKOPS_DB_PASSWORD',
-            }),
-          ]),
-        }),
-      ]),
     });
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
@@ -978,14 +808,20 @@ describe('WorkOps CDK app', () => {
         ]),
       },
     });
-    expect(templateText).toContain(':test-sha');
+    expect(templateText).toContain('flyway-commandline-12.9.0-linux-x64.tar.gz');
+    expect(templateText).toContain('FLYWAY_LOCATIONS');
+    expect(templateText).toContain('./flyway-12.9.0/flyway migrate');
+    expect(templateText).not.toContain('mvn -B');
+    expect(templateText).not.toContain('migration-runner.jar');
+    expect(templateText).not.toContain('infra/migration-runner');
+    expect(templateText).not.toContain('amazonlinux-aarch64-standard');
     expect(templateText).toContain('/workops/dev/db/url');
     expect(templateText).toContain('/workops/dev/db/master');
-    template.hasOutput('migrationTaskDefinitionArn', {});
-    template.hasOutput('migrationContainerName', {});
-    template.hasOutput('migrationClusterName', {});
-    template.hasOutput('migrationSubnetIds', {});
-    template.hasOutput('migrationSecurityGroupId', {});
+    expect(templateText).not.toContain('AWS::ECS::TaskDefinition');
+    expect(templateText).not.toContain('ecs-tasks.amazonaws.com');
+    expect(templateText).not.toContain(':test-sha');
+    expect(templateText).not.toContain('workops-dev-migration-source');
+    template.hasOutput('migrationProjectName', {});
   });
 
   test('creates the LogsStack log groups', () => {
@@ -1741,6 +1577,7 @@ describe('WorkOps CDK app', () => {
       appSecurityGroup: foundationStack.appSecurityGroup,
       dbSecurityGroup: foundationStack.dbSecurityGroup,
       dbSubnets: foundationStack.dbSubnets,
+      migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       stage,
       stackName: `workops-${stage}-data`,
       vpc: foundationStack.vpc,
@@ -1802,6 +1639,13 @@ describe('WorkOps CDK app', () => {
     foundationTemplate.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
     dataTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
       Description: 'Allow WorkOps app tasks to reach MySQL',
+      FromPort: 3306,
+      IpProtocol: 'tcp',
+      SourceSecurityGroupId: Match.anyValue(),
+      ToPort: 3306,
+    });
+    dataTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
+      Description: 'Allow WorkOps migration CodeBuild to reach MySQL',
       FromPort: 3306,
       IpProtocol: 'tcp',
       SourceSecurityGroupId: Match.anyValue(),

@@ -16,6 +16,7 @@ export class FoundationStack extends Stack {
   public readonly albSecurityGroup: SecurityGroup;
   public readonly appSecurityGroup: SecurityGroup;
   public readonly dbSecurityGroup: SecurityGroup;
+  public readonly migrationSecurityGroup: SecurityGroup;
   public readonly ecsCluster: Cluster;
 
   constructor(scope: Construct, id: string, props: FoundationStackProps) {
@@ -69,6 +70,12 @@ export class FoundationStack extends Stack {
       vpc: this.vpc,
       securityGroupName: `workops-${props.stage}-db-sg`,
       description: 'WorkOps database security group',
+      allowAllOutbound: true,
+    });
+    this.migrationSecurityGroup = new SecurityGroup(this, 'MigrationSecurityGroup', {
+      vpc: this.vpc,
+      securityGroupName: `workops-${props.stage}-migration-sg`,
+      description: 'WorkOps migration CodeBuild security group',
       allowAllOutbound: true,
     });
 
@@ -130,6 +137,9 @@ export class FoundationStack extends Stack {
     });
     new CfnOutput(this, 'dbSecurityGroupId', {
       value: this.dbSecurityGroup.securityGroupId,
+    });
+    new CfnOutput(this, 'migrationSecurityGroupId', {
+      value: this.migrationSecurityGroup.securityGroupId,
     });
   }
 }

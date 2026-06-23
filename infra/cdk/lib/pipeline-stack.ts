@@ -1,5 +1,4 @@
 import {
-  ArnFormat,
   Aws,
   CfnOutput,
   Duration,
@@ -13,15 +12,23 @@ import {
   BuildEnvironment,
   BuildSpec,
   ComputeType,
+  IProject,
   LinuxArmBuildImage,
+  Project as CodeBuildProject,
 } from 'aws-cdk-lib/aws-codebuild';
 import { DetailType } from 'aws-cdk-lib/aws-codestarnotifications';
 import { CfnConnection } from 'aws-cdk-lib/aws-codestarconnections';
 import {
+  Artifact,
   PipelineNotificationEvents,
   PipelineType,
+  IStage as CodePipelineStage,
   Pipeline as CodePipelinePipeline,
 } from 'aws-cdk-lib/aws-codepipeline';
+import {
+  CodeBuildAction,
+  CodeStarConnectionsSourceAction,
+} from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { CfnServiceLinkedRole, Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
@@ -30,8 +37,12 @@ import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
 import {
   CodeBuildStep,
   CodePipeline,
-  CodePipelineSource,
+  CodePipelineActionFactoryResult,
+  CodePipelineFileSet,
+  ICodePipelineActionFactory,
   ManualApprovalStep,
+  ProduceActionOptions,
+  Step,
 } from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
 import { AppRuntimeStack } from './app-runtime-stack';
@@ -52,7 +63,6 @@ export interface PipelineStackProps extends StackProps {
   githubRepository: string;
   notificationEmail: string;
   webImageTag: string;
-  migrationImageTag: string;
 }
 
 interface RegistryDeployStageProps {
@@ -62,6 +72,7 @@ interface RegistryDeployStageProps {
 
 interface BuildImageConfig {
   cacheRepositoryName: string;
+  commitSha: string;
   dockerfile: string;
   id: string;
   repositoryName: string;
@@ -71,8 +82,58 @@ interface BuildImageConfig {
 interface DataNetworkMigrationDeployStageProps {
   env: Environment;
   stage: string;
-  migrationImageTag: string;
   webImageTag: string;
+}
+
+interface GitHubRepositoryName {
+  owner: string;
+  repo: string;
+}
+
+interface MigrationActionStepProps {
+  commitSha: string;
+  input: CodePipelineFileSet;
+  project: IProject;
+}
+
+class MigrationActionStep extends Step implements ICodePipelineActionFactory {
+  private readonly commitSha: string;
+  private readonly input: CodePipelineFileSet;
+  private readonly project: IProject;
+
+  constructor(id: string, props: MigrationActionStepProps) {
+    super(id);
+
+    this.commitSha = props.commitSha;
+    this.input = props.input;
+    this.project = props.project;
+    this.addDependencyFileSet(props.input);
+  }
+
+  public produceAction(
+    stage: CodePipelineStage,
+    options: ProduceActionOptions,
+  ): CodePipelineActionFactoryResult {
+    // The migration project is created in the target stage, but this action receives the pipeline source artifact directly.
+    stage.addAction(
+      new CodeBuildAction({
+        actionName: options.actionName,
+        environmentVariables: {
+          COMMIT_SHA: {
+            value: this.commitSha,
+          },
+        },
+        input: options.artifacts.toCodePipeline(this.input),
+        project: this.project,
+        runOrder: options.runOrder,
+        variablesNamespace: options.variablesNamespace,
+      }),
+    );
+
+    return {
+      runOrdersConsumed: 1,
+    };
+  }
 }
 
 class RegistryDeployStage extends Stage {
@@ -108,6 +169,7 @@ class DataNetworkMigrationDeployStage extends Stage {
       dbSecurityGroup: foundationStack.dbSecurityGroup,
       dbSubnets: foundationStack.dbSubnets,
       env: props.env,
+      migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       stage: props.stage,
       stackName: `workops-${props.stage}-data`,
       vpc: foundationStack.vpc,
@@ -143,28 +205,21 @@ class DataNetworkMigrationDeployStage extends Stage {
       stackName: `workops-${props.stage}-edge`,
       vpc: foundationStack.vpc,
     });
-    const migrationRepository = Repository.fromRepositoryName(
-      foundationStack,
-      'MigrationRepository',
-      `workops-${props.stage}-migration`,
-    );
     const webRepository = Repository.fromRepositoryName(
       foundationStack,
       'WebRepository',
       `workops-${props.stage}-web`,
     );
 
-    // MigrationStack consumes the runtime network and log resources but owns only RunTask assets.
+    // MigrationStack owns the VPC-attached CodeBuild project that runs Flyway against RDS.
     this.migrationStack = new MigrationStack(this, 'MigrationStack', {
-      appSecurityGroup: foundationStack.appSecurityGroup,
       appSubnets: foundationStack.appSubnets,
-      cluster: foundationStack.ecsCluster,
       env: props.env,
-      migrationImageTag: props.migrationImageTag,
+      migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       migrationLogGroup: logsStack.migrationLogGroup,
-      migrationRepository,
       stage: props.stage,
       stackName: `workops-${props.stage}-migration`,
+      vpc: foundationStack.vpc,
     });
 
     edgeStack.addDependency(egressStack);
@@ -207,6 +262,7 @@ class DataNetworkMigrationDeployStage extends Stage {
     });
 
     this.appRuntimeStack.addDependency(configStack);
+    this.appRuntimeStack.addDependency(this.migrationStack);
   }
 }
 
@@ -243,6 +299,17 @@ export class PipelineStack extends Stack {
       connectionName: `workops-${props.stage}-github`,
       providerType: 'GitHub',
     });
+    const githubRepositoryName = this.parseGitHubRepository(props.githubRepository);
+    const sourceArtifact = new Artifact('SourceArtifact');
+    const sourceAction = new CodeStarConnectionsSourceAction({
+      actionName: 'GitHubSource',
+      branch: 'main',
+      connectionArn: githubConnection.attrConnectionArn,
+      output: sourceArtifact,
+      owner: githubRepositoryName.owner,
+      repo: githubRepositoryName.repo,
+      triggerOnPush: true,
+    });
 
     const codePipeline = new CodePipelinePipeline(this, 'Pipeline', {
       artifactBucket,
@@ -251,12 +318,13 @@ export class PipelineStack extends Stack {
       pipelineType: PipelineType.V2,
       usePipelineRoleForActions: true,
     });
-
-    const source = CodePipelineSource.connection(props.githubRepository, 'main', {
-      actionName: 'GitHubSource',
-      connectionArn: githubConnection.attrConnectionArn,
-      triggerOnPush: true,
+    codePipeline.addStage({
+      actions: [sourceAction],
+      stageName: 'Source',
     });
+
+    const source = CodePipelineFileSet.fromArtifact(sourceArtifact);
+    const commitSha = sourceAction.variables.commitId;
 
     const pipeline = new CodePipeline(this, 'CdkPipeline', {
       codeBuildDefaults: {
@@ -272,7 +340,7 @@ export class PipelineStack extends Stack {
         commands: ['cd infra/cdk', 'npm ci', 'npm run build', 'npm run cdk:pipeline -- synth'],
         env: {
           GITHUB_REPOSITORY: props.githubRepository,
-          WORKOPS_IMAGE_TAG: source.sourceAttribute('CommitId'),
+          WORKOPS_IMAGE_TAG: commitSha,
           WORKOPS_PIPELINE_NOTIFICATION_EMAIL: props.notificationEmail,
           WORKOPS_STAGE: props.stage,
         },
@@ -345,16 +413,10 @@ export class PipelineStack extends Stack {
         this.createBuildImageStep(source, {
           buildContext: 'apps/web',
           cacheRepositoryName: `workops-${props.stage}-web-cache`,
+          commitSha,
           dockerfile: 'apps/web/Dockerfile',
           id: 'BuildWebImage',
           repositoryName: `workops-${props.stage}-web`,
-        }),
-        this.createBuildImageStep(source, {
-          buildContext: '.',
-          cacheRepositoryName: `workops-${props.stage}-migration-cache`,
-          dockerfile: 'infra/docker/migration/Dockerfile',
-          id: 'BuildMigrationImage',
-          repositoryName: `workops-${props.stage}-migration`,
         }),
       ],
     });
@@ -363,7 +425,6 @@ export class PipelineStack extends Stack {
       'DeployDataNetworkMigration',
       {
         env: props.env,
-        migrationImageTag: props.migrationImageTag,
         stage: props.stage,
         webImageTag: props.webImageTag,
       },
@@ -373,7 +434,15 @@ export class PipelineStack extends Stack {
         {
           stack: dataNetworkMigrationStage.appRuntimeStack,
           pre: [
-            this.createMigrationRunTaskStep(dataNetworkMigrationStage.migrationStack, props.stage),
+            new MigrationActionStep('RunMigration', {
+              commitSha,
+              input: source,
+              project: CodeBuildProject.fromProjectName(
+                this,
+                'MigrationCodeBuildProjectReference',
+                `workops-${props.stage}-migration`,
+              ),
+            }),
           ],
         },
       ],
@@ -416,7 +485,7 @@ export class PipelineStack extends Stack {
   }
 
   private createBuildImageStep(
-    source: CodePipelineSource,
+    source: CodePipelineFileSet,
     config: BuildImageConfig,
   ): CodeBuildStep {
     const registryUri = `${Aws.ACCOUNT_ID}.dkr.ecr.${Aws.REGION}.${Aws.URL_SUFFIX}`;
@@ -439,7 +508,7 @@ export class PipelineStack extends Stack {
         BUILD_CONTEXT: config.buildContext,
         CACHE_FROM: `type=registry,ref=${cacheUri}`,
         CACHE_TO: `type=registry,ref=${cacheUri},mode=max`,
-        COMMIT_SHA: source.sourceAttribute('CommitId'),
+        COMMIT_SHA: config.commitSha,
         DOCKERFILE: config.dockerfile,
         IMAGE_REPOSITORY_URI: imageRepositoryUri,
         REGISTRY_URI: registryUri,
@@ -479,61 +548,18 @@ export class PipelineStack extends Stack {
     });
   }
 
-  private createMigrationRunTaskStep(migrationStack: MigrationStack, stage: string): CodeBuildStep {
-    return new CodeBuildStep('RunMigration', {
-      buildEnvironment: this.createBuildEnvironment(),
-      commands: ['set -euo pipefail', 'python3 infra/cdk/scripts/run-migration-task.py'],
-      envFromCfnOutputs: {
-        MIGRATION_CLUSTER_NAME: migrationStack.migrationClusterNameOutput,
-        MIGRATION_CONTAINER_NAME: migrationStack.migrationContainerNameOutput,
-        MIGRATION_SECURITY_GROUP_ID: migrationStack.migrationSecurityGroupIdOutput,
-        MIGRATION_SUBNET_IDS: migrationStack.migrationSubnetIdsOutput,
-        MIGRATION_TASK_DEFINITION_ARN: migrationStack.migrationTaskDefinitionArnOutput,
-      },
-      rolePolicyStatements: [
-        new PolicyStatement({
-          actions: ['ecs:RunTask'],
-          effect: Effect.ALLOW,
-          resources: [this.createEcsTaskDefinitionArn(`workops-${stage}-migration:*`)],
-        }),
-        new PolicyStatement({
-          actions: ['ecs:DescribeTasks'],
-          effect: Effect.ALLOW,
-          resources: ['*'],
-        }),
-        new PolicyStatement({
-          actions: ['iam:PassRole'],
-          conditions: {
-            StringEquals: {
-              'iam:PassedToService': 'ecs-tasks.amazonaws.com',
-            },
-          },
-          effect: Effect.ALLOW,
-          resources: [
-            this.createIamRoleArn(`workops-${stage}-migration-execution`),
-            this.createIamRoleArn(`workops-${stage}-migration-task`),
-          ],
-        }),
-      ],
-    });
-  }
+  private parseGitHubRepository(githubRepository: string): GitHubRepositoryName {
+    const parts = githubRepository.split('/');
+    const owner = parts[0];
+    const repo = parts[1];
 
-  private createEcsTaskDefinitionArn(taskDefinitionName: string): string {
-    return this.formatArn({
-      service: 'ecs',
-      resource: 'task-definition',
-      resourceName: taskDefinitionName,
-      arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
-    });
-  }
+    if (parts.length !== 2 || !owner || !repo) {
+      throw new Error('githubRepository must use owner/repo format');
+    }
 
-  private createIamRoleArn(roleName: string): string {
-    return this.formatArn({
-      service: 'iam',
-      region: '',
-      resource: 'role',
-      resourceName: roleName,
-      arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
-    });
+    return {
+      owner,
+      repo,
+    };
   }
 }

@@ -8,34 +8,22 @@ export interface RegistryStackProps extends StackProps {
 
 export class RegistryStack extends Stack {
   public readonly webRepository: Repository;
-  public readonly migrationRepository: Repository;
   public readonly webCacheRepository: Repository;
-  public readonly migrationCacheRepository: Repository;
 
   constructor(scope: Construct, id: string, props: RegistryStackProps) {
     super(scope, id, props);
 
     // Application image repositories keep immutable commit SHA tags for Pipeline traceability.
     this.webRepository = this.createImageRepository('WebRepository', `workops-${props.stage}-web`);
-    this.migrationRepository = this.createImageRepository(
-      'MigrationRepository',
-      `workops-${props.stage}-migration`,
-    );
 
     // Build cache repositories keep mutable buildcache tags for docker buildx cache reuse.
     this.webCacheRepository = this.createCacheRepository(
       'WebCacheRepository',
       `workops-${props.stage}-web-cache`,
     );
-    this.migrationCacheRepository = this.createCacheRepository(
-      'MigrationCacheRepository',
-      `workops-${props.stage}-migration-cache`,
-    );
 
     this.outputRepository('webRepository', this.webRepository);
-    this.outputRepository('migrationRepository', this.migrationRepository);
     this.outputRepository('webCacheRepository', this.webCacheRepository);
-    this.outputRepository('migrationCacheRepository', this.migrationCacheRepository);
   }
 
   private createImageRepository(id: string, repositoryName: string): Repository {

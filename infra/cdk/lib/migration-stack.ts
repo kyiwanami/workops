@@ -1,16 +1,13 @@
-import { CfnOutput, Fn, Stack, StackProps } from 'aws-cdk-lib';
-import { ISubnet, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
-import { IRepository } from 'aws-cdk-lib/aws-ecr';
+import { Aws, CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import {
-  Cluster,
-  ContainerImage,
-  CpuArchitecture,
-  FargateTaskDefinition,
-  LogDrivers,
-  OperatingSystemFamily,
-  Secret as EcsSecret,
-} from 'aws-cdk-lib/aws-ecs';
-import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+  BuildEnvironmentVariableType,
+  BuildSpec,
+  ComputeType,
+  LinuxBuildImage,
+  PipelineProject,
+} from 'aws-cdk-lib/aws-codebuild';
+import { ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
@@ -18,30 +15,23 @@ import { Construct } from 'constructs';
 
 export interface MigrationStackProps extends StackProps {
   stage: string;
-  cluster: Cluster;
   appSubnets: ISubnet[];
-  appSecurityGroup: SecurityGroup;
-  migrationRepository: IRepository;
+  migrationSecurityGroup: SecurityGroup;
   migrationLogGroup: ILogGroup;
-  migrationImageTag: string;
+  vpc: Vpc;
 }
 
 export class MigrationStack extends Stack {
-  public readonly taskDefinition: FargateTaskDefinition;
-  public readonly migrationTaskDefinitionArnOutput: CfnOutput;
-  public readonly migrationContainerNameOutput: CfnOutput;
-  public readonly migrationClusterNameOutput: CfnOutput;
-  public readonly migrationSubnetIdsOutput: CfnOutput;
-  public readonly migrationSecurityGroupIdOutput: CfnOutput;
+  public readonly migrationProject: PipelineProject;
+  public readonly migrationProjectNameOutput: CfnOutput;
 
   constructor(scope: Construct, id: string, props: MigrationStackProps) {
     super(scope, id, props);
 
-    const containerName = 'migration';
     const flywayLocations =
-      'filesystem:/flyway/sql/migration,filesystem:/flyway/sql/seed/common,filesystem:/flyway/sql/seed/aws-dev';
-    const executionRoleName = `workops-${props.stage}-migration-execution`;
-    const taskRoleName = `workops-${props.stage}-migration-task`;
+      'filesystem:apps/web/src/main/resources/db/migration,filesystem:apps/web/src/main/resources/db/seed/common,filesystem:apps/web/src/main/resources/db/seed/aws-dev';
+    const flywayVersion = '12.9.0';
+    const flywayDownloadUrl = `https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${flywayVersion}/flyway-commandline-${flywayVersion}-linux-x64.tar.gz`;
     const dbUrlParameter = StringParameter.fromStringParameterName(
       this,
       'DbUrlParameter',
@@ -52,72 +42,81 @@ export class MigrationStack extends Stack {
       'DbMasterSecret',
       `/workops/${props.stage}/db/master`,
     );
-
-    // Migration runs as a one-shot task, so the stack owns a task definition but no ECS service.
-    const executionRole = new Role(this, 'MigrationExecutionRole', {
-      roleName: executionRoleName,
-      assumedBy: new ServicePrincipal('ecs-tasks.amazonaws.com'),
-    });
-    executionRole.addManagedPolicy(
-      ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
-    );
-    props.migrationRepository.grantPull(executionRole);
-    props.migrationLogGroup.grantWrite(executionRole);
-    dbUrlParameter.grantRead(executionRole);
-    dbMasterSecret.grantRead(executionRole);
-
-    const taskRole = new Role(this, 'MigrationTaskRole', {
-      roleName: taskRoleName,
-      assumedBy: new ServicePrincipal('ecs-tasks.amazonaws.com'),
-    });
-
-    this.taskDefinition = new FargateTaskDefinition(this, 'MigrationTaskDefinition', {
-      family: `workops-${props.stage}-migration`,
-      cpu: 512,
-      memoryLimitMiB: 1024,
-      executionRole,
-      taskRole,
-      runtimePlatform: {
-        operatingSystemFamily: OperatingSystemFamily.LINUX,
-        cpuArchitecture: CpuArchitecture.ARM64,
-      },
-    });
-
-    this.taskDefinition.addContainer('MigrationContainer', {
-      containerName,
-      image: ContainerImage.fromEcrRepository(props.migrationRepository, props.migrationImageTag),
-      environment: {
-        AWS_REGION: Stack.of(this).region,
-        WORKOPS_FLYWAY_LOCATIONS: flywayLocations,
-      },
-      secrets: {
-        WORKOPS_DB_URL: EcsSecret.fromSsmParameter(dbUrlParameter),
-        WORKOPS_DB_USERNAME: EcsSecret.fromSecretsManager(dbMasterSecret, 'username'),
-        WORKOPS_DB_PASSWORD: EcsSecret.fromSecretsManager(dbMasterSecret, 'password'),
-      },
-      logging: LogDrivers.awsLogs({
-        logGroup: props.migrationLogGroup,
-        streamPrefix: 'migration',
+    // Migration runs as a CodePipeline-fed CodeBuild job inside the RDS VPC.
+    this.migrationProject = new PipelineProject(this, 'MigrationCodeBuildProject', {
+      projectName: `workops-${props.stage}-migration`,
+      buildSpec: BuildSpec.fromObject({
+        phases: {
+          build: {
+            commands: [
+              'set -euo pipefail',
+              'test -d apps/web/src/main/resources/db/migration',
+              'curl -fsSL "$FLYWAY_DOWNLOAD_URL" -o flyway-commandline.tar.gz',
+              'tar -xzf flyway-commandline.tar.gz',
+              'export FLYWAY_URL="$WORKOPS_DB_URL"',
+              'export FLYWAY_USER="$WORKOPS_DB_USERNAME"',
+              'export FLYWAY_PASSWORD="$WORKOPS_DB_PASSWORD"',
+              'export FLYWAY_LOCATIONS="$WORKOPS_FLYWAY_LOCATIONS"',
+              './flyway-12.9.0/flyway migrate',
+            ],
+          },
+        },
+        version: '0.2',
       }),
+      environment: {
+        buildImage: LinuxBuildImage.AMAZON_LINUX_2023_5,
+        computeType: ComputeType.SMALL,
+        privileged: false,
+        environmentVariables: {
+          FLYWAY_DOWNLOAD_URL: {
+            value: flywayDownloadUrl,
+          },
+          WORKOPS_DB_PASSWORD: {
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+            value: `${dbMasterSecret.secretArn}:password`,
+          },
+          WORKOPS_DB_URL: {
+            type: BuildEnvironmentVariableType.PARAMETER_STORE,
+            value: dbUrlParameter.parameterName,
+          },
+          WORKOPS_DB_USERNAME: {
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+            value: `${dbMasterSecret.secretArn}:username`,
+          },
+          WORKOPS_FLYWAY_LOCATIONS: {
+            value: flywayLocations,
+          },
+        },
+      },
+      logging: {
+        cloudWatch: {
+          logGroup: props.migrationLogGroup,
+          prefix: 'migration',
+        },
+      },
+      securityGroups: [props.migrationSecurityGroup],
+      subnetSelection: {
+        subnets: props.appSubnets,
+      },
+      timeout: Duration.minutes(30),
+      vpc: props.vpc,
     });
+    props.migrationLogGroup.grantWrite(this.migrationProject);
+    dbUrlParameter.grantRead(this.migrationProject);
+    dbMasterSecret.grantRead(this.migrationProject);
+    this.migrationProject.addToRolePolicy(
+      new PolicyStatement({
+        actions: ['s3:GetBucket*', 's3:GetObject*', 's3:List*'],
+        effect: Effect.ALLOW,
+        resources: [
+          `arn:${Aws.PARTITION}:s3:::workops-${props.stage}-pipeline-artifacts`,
+          `arn:${Aws.PARTITION}:s3:::workops-${props.stage}-pipeline-artifacts/*`,
+        ],
+      }),
+    );
 
-    this.migrationTaskDefinitionArnOutput = new CfnOutput(this, 'migrationTaskDefinitionArn', {
-      value: this.taskDefinition.taskDefinitionArn,
-    });
-    this.migrationContainerNameOutput = new CfnOutput(this, 'migrationContainerName', {
-      value: containerName,
-    });
-    this.migrationClusterNameOutput = new CfnOutput(this, 'migrationClusterName', {
-      value: props.cluster.clusterName,
-    });
-    this.migrationSubnetIdsOutput = new CfnOutput(this, 'migrationSubnetIds', {
-      value: Fn.join(
-        ',',
-        props.appSubnets.map((subnet) => subnet.subnetId),
-      ),
-    });
-    this.migrationSecurityGroupIdOutput = new CfnOutput(this, 'migrationSecurityGroupId', {
-      value: props.appSecurityGroup.securityGroupId,
+    this.migrationProjectNameOutput = new CfnOutput(this, 'migrationProjectName', {
+      value: this.migrationProject.projectName,
     });
   }
 }

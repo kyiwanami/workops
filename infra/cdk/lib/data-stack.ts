@@ -26,6 +26,7 @@ export interface DataStackProps extends StackProps {
   dbSubnets: ISubnet[];
   appSecurityGroup: SecurityGroup;
   dbSecurityGroup: SecurityGroup;
+  migrationSecurityGroup: SecurityGroup;
 }
 
 export class DataStack extends Stack {
@@ -81,6 +82,14 @@ export class DataStack extends Stack {
       fromPort: 3306,
       toPort: 3306,
       description: 'Allow WorkOps app tasks to reach MySQL',
+    });
+    new CfnSecurityGroupIngress(this, 'DbIngressFromMigration', {
+      groupId: props.dbSecurityGroup.securityGroupId,
+      ipProtocol: 'tcp',
+      sourceSecurityGroupId: props.migrationSecurityGroup.securityGroupId,
+      fromPort: 3306,
+      toPort: 3306,
+      description: 'Allow WorkOps migration CodeBuild to reach MySQL',
     });
 
     // RDS is the Phase 2 source of truth for WorkOps business data.
