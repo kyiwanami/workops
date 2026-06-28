@@ -9,7 +9,6 @@ import { FoundationStack } from '../lib/foundation/foundation-stack';
 import { IdentityStack } from '../lib/identity/identity-stack';
 import { LogsStack } from '../lib/logs/logs-stack';
 import { MigrationRunnerStack } from '../lib/migration/migration-runner-stack';
-import { PipelineStack } from '../lib/pipeline/pipeline-stack';
 import { RegistryStack } from '../lib/registry/registry-stack';
 import { WebAclStack } from '../lib/web/web-acl-stack';
 import { WebDeliveryStack } from '../lib/web/web-delivery-stack';
@@ -21,7 +20,6 @@ import {
   testCognitoTenantUserPoolClientId,
   testCognitoUserPoolId,
   testEnv,
-  testGitHubRepository,
   testOpsNotificationEmail,
   testWebImageTag,
 } from './workops-test-fixtures';
@@ -151,6 +149,30 @@ describe('WorkOps CDK foundation stacks', () => {
     });
     template.resourceCountIs('AWS::EC2::Subnet', 6);
     template.resourceCountIs('AWS::EC2::NatGateway', 0);
+    template.resourceCountIs('AWS::EC2::VPCEndpoint', 1);
+    template.hasResourceProperties('AWS::EC2::VPCEndpoint', {
+      RouteTableIds: [
+        {
+          Ref: Match.stringLikeRegexp('VpcappSubnet1RouteTable'),
+        },
+        {
+          Ref: Match.stringLikeRegexp('VpcappSubnet2RouteTable'),
+        },
+      ],
+      ServiceName: {
+        'Fn::Join': [
+          '',
+          [
+            'com.amazonaws.',
+            {
+              Ref: 'AWS::Region',
+            },
+            '.s3',
+          ],
+        ],
+      },
+      VpcEndpointType: 'Gateway',
+    });
     template.resourceCountIs('AWS::EC2::SecurityGroup', 4);
     template.hasResourceProperties('AWS::EC2::SecurityGroup', {
       GroupName: 'workops-dev-alb-sg',
@@ -212,8 +234,7 @@ describe('WorkOps CDK foundation stacks', () => {
   test('creates the RegistryStack repositories and lifecycle policies', () => {
     const stage = 'dev';
     const app = createTestApp(stage);
-    const registryStack = new RegistryStack(app, 'RegistryStack', {
-    });
+    const registryStack = new RegistryStack(app, 'RegistryStack', {});
     const template = Template.fromStack(registryStack);
 
     template.resourceCountIs('AWS::ECR::Repository', 2);

@@ -162,11 +162,11 @@ describe('WorkOps CDK network and migration support', () => {
   test('creates the LogsStack log groups', () => {
     const stage = 'dev';
     const app = createTestApp(stage);
-    const logsStack = new LogsStack(app, 'LogsStack', {
-    });
+    const logsStack = new LogsStack(app, 'LogsStack', {});
     const template = Template.fromStack(logsStack);
 
     template.resourceCountIs('AWS::Logs::LogGroup', 6);
+    template.resourceCountIs('AWS::Logs::MetricFilter', 6);
     template.hasResourceProperties('AWS::Logs::LogGroup', {
       LogGroupName: '/workops/dev/web',
       RetentionInDays: 7,
@@ -233,6 +233,68 @@ describe('WorkOps CDK network and migration support', () => {
       DeletionPolicy: 'Delete',
       UpdateReplacePolicy: 'Delete',
     });
+    template.hasResourceProperties('AWS::Logs::MetricFilter', {
+      FilterPattern: '"eventType=AUTHORIZATION_DENIED"',
+      MetricTransformations: [
+        {
+          MetricName: 'AuthorizationDenied',
+          MetricNamespace: 'WorkOps/Security',
+          MetricValue: '1',
+        },
+      ],
+    });
+    template.hasResourceProperties('AWS::Logs::MetricFilter', {
+      FilterPattern: '"reasonCode=USER_NOT_LINKED"',
+      MetricTransformations: [
+        {
+          MetricName: 'UserNotLinked',
+          MetricNamespace: 'WorkOps/Security',
+          MetricValue: '1',
+        },
+      ],
+    });
+    template.hasResourceProperties('AWS::Logs::MetricFilter', {
+      FilterPattern: '"reasonCode=ACTOR_TYPE_MISMATCH"',
+      MetricTransformations: [
+        {
+          MetricName: 'ActorTypeMismatch',
+          MetricNamespace: 'WorkOps/Security',
+          MetricValue: '1',
+        },
+      ],
+    });
+    template.hasResourceProperties('AWS::Logs::MetricFilter', {
+      FilterPattern: '"reasonCode=INVALID_ACTOR_TYPE"',
+      MetricTransformations: [
+        {
+          MetricName: 'InvalidActorType',
+          MetricNamespace: 'WorkOps/Security',
+          MetricValue: '1',
+        },
+      ],
+    });
+    template.hasResourceProperties('AWS::Logs::MetricFilter', {
+      FilterPattern: '"reasonCode=PERMISSION_SET_NOT_ASSIGNED"',
+      MetricTransformations: [
+        {
+          MetricName: 'PermissionSetNotAssigned',
+          MetricNamespace: 'WorkOps/Security',
+          MetricValue: '1',
+        },
+      ],
+    });
+    template.hasResourceProperties('AWS::Logs::MetricFilter', {
+      FilterPattern: '"reasonCode=INVALID_PERMISSION_SET"',
+      MetricTransformations: [
+        {
+          MetricName: 'InvalidPermissionSet',
+          MetricNamespace: 'WorkOps/Security',
+          MetricValue: '1',
+        },
+      ],
+    });
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 0);
+    template.resourceCountIs('AWS::CloudWatch::Dashboard', 0);
     expect(template.toJSON()).not.toHaveProperty('Outputs');
   });
 

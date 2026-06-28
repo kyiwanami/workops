@@ -1,6 +1,13 @@
 import { Stack, StackProps } from 'aws-cdk-lib';
 import { Cluster } from 'aws-cdk-lib/aws-ecs';
-import { IpAddresses, ISubnet, SecurityGroup, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
+import {
+  GatewayVpcEndpointAwsService,
+  IpAddresses,
+  ISubnet,
+  SecurityGroup,
+  SubnetType,
+  Vpc,
+} from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 import { readWorkopsStage, workopsStackName } from '../shared/environment';
 
@@ -50,6 +57,15 @@ export class FoundationStack extends Stack {
     this.publicSubnets = this.vpc.selectSubnets({ subnetGroupName: 'public' }).subnets;
     this.appSubnets = this.vpc.selectSubnets({ subnetGroupName: 'app' }).subnets;
     this.dbSubnets = this.vpc.selectSubnets({ subnetGroupName: 'db' }).subnets;
+    // App private subnets reach S3 without requiring NAT or interface endpoints.
+    this.vpc.addGatewayEndpoint('S3GatewayEndpoint', {
+      service: GatewayVpcEndpointAwsService.S3,
+      subnets: [
+        {
+          subnets: this.appSubnets,
+        },
+      ],
+    });
     // Security groups are named now; traffic rules are added by resource-owning stacks.
     this.albSecurityGroup = new SecurityGroup(this, 'AlbSecurityGroup', {
       vpc: this.vpc,
