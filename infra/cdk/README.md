@@ -55,6 +55,8 @@ npm run build
 npm test
 ```
 
+`npm test` は CDK の Jest test と CodeArtifact helper の Python unittest を実行します。
+
 CloudFormation template を生成します。
 
 ```powershell
@@ -98,6 +100,15 @@ CDK app は次の Stack を管理します。
 `workops-{stage}-identity` は Cognito User Pool、Hosted UI domain、App Client を所有する維持対象 Stack です。CloudFront / ALB / ECS / NAT Gateway の実行確認セッション Stack とは lifecycle を分けます。
 
 `workops-{stage}-pipeline` は CodePipeline V2、CodeBuild、CodeConnection、Artifact bucket を所有し、通知先は `DependencyStack` の ops notification topic を参照します。GitHub Actions OIDC deploy 経路は使いません。
+
+## CodeArtifact
+
+Pipeline の npm / Maven 依存取得は CodeArtifact 経由で行います。
+CodeBuild は `DependencyStack` の SSM Parameter から CodeArtifact domain / repository 名を読み、`infra/cdk/scripts/configure-codeartifact-npm.py` と `infra/cdk/scripts/configure-codeartifact-maven.py` で実行時に設定します。
+
+- token 入り `.npmrc` / `settings.xml` は git 管理しません。
+- Maven settings と token file は `.workops-codeartifact/` 配下に一時生成します。
+- Docker build では Maven settings と token file を BuildKit secret として渡します。
 
 ## Bootstrap
 

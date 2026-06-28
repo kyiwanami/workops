@@ -78,6 +78,12 @@ interface BuildImageConfig {
   buildContext: string;
 }
 
+interface CodeArtifactParameterNames {
+  domainName: string;
+  mavenRepositoryName: string;
+  npmRepositoryName: string;
+}
+
 interface DataNetworkMigrationDeployStageProps {
   env: Environment;
   stage: string;
@@ -263,6 +269,8 @@ export class PipelineStack extends Stack {
     super(scope, id, props);
 
     const buildEnvironment = this.createBuildEnvironment();
+    const codeArtifactParameterNames = this.createCodeArtifactParameterNames(props.stage);
+    const codeArtifactPolicyStatements = this.createCodeArtifactPolicyStatements(props.stage);
     const codeStarNotificationsRole = new CfnServiceLinkedRole(
       this,
       'CodeStarNotificationsServiceRole',
@@ -334,7 +342,13 @@ export class PipelineStack extends Stack {
       selfMutation: true,
       synth: new CodeBuildStep('Synth', {
         buildEnvironment,
-        commands: ['cd infra/cdk', 'npm ci', 'npm run build', 'npx cdk synth'],
+        commands: [
+          'cd infra/cdk',
+          'python3 scripts/configure-codeartifact-npm.py',
+          'npm ci',
+          'npm run build',
+          'npx cdk synth',
+        ],
         env: {
           GITHUB_REPOSITORY: props.githubRepository,
           WORKOPS_IMAGE_TAG: commitSha,
@@ -342,8 +356,17 @@ export class PipelineStack extends Stack {
           WORKOPS_STAGE: props.stage,
         },
         input: source,
+        partialBuildSpec: BuildSpec.fromObject({
+          env: {
+            'parameter-store': this.createCodeArtifactParameterStoreEnvironment(
+              codeArtifactParameterNames,
+            ),
+          },
+          version: '0.2',
+        }),
         primaryOutputDirectory: 'infra/cdk/cdk.out',
         rolePolicyStatements: [
+          ...codeArtifactPolicyStatements,
           new PolicyStatement({
             actions: ['ec2:DescribeAvailabilityZones'],
             effect: Effect.ALLOW,
@@ -363,7 +386,13 @@ export class PipelineStack extends Stack {
       buildEnvironment,
       commands: [],
       input: source,
+      rolePolicyStatements: codeArtifactPolicyStatements,
       partialBuildSpec: BuildSpec.fromObject({
+        env: {
+          'parameter-store': this.createCodeArtifactParameterStoreEnvironment(
+            codeArtifactParameterNames,
+          ),
+        },
         phases: {
           install: {
             'runtime-versions': {
@@ -372,12 +401,18 @@ export class PipelineStack extends Stack {
           },
           build: {
             commands: [
+              'mkdir -p "$CODEBUILD_SRC_DIR/.workops-codeartifact"',
+              'export WORKOPS_MAVEN_SETTINGS_PATH="$CODEBUILD_SRC_DIR/.workops-codeartifact/settings.xml"',
+              'export WORKOPS_CODEARTIFACT_AUTH_TOKEN_PATH="$CODEBUILD_SRC_DIR/.workops-codeartifact/codeartifact-token"',
+              'python3 infra/cdk/scripts/configure-codeartifact-maven.py',
+              'export CODEARTIFACT_AUTH_TOKEN="$(cat "$WORKOPS_CODEARTIFACT_AUTH_TOKEN_PATH")"',
               'cd apps/web',
               'java -version',
-              './mvnw spotless:check',
-              './mvnw compile spotbugs:check',
-              './mvnw verify',
+              './mvnw --settings "$WORKOPS_MAVEN_SETTINGS_PATH" spotless:check',
+              './mvnw --settings "$WORKOPS_MAVEN_SETTINGS_PATH" compile spotbugs:check',
+              './mvnw --settings "$WORKOPS_MAVEN_SETTINGS_PATH" verify',
               'cd ../../infra/cdk',
+              'python3 scripts/configure-codeartifact-npm.py',
               'npm ci',
               'npm run build',
               'npm run test',
@@ -410,6 +445,8 @@ export class PipelineStack extends Stack {
         this.createBuildImageStep(source, {
           buildContext: 'apps/web',
           cacheRepositoryName: `workops-${props.stage}-web-cache`,
+          codeArtifactParameterNames,
+          codeArtifactPolicyStatements,
           commitSha,
           dockerfile: 'apps/web/Dockerfile',
           id: 'BuildWebImage',
@@ -480,7 +517,10 @@ export class PipelineStack extends Stack {
 
   private createBuildImageStep(
     source: CodePipelineFileSet,
-    config: BuildImageConfig,
+    config: BuildImageConfig & {
+      codeArtifactParameterNames: CodeArtifactParameterNames;
+      codeArtifactPolicyStatements: PolicyStatement[];
+    },
   ): CodeBuildStep {
     const registryUri = `${Aws.ACCOUNT_ID}.dkr.ecr.${Aws.REGION}.${Aws.URL_SUFFIX}`;
     const imageRepositoryUri = `${registryUri}/${config.repositoryName}`;
@@ -490,11 +530,15 @@ export class PipelineStack extends Stack {
     return new CodeBuildStep(config.id, {
       buildEnvironment: this.createBuildEnvironment(),
       commands: [
+        'mkdir -p "$CODEBUILD_SRC_DIR/.workops-codeartifact"',
+        'export WORKOPS_MAVEN_SETTINGS_PATH="$CODEBUILD_SRC_DIR/.workops-codeartifact/settings.xml"',
+        'export WORKOPS_CODEARTIFACT_AUTH_TOKEN_PATH="$CODEBUILD_SRC_DIR/.workops-codeartifact/codeartifact-token"',
+        'python3 infra/cdk/scripts/configure-codeartifact-maven.py',
         'aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$REGISTRY_URI"',
         'docker buildx create --name workops-builder --driver docker-container --use',
         'docker buildx inspect --bootstrap',
         'export IMAGE_URI="$IMAGE_REPOSITORY_URI:$COMMIT_SHA"',
-        'docker buildx build --platform linux/arm64 --file "$DOCKERFILE" --tag "$IMAGE_URI" --cache-from "$CACHE_FROM" --cache-to "$CACHE_TO" --load "$BUILD_CONTEXT"',
+        'docker buildx build --platform linux/arm64 --file "$DOCKERFILE" --tag "$IMAGE_URI" --secret id=maven_settings,src="$WORKOPS_MAVEN_SETTINGS_PATH" --secret id=codeartifact_token,src="$WORKOPS_CODEARTIFACT_AUTH_TOKEN_PATH" --cache-from "$CACHE_FROM" --cache-to "$CACHE_TO" --load "$BUILD_CONTEXT"',
         'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock public.ecr.aws/aquasecurity/trivy:0.71.2 image --exit-code 1 --severity MEDIUM,HIGH,CRITICAL --no-progress "$IMAGE_URI"',
         'docker push "$IMAGE_URI"',
       ],
@@ -508,7 +552,16 @@ export class PipelineStack extends Stack {
         REGISTRY_URI: registryUri,
       },
       input: source,
+      partialBuildSpec: BuildSpec.fromObject({
+        env: {
+          'parameter-store': this.createCodeArtifactParameterStoreEnvironment(
+            config.codeArtifactParameterNames,
+          ),
+        },
+        version: '0.2',
+      }),
       rolePolicyStatements: [
+        ...config.codeArtifactPolicyStatements,
         new PolicyStatement({
           actions: ['ecr:GetAuthorizationToken'],
           effect: Effect.ALLOW,
@@ -532,6 +585,80 @@ export class PipelineStack extends Stack {
         }),
       ],
     });
+  }
+
+  private createCodeArtifactParameterNames(stage: string): CodeArtifactParameterNames {
+    return {
+      domainName: `/workops/${stage}/dependencies/codeartifact/domain-name`,
+      mavenRepositoryName: `/workops/${stage}/dependencies/codeartifact/maven-repository-name`,
+      npmRepositoryName: `/workops/${stage}/dependencies/codeartifact/npm-repository-name`,
+    };
+  }
+
+  private createCodeArtifactParameterStoreEnvironment(
+    parameterNames: CodeArtifactParameterNames,
+  ): Record<string, string> {
+    return {
+      WORKOPS_CODEARTIFACT_DOMAIN_NAME: parameterNames.domainName,
+      WORKOPS_CODEARTIFACT_MAVEN_REPOSITORY_NAME: parameterNames.mavenRepositoryName,
+      WORKOPS_CODEARTIFACT_NPM_REPOSITORY_NAME: parameterNames.npmRepositoryName,
+    };
+  }
+
+  private createCodeArtifactPolicyStatements(stage: string): PolicyStatement[] {
+    const domainName = `workops-${stage}`;
+    const npmRepositoryName = `workops-${stage}-npm`;
+    const mavenRepositoryName = `workops-${stage}-maven`;
+    return [
+      new PolicyStatement({
+        actions: ['ssm:GetParameters'],
+        effect: Effect.ALLOW,
+        resources: [
+          this.formatArn({
+            service: 'ssm',
+            resource: 'parameter',
+            resourceName: `workops/${stage}/dependencies/codeartifact/*`,
+          }),
+        ],
+      }),
+      new PolicyStatement({
+        actions: ['codeartifact:GetAuthorizationToken'],
+        effect: Effect.ALLOW,
+        resources: [
+          this.formatArn({
+            service: 'codeartifact',
+            resource: 'domain',
+            resourceName: domainName,
+          }),
+        ],
+      }),
+      new PolicyStatement({
+        actions: ['codeartifact:GetRepositoryEndpoint', 'codeartifact:ReadFromRepository'],
+        effect: Effect.ALLOW,
+        resources: [
+          this.formatArn({
+            service: 'codeartifact',
+            resource: 'repository',
+            resourceName: `${domainName}/${npmRepositoryName}`,
+          }),
+          this.formatArn({
+            service: 'codeartifact',
+            resource: 'repository',
+            resourceName: `${domainName}/${mavenRepositoryName}`,
+          }),
+        ],
+      }),
+      new PolicyStatement({
+        actions: ['sts:GetServiceBearerToken'],
+        conditions: {
+          StringEquals: {
+            'sts:AWSServiceName': 'codeartifact.amazonaws.com',
+          },
+        },
+        effect: Effect.ALLOW,
+        resources: ['*'],
+      }),
+    ];
   }
 
   private createEcrRepositoryArn(repositoryName: string): string {

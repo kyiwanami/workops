@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # The build stage creates the Spring Boot jar inside Docker so the image does not depend on local target files.
 FROM eclipse-temurin:25-jdk AS build
 
@@ -7,7 +9,10 @@ COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
 COPY src/ src/
 
-RUN chmod +x ./mvnw && ./mvnw -DskipTests package
+RUN --mount=type=secret,id=maven_settings,target=/tmp/maven-settings.xml,required=true \
+    --mount=type=secret,id=codeartifact_token,target=/tmp/codeartifact-token,required=true \
+    chmod +x ./mvnw \
+    && CODEARTIFACT_AUTH_TOKEN="$(cat /tmp/codeartifact-token)" ./mvnw --settings /tmp/maven-settings.xml -DskipTests package
 
 # The runtime stage keeps only the Java runtime and the built WorkOps web application jar.
 FROM eclipse-temurin:25-jre-alpine

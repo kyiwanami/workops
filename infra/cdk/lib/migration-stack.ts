@@ -83,6 +83,14 @@ export class MigrationStack extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
             value: `${dbMasterSecret.secretArn}:username`,
           },
+          WORKOPS_CODEARTIFACT_DOMAIN_NAME: {
+            type: BuildEnvironmentVariableType.PARAMETER_STORE,
+            value: `/workops/${props.stage}/dependencies/codeartifact/domain-name`,
+          },
+          WORKOPS_CODEARTIFACT_MAVEN_REPOSITORY_NAME: {
+            type: BuildEnvironmentVariableType.PARAMETER_STORE,
+            value: `/workops/${props.stage}/dependencies/codeartifact/maven-repository-name`,
+          },
           WORKOPS_FLYWAY_LOCATIONS: {
             value: flywayLocations,
           },
@@ -104,6 +112,9 @@ export class MigrationStack extends Stack {
     props.migrationLogGroup.grantWrite(this.migrationProject);
     dbUrlParameter.grantRead(this.migrationProject);
     dbMasterSecret.grantRead(this.migrationProject);
+    for (const statement of this.createCodeArtifactPolicyStatements(props.stage)) {
+      this.migrationProject.addToRolePolicy(statement);
+    }
     this.migrationProject.addToRolePolicy(
       new PolicyStatement({
         actions: ['s3:GetBucket*', 's3:GetObject*', 's3:List*'],
@@ -118,5 +129,55 @@ export class MigrationStack extends Stack {
     this.migrationProjectNameOutput = new CfnOutput(this, 'migrationProjectName', {
       value: this.migrationProject.projectName,
     });
+  }
+
+  private createCodeArtifactPolicyStatements(stage: string): PolicyStatement[] {
+    const domainName = `workops-${stage}`;
+    const mavenRepositoryName = `workops-${stage}-maven`;
+    return [
+      new PolicyStatement({
+        actions: ['ssm:GetParameters'],
+        effect: Effect.ALLOW,
+        resources: [
+          this.formatArn({
+            service: 'ssm',
+            resource: 'parameter',
+            resourceName: `workops/${stage}/dependencies/codeartifact/*`,
+          }),
+        ],
+      }),
+      new PolicyStatement({
+        actions: ['codeartifact:GetAuthorizationToken'],
+        effect: Effect.ALLOW,
+        resources: [
+          this.formatArn({
+            service: 'codeartifact',
+            resource: 'domain',
+            resourceName: domainName,
+          }),
+        ],
+      }),
+      new PolicyStatement({
+        actions: ['codeartifact:GetRepositoryEndpoint', 'codeartifact:ReadFromRepository'],
+        effect: Effect.ALLOW,
+        resources: [
+          this.formatArn({
+            service: 'codeartifact',
+            resource: 'repository',
+            resourceName: `${domainName}/${mavenRepositoryName}`,
+          }),
+        ],
+      }),
+      new PolicyStatement({
+        actions: ['sts:GetServiceBearerToken'],
+        conditions: {
+          StringEquals: {
+            'sts:AWSServiceName': 'codeartifact.amazonaws.com',
+          },
+        },
+        effect: Effect.ALLOW,
+        resources: ['*'],
+      }),
+    ];
   }
 }

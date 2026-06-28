@@ -692,9 +692,15 @@ describe('WorkOps CDK app', () => {
     expect(templateText).toContain('main');
     expect(templateText).toContain('BuildAndTest');
     expect(templateText).toContain('java -version');
-    expect(templateText).toContain('./mvnw spotless:check');
-    expect(templateText).toContain('./mvnw compile spotbugs:check');
-    expect(templateText).toContain('./mvnw verify');
+    expect(templateText).toContain('python3 scripts/configure-codeartifact-npm.py');
+    expect(templateText).toContain('python3 infra/cdk/scripts/configure-codeartifact-maven.py');
+    expect(templateText).toContain('export CODEARTIFACT_AUTH_TOKEN=');
+    expect(templateText).toContain('$(cat');
+    expect(templateText).toContain('./mvnw --settings');
+    expect(templateText).toContain('WORKOPS_MAVEN_SETTINGS_PATH');
+    expect(templateText).toContain('spotless:check');
+    expect(templateText).toContain('compile spotbugs:check');
+    expect(templateText).toContain('verify');
     expect(templateText).toContain('npm run lint');
     expect(templateText).toContain('npm run format:check');
     expect(templateText).toContain('ManualApproval');
@@ -709,6 +715,9 @@ describe('WorkOps CDK app', () => {
     expect(templateText).toContain('docker buildx inspect --bootstrap');
     expect(templateText).toContain('type=registry,ref=');
     expect(templateText).toContain('mode=max');
+    expect(templateText).toContain('--secret id=maven_settings');
+    expect(templateText).toContain('--secret id=codeartifact_token');
+    expect(templateText).toContain('WORKOPS_CODEARTIFACT_AUTH_TOKEN_PATH');
     expect(templateText).toContain('public.ecr.aws/aquasecurity/trivy:0.71.2');
     expect(templateText).toContain('--exit-code 1');
     expect(templateText).toContain('--severity MEDIUM,HIGH,CRITICAL');
@@ -730,6 +739,14 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('MIGRATION_TASK_DEFINITION_ARN');
     expect(templateText).not.toContain('MIGRATION_SOURCE_BUCKET');
     expect(templateText).toContain('npx cdk synth');
+    expect(templateText).toContain('/workops/dev/dependencies/codeartifact/domain-name');
+    expect(templateText).toContain('/workops/dev/dependencies/codeartifact/npm-repository-name');
+    expect(templateText).toContain('/workops/dev/dependencies/codeartifact/maven-repository-name');
+    expect(templateText).toContain('codeartifact:GetAuthorizationToken');
+    expect(templateText).toContain('codeartifact:GetRepositoryEndpoint');
+    expect(templateText).toContain('codeartifact:ReadFromRepository');
+    expect(templateText).toContain('sts:GetServiceBearerToken');
+    expect(templateText).toContain('codeartifact.amazonaws.com');
     expect(templateText).toContain('WORKOPS_OPS_NOTIFICATION_EMAIL');
     expect(templateText).not.toContain('AWS::StepFunctions::StateMachine');
     expect(templateText).not.toContain('AWS::Lambda::Function');
@@ -739,12 +756,33 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('WORKOPS_PIPELINE_NOTIFICATION_EMAIL');
     expect(templateText).not.toContain('workops-dev-pipeline-notifications');
     expect(templateText).toContain('/workops/dev/dependencies/notifications/ops-topic-arn');
+    expect(templateText).not.toContain('CODEARTIFACT_AUTH_TOKEN:');
+    expect(templateText).not.toContain('domain-owner');
     expect(templateText).not.toContain(':latest');
     expect(templateText).not.toContain(':dev');
     expect(templateText).not.toContain('workflow_dispatch');
     template.hasOutput('pipelineName', {});
     template.hasOutput('artifactBucketName', {});
     template.hasOutput('githubConnectionName', {});
+  });
+
+  test('uses BuildKit secrets for Docker Maven settings', () => {
+    const dockerfileText = readFileSync(
+      join(__dirname, '..', '..', '..', 'apps', 'web', 'Dockerfile'),
+      'utf8',
+    );
+
+    expect(dockerfileText).toContain('# syntax=docker/dockerfile:1.7');
+    expect(dockerfileText).toContain(
+      '--mount=type=secret,id=maven_settings,target=/tmp/maven-settings.xml,required=true',
+    );
+    expect(dockerfileText).toContain(
+      '--mount=type=secret,id=codeartifact_token,target=/tmp/codeartifact-token,required=true',
+    );
+    expect(dockerfileText).toContain('--settings /tmp/maven-settings.xml');
+    expect(dockerfileText).toContain('CODEARTIFACT_AUTH_TOKEN="$(cat /tmp/codeartifact-token)"');
+    expect(dockerfileText).not.toContain('ARG CODEARTIFACT');
+    expect(dockerfileText).not.toContain('ARG MAVEN_SETTINGS');
   });
 
   test('creates the MigrationStack VPC CodeBuild project without an ECS task', () => {
@@ -819,6 +857,16 @@ describe('WorkOps CDK app', () => {
             Name: 'WORKOPS_DB_PASSWORD',
             Type: 'SECRETS_MANAGER',
           }),
+          Match.objectLike({
+            Name: 'WORKOPS_CODEARTIFACT_DOMAIN_NAME',
+            Type: 'PARAMETER_STORE',
+            Value: '/workops/dev/dependencies/codeartifact/domain-name',
+          }),
+          Match.objectLike({
+            Name: 'WORKOPS_CODEARTIFACT_MAVEN_REPOSITORY_NAME',
+            Type: 'PARAMETER_STORE',
+            Value: '/workops/dev/dependencies/codeartifact/maven-repository-name',
+          }),
         ]),
       }),
     });
@@ -859,6 +907,23 @@ describe('WorkOps CDK app', () => {
           Match.objectLike({
             Action: Match.arrayWith(['secretsmanager:GetSecretValue']),
           }),
+          Match.objectLike({
+            Action: 'codeartifact:GetAuthorizationToken',
+          }),
+          Match.objectLike({
+            Action: Match.arrayWith([
+              'codeartifact:GetRepositoryEndpoint',
+              'codeartifact:ReadFromRepository',
+            ]),
+          }),
+          Match.objectLike({
+            Action: 'sts:GetServiceBearerToken',
+            Condition: {
+              StringEquals: {
+                'sts:AWSServiceName': 'codeartifact.amazonaws.com',
+              },
+            },
+          }),
         ]),
       },
     });
@@ -873,6 +938,8 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('amazonlinux-aarch64-standard');
     expect(templateText).toContain('/workops/dev/db/url');
     expect(templateText).toContain('/workops/dev/db/master');
+    expect(templateText).toContain('/workops/dev/dependencies/codeartifact/domain-name');
+    expect(templateText).toContain('/workops/dev/dependencies/codeartifact/maven-repository-name');
     expect(templateText).not.toContain('AWS::ECS::TaskDefinition');
     expect(templateText).not.toContain('ecs-tasks.amazonaws.com');
     expect(templateText).not.toContain(':test-sha');
@@ -1764,7 +1831,7 @@ describe('WorkOps CDK app', () => {
 
     expect(packageJsonText).toContain('"build": "tsc"');
     expect(packageJsonText).toContain('"watch": "tsc -w"');
-    expect(packageJsonText).toContain('"test": "jest"');
+    expect(packageJsonText).toContain('python3 -m unittest discover scripts -p \\"*_test.py\\"');
     expect(packageJsonText).not.toContain('"cdk:deploy-app"');
     expect(packageJsonText).not.toContain('"cdk' + ':infra"');
     expect(packageJsonText).not.toContain('"cdk' + ':runtime"');
