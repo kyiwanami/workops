@@ -253,6 +253,16 @@ npm run cdk:pipeline -- synth
   - `docker build -f apps/web/Dockerfile -t workops-web:local apps/web` 成功。
   - `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock public.ecr.aws/aquasecurity/trivy:0.71.2 image --exit-code 1 --severity MEDIUM,HIGH,CRITICAL --no-progress workops-web:local` 成功。Alpine 3.23.5 と `app/workops-web.jar` は 0 findings。
   - `docker compose --profile migration config` 成功。migration service が Maven image ではなく Redgate Flyway CLI image を使い、`/bin/sh -c` の1コマンドとして `flyway migrate` を実行する構成であることを確認。
+- 2026-06-24 Pipeline 実走失敗後の SQL path 修正確認:
+  - `RunMigration` は `test -d apps/web/src/main/resources/db/migration` で失敗した。SQL 正本は root `db/` 配下であり、CodeBuild buildspec の path が誤っていた。
+  - `WORKOPS_FLYWAY_LOCATIONS` を `filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/aws-dev` に修正した。
+  - `cd C:\git\workops\infra\cdk; npm run build` 成功。
+  - `cd C:\git\workops\infra\cdk; npm run test -- --runInBand` 成功。2 test suites / 22 tests passed。
+  - `cd C:\git\workops\infra\cdk; npm run lint` 成功。
+  - `cd C:\git\workops\infra\cdk; npm run format:check` 成功。
+  - `docker compose --profile migration config` 成功。local migration の locations も root `db/` 配下になっていることを確認。
+  - AWS credential 環境変数を削除し、AWS account は手元の AWS 認証で確認済み。`WORKOPS_STAGE=dev` を明示して `cd C:\git\workops\infra\cdk; npm run cdk:pipeline -- synth --quiet` 成功。
+  - 生成 template で `filesystem:db/migration`、`filesystem:db/seed/common`、`filesystem:db/seed/aws-dev` と `test -d db/migration` が含まれ、`apps/web/src/main/resources/db` が含まれないことを確認。
 
 ### 残課題
 
