@@ -13,7 +13,7 @@ import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
-export interface MigrationStackProps extends StackProps {
+export interface MigrationRunnerStackProps extends StackProps {
   stage: string;
   appSubnets: ISubnet[];
   migrationSecurityGroup: SecurityGroup;
@@ -21,17 +21,13 @@ export interface MigrationStackProps extends StackProps {
   vpc: Vpc;
 }
 
-export class MigrationStack extends Stack {
+export class MigrationRunnerStack extends Stack {
   public readonly migrationProject: PipelineProject;
   public readonly migrationProjectNameOutput: CfnOutput;
 
-  constructor(scope: Construct, id: string, props: MigrationStackProps) {
+  constructor(scope: Construct, id: string, props: MigrationRunnerStackProps) {
     super(scope, id, props);
 
-    const flywayLocations =
-      'filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/dev';
-    const flywayVersion = '12.9.0';
-    const flywayDownloadUrl = `https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${flywayVersion}/flyway-commandline-${flywayVersion}-linux-x64.tar.gz`;
     const dbUrlParameter = StringParameter.fromStringParameterName(
       this,
       'DbUrlParameter',
@@ -42,22 +38,26 @@ export class MigrationStack extends Stack {
       'DbMasterSecret',
       `/workops/${props.stage}/db/master`,
     );
-    // Migration runs as a CodePipeline-fed CodeBuild job inside the RDS VPC.
+    // MigrationRunner executes the db Maven project from the CodePipeline source artifact inside the RDS VPC.
     this.migrationProject = new PipelineProject(this, 'MigrationCodeBuildProject', {
-      projectName: `workops-${props.stage}-migration`,
+      projectName: `workops-${props.stage}-migration-runner`,
       buildSpec: BuildSpec.fromObject({
         phases: {
+          install: {
+            'runtime-versions': {
+              java: 'corretto25',
+            },
+          },
           build: {
             commands: [
               'set -euo pipefail',
-              'test -d db/migration',
-              'curl -fsSL "$FLYWAY_DOWNLOAD_URL" -o flyway-commandline.tar.gz',
-              'tar -xzf flyway-commandline.tar.gz',
-              'export FLYWAY_URL="$WORKOPS_DB_URL"',
-              'export FLYWAY_USER="$WORKOPS_DB_USERNAME"',
-              'export FLYWAY_PASSWORD="$WORKOPS_DB_PASSWORD"',
-              'export FLYWAY_LOCATIONS="$WORKOPS_FLYWAY_LOCATIONS"',
-              './flyway-12.9.0/flyway migrate',
+              'mkdir -p "$CODEBUILD_SRC_DIR/.workops-codeartifact"',
+              'export WORKOPS_MAVEN_SETTINGS_PATH="$CODEBUILD_SRC_DIR/.workops-codeartifact/settings.xml"',
+              'export WORKOPS_CODEARTIFACT_AUTH_TOKEN_PATH="$CODEBUILD_SRC_DIR/.workops-codeartifact/codeartifact-token"',
+              'python3 infra/cdk/scripts/configure-codeartifact-maven.py',
+              'export CODEARTIFACT_AUTH_TOKEN="$(cat "$WORKOPS_CODEARTIFACT_AUTH_TOKEN_PATH")"',
+              'cd db',
+              'mvn --settings "$WORKOPS_MAVEN_SETTINGS_PATH" -Pdev flyway:migrate',
             ],
           },
         },
@@ -68,9 +68,6 @@ export class MigrationStack extends Stack {
         computeType: ComputeType.SMALL,
         privileged: false,
         environmentVariables: {
-          FLYWAY_DOWNLOAD_URL: {
-            value: flywayDownloadUrl,
-          },
           WORKOPS_DB_PASSWORD: {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
             value: `${dbMasterSecret.secretArn}:password`,
@@ -90,9 +87,6 @@ export class MigrationStack extends Stack {
           WORKOPS_CODEARTIFACT_MAVEN_REPOSITORY_NAME: {
             type: BuildEnvironmentVariableType.PARAMETER_STORE,
             value: `/workops/${props.stage}/dependencies/codeartifact/maven-repository-name`,
-          },
-          WORKOPS_FLYWAY_LOCATIONS: {
-            value: flywayLocations,
           },
         },
       },

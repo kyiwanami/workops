@@ -311,9 +311,11 @@ Phase 2β の Pipeline は次の順序で実行します。
 | ManualApproval | Build Images 前の手動承認 |
 | Deploy Registry | Web / Web cache ECR repository を作成・更新 |
 | Build Images | Web image を commit SHA tag で build / scan / push |
-| Deploy Data / Network / Migration | DB、egress、edge、migration CodeBuild を deploy |
-| RunMigration | Migration CodeBuild project で `cd db; mvn -Pdev flyway:migrate` を実行 |
+| Deploy Data / Network / Migration | DB、egress、edge、MigrationRunnerStack を deploy |
+| RunMigration | MigrationRunnerStack の CodeBuild project で `cd db; mvn -Pdev flyway:migrate` を実行 |
 | Deploy AppRuntime | ECS native Blue/Green で Web runtime を deploy |
+
+RunMigration は RDS の起動 / 停止を行いません。RDS が停止中の場合、MigrationRunnerStack の CodeBuild は DB 接続で失敗するため、AWS dev 確認時は RDS instance の状態を先に確認します。
 
 ローカルで CDK synth だけ確認する場合は次を使います。
 

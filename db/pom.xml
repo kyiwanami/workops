@@ -24,6 +24,9 @@
 				<version>${flyway.version}</version>
 				<!-- This project only runs Flyway against the SQL directories under db/. -->
 				<configuration>
+					<url>${env.WORKOPS_DB_URL}</url>
+					<user>${env.WORKOPS_DB_USERNAME}</user>
+					<password>${env.WORKOPS_DB_PASSWORD}</password>
 					<locations>
 						<location>${workops.flyway.location.migration}</location>
 						<location>${workops.flyway.location.seed.common}</location>

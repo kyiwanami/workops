@@ -90,7 +90,7 @@ CDK app は次の Stack を管理します。
 - `workops-{stage}-identity`
 - `workops-{stage}-registry`
 - `workops-{stage}-logs`
-- `workops-{stage}-migration`
+- `workops-{stage}-migration-runner`
 - `workops-{stage}-pipeline`
 
 `stage` は `WORKOPS_STAGE` の値です。
@@ -159,7 +159,7 @@ npx cdk deploy DependencyStack PipelineStack --profile $env:AWS_PROFILE
 P2-alpha-3 以降、runtime resource の作成・更新・削除は Pipeline 管理に寄せます。
 個別 runtime CDK entrypoint は使いません。
 
-PipelineStack、DependencyStack、MigrationStack、FoundationStack、IdentityStack、RegistryStack、LogsStack、Artifact bucket、ECR repository、CodeConnection は維持対象です。
+PipelineStack、DependencyStack、MigrationRunnerStack、FoundationStack、IdentityStack、RegistryStack、LogsStack、Artifact bucket、ECR repository、CodeConnection は維持対象です。
 
 ## Conventions
 

@@ -12,7 +12,7 @@ import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
 import { IdentityStack } from '../lib/identity-stack';
 import { LogsStack } from '../lib/logs-stack';
-import { MigrationStack } from '../lib/migration-stack';
+import { MigrationRunnerStack } from '../lib/migration-runner-stack';
 import { PipelineStack } from '../lib/pipeline-stack';
 import { RegistryStack } from '../lib/registry-stack';
 
@@ -76,13 +76,13 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-logs`,
     });
-    const migrationStack = new MigrationStack(app, 'MigrationStack', {
+    const migrationRunnerStack = new MigrationRunnerStack(app, 'MigrationRunnerStack', {
       appSubnets: foundationStack.appSubnets,
       env: testEnv,
       migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       migrationLogGroup: logsStack.migrationLogGroup,
       stage,
-      stackName: `workops-${stage}-migration`,
+      stackName: `workops-${stage}-migration-runner`,
       vpc: foundationStack.vpc,
     });
     const egressStack = new EgressStack(app, 'EgressStack', {
@@ -135,7 +135,7 @@ describe('WorkOps CDK app', () => {
     expect(identityStack.stackName).toBe('workops-dev-identity');
     expect(registryStack.stackName).toBe('workops-dev-registry');
     expect(logsStack.stackName).toBe('workops-dev-logs');
-    expect(migrationStack.stackName).toBe('workops-dev-migration');
+    expect(migrationRunnerStack.stackName).toBe('workops-dev-migration-runner');
     expect(egressStack.stackName).toBe('workops-dev-egress');
     expect(edgeStack.stackName).toBe('workops-dev-edge');
     expect(appRuntimeStack.stackName).toBe('workops-dev-app-runtime');
@@ -541,7 +541,7 @@ describe('WorkOps CDK app', () => {
               Name: Match.stringLikeRegexp('workops-dev-edge.Prepare'),
             }),
             Match.objectLike({
-              Name: Match.stringLikeRegexp('workops-dev-migration.Prepare'),
+              Name: Match.stringLikeRegexp('workops-dev-migration-runner.Prepare'),
             }),
             Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-app-runtime.Prepare'),
@@ -561,7 +561,7 @@ describe('WorkOps CDK app', () => {
               }),
               Configuration: Match.objectLike({
                 EnvironmentVariables: Match.stringLikeRegexp('COMMIT_SHA.*CommitId'),
-                ProjectName: 'workops-dev-migration',
+                ProjectName: 'workops-dev-migration-runner',
               }),
               Name: Match.stringLikeRegexp('workops-dev-app-runtime.RunMigration'),
             }),
@@ -730,7 +730,7 @@ describe('WorkOps CDK app', () => {
     expect(appRuntimeStackText).toContain('runtimeResources: RuntimeResources');
     expect(appRuntimeStackText).not.toContain('Fn.importValue');
     expect(appRuntimeStackText).not.toContain('createRuntimeResources');
-    expect(templateText).toContain('workops-dev-migration');
+    expect(templateText).toContain('workops-dev-migration-runner');
     expect(templateText).toContain('SourceArtifact');
     expect(templateText).not.toContain('cat > run-migration');
     expect(templateText).not.toContain('python3 infra/cdk/scripts/run-migration-task.py');
@@ -785,7 +785,7 @@ describe('WorkOps CDK app', () => {
     expect(dockerfileText).not.toContain('ARG MAVEN_SETTINGS');
   });
 
-  test('creates the MigrationStack VPC CodeBuild project without an ECS task', () => {
+  test('creates the MigrationRunnerStack VPC CodeBuild project without an ECS task', () => {
     const app = new App();
     const stage = 'dev';
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
@@ -798,16 +798,16 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-logs`,
     });
-    const migrationStack = new MigrationStack(app, 'MigrationStack', {
+    const migrationRunnerStack = new MigrationRunnerStack(app, 'MigrationRunnerStack', {
       appSubnets: foundationStack.appSubnets,
       env: testEnv,
       migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       migrationLogGroup: logsStack.migrationLogGroup,
       stage,
-      stackName: `workops-${stage}-migration`,
+      stackName: `workops-${stage}-migration-runner`,
       vpc: foundationStack.vpc,
     });
-    const template = Template.fromStack(migrationStack);
+    const template = Template.fromStack(migrationRunnerStack);
     const templateText = JSON.stringify(template.toJSON());
 
     template.resourceCountIs('AWS::CodeBuild::Project', 1);
@@ -815,7 +815,7 @@ describe('WorkOps CDK app', () => {
     template.resourceCountIs('AWS::ECS::Service', 0);
     template.resourceCountIs('AWS::S3::Bucket', 0);
     template.hasResourceProperties('AWS::CodeBuild::Project', {
-      Name: 'workops-dev-migration',
+      Name: 'workops-dev-migration-runner',
       Environment: Match.objectLike({
         ComputeType: 'BUILD_GENERAL1_SMALL',
         Image: 'aws/codebuild/amazonlinux-x86_64-standard:5.0',
@@ -870,21 +870,6 @@ describe('WorkOps CDK app', () => {
         ]),
       }),
     });
-    template.hasResourceProperties('AWS::CodeBuild::Project', {
-      Environment: Match.objectLike({
-        EnvironmentVariables: Match.arrayWith([
-          Match.objectLike({
-            Name: 'FLYWAY_DOWNLOAD_URL',
-            Value:
-              'https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/12.9.0/flyway-commandline-12.9.0-linux-x64.tar.gz',
-          }),
-          Match.objectLike({
-            Name: 'WORKOPS_FLYWAY_LOCATIONS',
-            Value: 'filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/dev',
-          }),
-        ]),
-      }),
-    });
     template.resourceCountIs('AWS::EC2::SecurityGroup', 0);
     template.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
     template.hasResourceProperties('AWS::IAM::Role', {
@@ -927,10 +912,21 @@ describe('WorkOps CDK app', () => {
         ]),
       },
     });
-    expect(templateText).toContain('flyway-commandline-12.9.0-linux-x64.tar.gz');
-    expect(templateText).toContain('FLYWAY_LOCATIONS');
-    expect(templateText).toContain('./flyway-12.9.0/flyway migrate');
-    expect(templateText).toContain('test -d db/migration');
+    expect(templateText).toContain('corretto25');
+    expect(templateText).toContain('.workops-codeartifact');
+    expect(templateText).toContain('WORKOPS_MAVEN_SETTINGS_PATH');
+    expect(templateText).toContain('WORKOPS_CODEARTIFACT_AUTH_TOKEN_PATH');
+    expect(templateText).toContain('python3 infra/cdk/scripts/configure-codeartifact-maven.py');
+    expect(templateText).toContain('CODEARTIFACT_AUTH_TOKEN');
+    expect(templateText).toContain('cd db');
+    expect(templateText).toContain('mvn --settings');
+    expect(templateText).toContain('-Pdev flyway:migrate');
+    expect(templateText).not.toContain('flyway-commandline');
+    expect(templateText).not.toContain('FLYWAY_DOWNLOAD_URL');
+    expect(templateText).not.toContain('WORKOPS_FLYWAY_LOCATIONS');
+    expect(templateText).not.toContain('FLYWAY_LOCATIONS');
+    expect(templateText).not.toContain('./flyway-12.9.0/flyway migrate');
+    expect(templateText).not.toContain('test -d db/migration');
     expect(templateText).not.toContain('apps/web/src/main/resources/db');
     expect(templateText).not.toContain('mvn -B');
     expect(templateText).not.toContain('migration-runner.jar');

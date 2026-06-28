@@ -32,3 +32,6 @@ __pycache__/
 
 ### CodeArtifact temporary files ###
 .workops-codeartifact/
+
+### Codex handoff ###
+HANDOFF.md

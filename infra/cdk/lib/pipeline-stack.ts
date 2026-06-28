@@ -53,7 +53,7 @@ import { EgressStack } from './egress-stack';
 import { FoundationStack } from './foundation-stack';
 import { IdentityStack } from './identity-stack';
 import { LogsStack } from './logs-stack';
-import { MigrationStack } from './migration-stack';
+import { MigrationRunnerStack } from './migration-runner-stack';
 import { RegistryStack } from './registry-stack';
 
 export interface PipelineStackProps extends StackProps {
@@ -157,7 +157,7 @@ class RegistryDeployStage extends Stage {
 
 class DataNetworkMigrationDeployStage extends Stage {
   public readonly appRuntimeStack: AppRuntimeStack;
-  public readonly migrationStack: MigrationStack;
+  public readonly migrationRunnerStack: MigrationRunnerStack;
 
   constructor(scope: Construct, id: string, props: DataNetworkMigrationDeployStageProps) {
     super(scope, id, {
@@ -216,23 +216,23 @@ class DataNetworkMigrationDeployStage extends Stage {
       `workops-${props.stage}-web`,
     );
 
-    // MigrationStack owns the VPC-attached CodeBuild project that runs Flyway against RDS.
-    this.migrationStack = new MigrationStack(this, 'MigrationStack', {
+    // MigrationRunnerStack owns the VPC-attached CodeBuild project that runs Flyway against RDS.
+    this.migrationRunnerStack = new MigrationRunnerStack(this, 'MigrationRunnerStack', {
       appSubnets: foundationStack.appSubnets,
       env: props.env,
       migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       migrationLogGroup: logsStack.migrationLogGroup,
       stage: props.stage,
-      stackName: `workops-${props.stage}-migration`,
+      stackName: `workops-${props.stage}-migration-runner`,
       vpc: foundationStack.vpc,
     });
 
     edgeStack.addDependency(egressStack);
     edgeStack.addDependency(identityStack);
     edgeStack.addDependency(logsStack);
-    this.migrationStack.addDependency(dataStack);
-    this.migrationStack.addDependency(egressStack);
-    this.migrationStack.addDependency(logsStack);
+    this.migrationRunnerStack.addDependency(dataStack);
+    this.migrationRunnerStack.addDependency(egressStack);
+    this.migrationRunnerStack.addDependency(logsStack);
 
     const runtimeResources: RuntimeResources = {
       albSecurityGroup: foundationStack.albSecurityGroup,
@@ -260,7 +260,7 @@ class DataNetworkMigrationDeployStage extends Stage {
       webImageTag: props.webImageTag,
     });
 
-    this.appRuntimeStack.addDependency(this.migrationStack);
+    this.appRuntimeStack.addDependency(this.migrationRunnerStack);
   }
 }
 
@@ -474,7 +474,7 @@ export class PipelineStack extends Stack {
               project: CodeBuildProject.fromProjectName(
                 this,
                 'MigrationCodeBuildProjectReference',
-                `workops-${props.stage}-migration`,
+                `workops-${props.stage}-migration-runner`,
               ),
             }),
           ],
