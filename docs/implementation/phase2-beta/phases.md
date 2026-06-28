@@ -39,6 +39,11 @@ Pipeline 遅延、承認位置、Stack 分類、Migration 実行方式、CodeArt
 ### 共通実装方針
 
 - CDK entrypoint は `infra/cdk/bin/cdk.ts` に統合する
+- `WORKOPS_STAGE` は人間が通常指定するstage正本にせず、Git source branchからstage keyを生成する
+- CodePipeline Source actionはsource branchをrawのままbranch filterに指定する
+- AWS resource name、SSM path、stackName、tagに使うstage keyはsource branchから決定的に生成する
+- CDK app rootで `workops:stage` をcontextに設定し、naming / SSM path / tagだけに使うstage propsは削減する
+- raw source branchは `PipelineStack` のSource action用propsとして渡し、Stack横断contextには置かない
 - 通常手順は `cdk deploy --all` / `cdk diff --all` とし、Stack 名指定は中間確認や初回 bootstrap の例外に限定する
 - CDK Pipelines self-mutation は維持する
 - Pipeline は RDS start / stop 運用に関心を持たず、CloudFormation deploy / update と migration 実行だけを扱う
@@ -51,6 +56,8 @@ Pipeline 遅延、承認位置、Stack 分類、Migration 実行方式、CodeArt
 ### 成果物
 
 - `bin/cdk.ts` 単一 entrypoint への整理方針
+- Git source branchをPipeline filterとstage key生成へ使う方針
+- CDK props境界の棚卸しと、naming / SSM path / tagだけに使うpropsの削減方針
 - `DependencyStack` による CodeArtifact Maven / npm 依存取得基盤、ops notification topic、非 secret SSM parameters
 - `MigrationRunnerStack` による VPC attached CodeBuild + Maven Flyway 実行方式
 - `db/pom.xml` による DB migration 専用 Maven project
@@ -113,7 +120,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  Source["Source"] --> Synth["Synth<br/>CodeArtifact npm"]
+  Source["Source<br/>source branch filter"] --> Synth["Synth<br/>CodeArtifact npm"]
   Synth --> BuildTest["Build & Test<br/>npm + Maven via CodeArtifact"]
   BuildTest --> Permanent["Deploy Permanent"]
   Permanent --> BuildWeb["Build Web Image<br/>BuildKit secret + CodeArtifact Maven"]
@@ -348,7 +355,7 @@ Alarm 通知や Dashboard は Phase 2β では作りません。
 
 ### 詳細 task
 
-P2-beta は次の 9 task に分けます。
+P2-beta は次の 10 task に分けます。
 
 1. `P2-beta-01-cdk-entrypoint-dependency-stack.md`
 2. `P2-beta-02-codeartifact-build-integration.md`
@@ -356,14 +363,15 @@ P2-beta は次の 9 task に分けます。
 4. `P2-beta-04-migration-runner-stack.md`
 5. `P2-beta-05-web-delivery-ingress-split.md`
 6. `P2-beta-06-data-pause-stack.md`
-7. `P2-beta-07-permanent-baseline-deploy-check.md`
-8. `P2-beta-08-pipeline-stage-recomposition.md`
-9. `P2-beta-09-outputs-cleanup-and-docs.md`
+7. `P2-beta-07-cdk-stage-source-branch-and-props-boundary.md`
+8. `P2-beta-08-permanent-baseline-deploy-check.md`
+9. `P2-beta-09-pipeline-stage-recomposition.md`
+10. `P2-beta-10-outputs-cleanup-and-docs.md`
 
 ### 完了条件
 
 - 親計画、実装、ローカル検証、CDK synth、実 AWS deploy、改善後 Pipeline 完走確認が完了している
-- 改善後 Pipeline が `main` push 起点で 1 周し、ManualApproval 後に RunMigration と AppRuntime deploy まで完了している
+- 改善後 Pipeline が source branch push 起点で 1 周し、ManualApproval 後に RunMigration と AppRuntime deploy まで完了している
 - CloudFront default domain 経由でアプリへ到達できる
 - 撤去分類の Stack を撤去でき、DataStack は休止運用へ戻せる
 - RDS 停止中に RunMigration が失敗し得ることがトラブルシュート手順に記録されている

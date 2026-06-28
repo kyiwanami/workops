@@ -47,10 +47,9 @@
 - Templateで RunMigration CodeBuild project の VPC config、environment、IAM、`privileged: false` を確認する。
 - `MigrationStack` / ECS RunTask / migration image が正本実装から消えていることを確認する。
 - RunMigration失敗時のトラブルシュートとしてRDS状態確認コマンドを文書化する。
-- 実 RunMigration は `P2-beta-08` で確認する。
+- 実 RunMigration は `P2-beta-09` で確認する。
 
 ## Assumptions
 
 - RDS起動/停止はPipeline責務外。
 - RDS停止中のRunMigration失敗は正常な失敗原因候補として扱う。
-

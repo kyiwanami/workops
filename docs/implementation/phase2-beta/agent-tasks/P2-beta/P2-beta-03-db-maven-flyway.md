@@ -70,7 +70,7 @@ DB接続値は実行時に次で渡す。
 - local DB が利用可能な場合は `mvn -Plocal flyway:info` 相当を実行する。
 - apps/web に Flyway dependency / plugin / `spring.flyway.*` が追加されていないことを確認する。
 - README / 開発手順に新しい `db/` Maven Flyway 手順があることを確認する。
-- dev RunMigration の実行確認は `P2-beta-08` で行う。
+- dev RunMigration の実行確認は `P2-beta-09` で行う。
 
 ## Assumptions
 

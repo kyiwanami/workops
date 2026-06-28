@@ -1,8 +1,8 @@
-# P2-beta-07 Permanent baseline deploy check
+# P2-beta-08 Permanent baseline deploy check
 
 ## Summary
 
-`P2-beta-01` から `P2-beta-06` までで整えた Top-level / 常設基盤の一部を、Pipeline再構成前に実AWSで中間確認する。
+`P2-beta-01` から `P2-beta-07` までで整えた Top-level / 常設基盤の一部を、Pipeline再構成前に実AWSで中間確認する。
 この task は実AWS操作を含むため、コーディングエージェントは手順と事前確認を作り、実行はユーザーの明示依頼時だけ行う。
 
 ## ユーザー要件

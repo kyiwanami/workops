@@ -1,8 +1,8 @@
-# P2-beta-08 Pipeline stage recomposition
+# P2-beta-09 Pipeline stage recomposition
 
 ## Summary
 
-`P2-beta-01` から `P2-beta-07` の成果を統合し、Pipeline stage順序とStack配置を再構成する。
+`P2-beta-01` から `P2-beta-08` の成果を統合し、Pipeline stage順序とStack配置を再構成する。
 この task で実AWS deployと改善後Pipeline完走確認を必須完了条件にする。
 
 ## ユーザー要件
@@ -12,6 +12,7 @@
 - ManualApprovalは課金が始まる手前の関門にする。
 - `Build Images` は `Build Web Image` にリネームする。
 - `WebDeliveryStack` は常設だが、stage上は `WebIngressStack` 後に置くことを明記する。
+- Source actionは `P2-beta-07` で確定したsource branchをfilterする。
 - ECS Blue/Green alarm は target health 中心の2本にする。
 
 ## 案
@@ -45,6 +46,7 @@ flowchart LR
 ## ADR
 
 - CDK Pipelines self-mutationは維持する。
+- Source actionのbranch filterは `P2-beta-07` のsource branch方針を維持する。
 - Deploy Permanent対象は `FoundationStack`、`LogsStack`、`IdentityStack`、`RegistryStack`、`DataPauseStack`、`WebAclStack`。
 - Deploy Chargeable / Runtime対象順序は `EgressStack`、`WebIngressStack`、`WebDeliveryStack`、`DataStack`、`MigrationRunnerStack`。
 - `WebDeliveryStack` は常設分類だが、Web ingress origin contractをSSMから読むため `WebIngressStack` 後に置く。

@@ -67,10 +67,9 @@ Phase 2-beta の先頭 task として、CDK entrypoint を `infra/cdk/bin/cdk.ts
   - 非 secret SSM parameters が存在する。
   - `ConfigStack` / `SecretStack` が CDK app から外れている。
   - `AppRuntimeStack` が `/workops/${stage}/dependencies/runtime/spring-profile` を参照している。
-- 実AWS deployはこの task では必須にしない。`P2-beta-07` と `P2-beta-08` で確認する。
+- 実AWS deployはこの task では必須にしない。`P2-beta-08` と `P2-beta-09` で確認する。
 
 ## Assumptions
 
 - 実 account ID、SSO role ARN、credential値、CodeArtifact endpoint実値は文書に記録しない。
 - `npm install` / `npm ci` が必要な場合は、依存操作の明示許可を得てから実行する。
-

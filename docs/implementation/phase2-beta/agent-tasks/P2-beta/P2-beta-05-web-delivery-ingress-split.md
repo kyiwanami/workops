@@ -88,7 +88,7 @@ flowchart LR
 - `WebDeliveryStack` の CloudFront Distribution が Web ACL ARN を使うことを確認する。
 - Cognito URL updater runtimeが Node.js 24.x であることを確認する。
 - Cognito URL updater handler単体テストを追加し、`DescribeUserPoolClient` から既存設定を取得し、URLだけを `UpdateUserPoolClient` で更新する流れをmock検証する。
-- 実 CloudFront deploy / Cognito URL更新 / CloudFront到達は `P2-beta-08` で確認する。
+- 実 CloudFront deploy / Cognito URL更新 / CloudFront到達は `P2-beta-09` で確認する。
 
 ## Assumptions
 

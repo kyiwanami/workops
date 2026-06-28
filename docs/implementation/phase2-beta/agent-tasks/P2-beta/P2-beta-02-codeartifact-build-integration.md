@@ -67,10 +67,9 @@ flowchart LR
 - buildspec / CodeBuild commands が helper script を呼ぶことを確認する。
 - Docker build commandが BuildKit secret を使い、tokenを build arg に入れていないことを確認する。
 - token、endpoint実値、account IDが Outputs / docs に出ていないことを確認する。
-- 実際の npm / Maven 依存取得は `P2-beta-08` の Pipeline 完走で確認する。
+- 実際の npm / Maven 依存取得は `P2-beta-09` の Pipeline 完走で確認する。
 
 ## Assumptions
 
 - CodeArtifact package retention / cleanup の独自実装はしない。
 - 依存追加や lockfile 更新が必要な場合は、ユーザーの明示許可を得てから npm 依存操作を実行する。
-
