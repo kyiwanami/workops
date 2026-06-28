@@ -138,10 +138,18 @@ P2-3 手動 deploy 用 image tag は `workops-web:p2-3-manual`、ローカル確
 ### 実装結果
 
 - `apps/web/Dockerfile` を multi-stage build として追加した。
-- build stage は `eclipse-temurin:25-jdk` を使い、Maven Wrapper で jar を作成する。
-- runtime stage は `eclipse-temurin:25-jre` を使い、`/app/workops-web.jar` を `java -jar` で起動する。
+- build stage は `public.ecr.aws/amazoncorretto/amazoncorretto:25-al2023` を使い、Maven Wrapper で jar を作成する。build stage には Maven Wrapper が展開処理で使う `unzip`、`tar`、`gzip` を追加する。
+- runtime stage は `public.ecr.aws/amazonlinux/amazonlinux:2023-minimal` に `java-25-amazon-corretto-headless` を入れ、`/app/workops-web.jar` を `java -jar` で起動する。
 - container port は `8080` として明示した。
 - `.dockerignore` で `target/`、ログ、IDE設定、OSファイル、ローカル環境ファイル、一時成果物を除外した。
+- `apps/web/pom.xml` で `jackson-bom.version` を脆弱性修正版へ固定し、Pipeline 同等の Trivy gate を通す。
+
+### Pipeline base image 方針
+
+- P2-3 当時の `eclipse-temurin` 採用は Java 25 runtime 要件を満たすための手動 build 前提の判断だった。
+- Pipeline では Docker Hub 匿名 pull に依存せず、AWS 側 registry と Amazon Corretto を Java 25 の base image 方針として採用する。
+- CodeArtifact は Maven / npm dependency 管理に使い、Docker base image は container registry 管理として扱う。
+- Amazon Linux 2023 minimal の runtime stage は `microdnf`、Amazon Corretto AL2023 の build stage は `dnf` を使う。local Docker build で package manager と Maven Wrapper 必須コマンドを確認し、Dockerfile に反映した。
 
 ### 確認結果
 
@@ -166,6 +174,11 @@ P2-3 手動 deploy 用 image tag は `workops-web:p2-3-manual`、ローカル確
   - `http://localhost:8080/` が HTTP 200 を返した。
   - ログで Java 25、Tomcat 8080、local profile、Flyway `Current version of schema workops: 8` を確認した。
   - 確認後、`workops-p2-3-local` container は削除した。
+- 2026-06-29 P2-beta-09 再確認:
+  - `linux/arm64` image は build 成功、Pipeline 同等 Trivy scan で OS / jar とも 0 件。
+  - `linux/arm64` image を amd64 host で run すると `exec format error` になるため、ローカル実起動確認は同じ Dockerfile から `linux/amd64` image を別 tag で build して実施した。
+  - `linux/amd64` image は build 成功、Trivy scan で OS / jar とも 0 件。
+  - `workops-mysql` を使ったローカル実起動で `/actuator/health` が HTTP 200 を返すことを確認した。
 
 ### 残課題
 

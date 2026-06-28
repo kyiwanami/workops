@@ -424,6 +424,14 @@ describe('WorkOps CDK pipeline', () => {
     );
     expect(dockerfileText).toContain('--settings /tmp/maven-settings.xml');
     expect(dockerfileText).toContain('CODEARTIFACT_AUTH_TOKEN="$(cat /tmp/codeartifact-token)"');
+    expect(dockerfileText).toContain(
+      'FROM public.ecr.aws/amazoncorretto/amazoncorretto:25-al2023 AS build',
+    );
+    expect(dockerfileText).toContain('FROM public.ecr.aws/amazonlinux/amazonlinux:2023-minimal');
+    expect(dockerfileText).toContain('dnf install -y unzip tar gzip');
+    expect(dockerfileText).toContain('java-25-amazon-corretto-headless');
+    expect(dockerfileText).not.toContain('eclipse-temurin');
+    expect(dockerfileText).not.toContain('apk upgrade');
     expect(dockerfileText).not.toContain('ARG CODEARTIFACT');
     expect(dockerfileText).not.toContain('ARG MAVEN_SETTINGS');
   });
