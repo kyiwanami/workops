@@ -31,6 +31,11 @@ PR は作業・レビューの単位であり、Phase 2α の完了条件では�
 Phase 2α-1、Phase 2α-2、Phase 2α-3 は、各フェーズに定義した検証、確認、運用条件を満たした時点で完了とします。
 PR 作成、PR merge、commit 作成だけで完了扱いにしません。
 
+Phase 2-beta は、Phase 2α-1 から Phase 2α-3 まででいったん完了扱いにした後、初回 deploy と Pipeline 自走確認で見えた改善点を追加で扱う改善フェーズです。
+既存の Phase 2α-1 から Phase 2α-3 までの記録は履歴として残します。
+Phase 2-beta の対象領域では、`docs/implementation/phase2-beta/phases.md` の方針を後勝ちの親計画として扱います。
+Phase 2-beta の詳細 agent task は、`docs/implementation/phase2-beta/agent-tasks/P2-beta/` 配下で管理します。
+
 ## 案
 
 - Phase 2α は、Phase 2 完了後に GitHub Actions OIDC 暫定 deploy を撤去し、CodePipeline V2 + CodeBuild + CDK Pipelines による AWS ネイティブ CI/CD へ移行する
@@ -40,6 +45,8 @@ PR 作成、PR merge、commit 作成だけで完了扱いにしません。
 - Phase 2α-2 は、deploy を伴わず、PipelineStack、MigrationStack、RegistryStack、AppRuntimeStack、EdgeStack、Buildspec、品質ゲート、通知、GitHub Actions 撤去を含む新構成 CDK code を完成させる
 - Phase 2α-3 は、CDK code 作業を行わず、初回 deploy、CodeConnection 認可、Pipeline 自走確認、動作確認 checklist、ベースライン記録、主要課金 4 stack destroy を行う
 - Phase 2α 完了は、Phase 2α-3 の動作確認 checklist 全項目達成と、主要課金 4 stack destroy 済みを条件とする
+- Phase 2-beta は、Phase 2α-3 完了後レビューで追加された改善フェーズとして、Pipeline 遅延、承認位置、Stack 分類、Migration 実行方式、CodeArtifact、CDK entrypoint、RDS 休止運用を見直す
+- Phase 2-beta の完了は、実装、ローカル検証、CDK synth、実 AWS deploy、改善後 Pipeline 完走確認までを条件とする
 - 数値 SLO は採用しない。Pipeline 実行時間などの値は記録のみ行い、合格判定には使わない
 
 ## ADR
@@ -55,34 +62,50 @@ ADR 本文は参照しません。
 - GitHub Actions workflow は PR チェック用途にも残さない
 - DeployStack は廃止し、同じ責務を PipelineStack に移す
 - PipelineStack を新設する
-- MigrationStack を新設する
+- Phase 2-beta では DependencyStack を新設し、CodeArtifact domain、Maven / npm repository、ops notification topic、非 secret SSM parameters を所有させる
+- Phase 2-beta では MigrationStack / ECS RunTask / migration image 方式を廃止し、MigrationRunnerStack / VPC attached CodeBuild / `db/pom.xml` Maven Flyway 実行へ置き換える
+- Phase 2-beta では ConfigStack と SecretStack を削除する。これは Stack ライフサイクル分類の「撤去」とは別の作業として扱う
 - CodeDeploy は使わない
 - ECS ネイティブ Blue/Green Deployment を採用する
 - apps/web の ECS Task は ARM_64 + Graviton 上で稼働させる
-- apps/web 起動時 Flyway 実行を廃止し、Flyway 専用 image + ECS RunTask による独立 migration stage へ移行する
+- apps/web 起動時 Flyway 実行を廃止し、RunMigration stage の VPC attached CodeBuild で `db/pom.xml` から Maven Flyway を実行する
 - 品質ゲートは FAIL mode とし、WARNING 期間を設けない
 - 品質ゲートの閾値は業界標準値を一括採用し、コードベース調査による up/down 調整を行わない
 - Pipeline の承認待ちと全体失敗を CodeStar Notifications + SNS + メールで通知する
-- 主要課金 4 stack は `EgressStack`、`DataStack`、`EdgeStack`、`AppRuntimeStack` とする
-- `PipelineStack`、`MigrationStack`、`FoundationStack`、`ConfigStack`、`RegistryStack`、`LogsStack`、`SecretStack`、Artifact bucket、ECR repository、CodeConnection は維持対象とし、主要課金 4 stack destroy 対象に含めない
+- Phase 2-beta では Stack を Top-level / Pipeline 基盤、常設、撤去、休止に分類する。ライフサイクル分類と Pipeline stage 配置は別概念として扱う
+- Top-level / Pipeline 基盤は `DependencyStack` と `PipelineStack` とする
+- 常設は `FoundationStack`、`LogsStack`、`IdentityStack`、`RegistryStack`、`DataPauseStack`、`WebDeliveryStack` とする
+- 撤去は `EgressStack`、`WebIngressStack`、`MigrationRunnerStack`、`AppRuntimeStack` とする
+- 休止は `DataStack` とする
+- `WebDeliveryStack` は常設だが、`WebIngressStack` が作る ALB DNS name SSM parameter を deploy 時に解決するため、Pipeline stage 上は `WebIngressStack` 後に配置する
+- RDS 再停止自動化は常設の `DataPauseStack` として扱い、CloudTrail `LookupEvents` は採用しない
 
 ## Phase 2α 完了定義
 
 Phase 2α は、Phase 2 で構築した AWS dev 環境の業務機能と基本トポロジーを維持したまま、次の状態になった時点で完了とします。
+Phase 2-beta 以降は、下記の改善後構成を最終状態として扱います。
 
 - GitHub Actions workflow が撤去されている
 - DeployStack が撤去されている
+- CDK entrypoint が `infra/cdk/bin/cdk.ts` 単一になっている
+- 通常手順が `cdk deploy --all` / `cdk diff --all` に寄っており、Stack 名指定手順が通常手順から外れている
 - CodePipeline V2 + CodeBuild + CDK Pipelines による単一 Pipeline が構成されている
 - `main` push を契機に Pipeline が起動できる
-- ManualApproval 後に RegistryStack が deploy され、ECR repository 4 本が作成・更新される
-- Web image と migration image が並列 build され、commit SHA tag で ECR に push される
-- Flyway 専用 migration image が ECS RunTask として実行され、exit code 0 で migration 成功を判定できる
+- `DependencyStack` が CodeArtifact domain と Maven / npm repository を所有している
+- `DependencyStack` が ops notification topic と非 secret SSM parameters を所有している
+- `DependencyStack` と `PipelineStack` が Top-level / Pipeline 基盤として初回 deploy 対象になっている
+- 常設群と Build Web Image が ManualApproval 前に完了する
+- ManualApproval が課金が始まる手前の唯一の関門になっている
+- Web image が commit SHA tag で ECR に push される
+- `EdgeStack` が `WebDeliveryStack` と `WebIngressStack` に分割されている
+- RunMigration stage が MigrationRunnerStack の VPC attached CodeBuild で `db/pom.xml` から Maven Flyway を実行し、成功した場合だけ AppRuntime deploy へ進む
 - AppRuntimeStack が ECS ネイティブ Blue/Green Deployment で切り替えできる
 - apps/web の ECS Task が ARM_64 で起動している
 - Pipeline の承認待ちと全体失敗が SNS メール通知される
-- Phase 2α-3 の動作確認 checklist が全項目達成されている
+- Phase 2-beta の改善後 Pipeline が実 AWS で 1 周完走している
 - ベースライン値が記録されている
-- 確認完了後、主要課金 4 stack が destroy 済みである
+- 確認完了後、撤去分類の Stack が撤去され、DataStack は休止運用へ戻せる状態になっている
+- RDS 7 日自動起動への再停止自動化が DataPauseStack として定義されている
 
 ## Notion へ戻す判断
 
@@ -98,10 +121,10 @@ Phase 2α は、Phase 2 で構築した AWS dev 環境の業務機能と基本�
 - CodeDeploy を採用する
 - ECS ネイティブ Blue/Green Deployment を採用しない
 - apps/web の ECS Task を ARM_64 + Graviton へ移行しない
-- Flyway CLI 以外を migration 実行方式の正本にする
+- Phase 2-beta 以降に `db/pom.xml` Maven Flyway 以外を migration 実行方式の正本にする
 - apps/web 起動時 Flyway 実行を残す
 - migration 専用 DB user、migration 専用 DB secret、migration 専用 Security Group を追加する
-- VPC Endpoint を Phase 2α に追加する
+- S3 Gateway Endpoint 以外の VPC Endpoint を Phase 2α に追加する
 - 品質ゲート対象ツールまたは閾値を変更する
 - 品質ゲートを WARNING mode にする
 - suppression、ignore、JaCoCo 除外を広く使う方針に変える
@@ -136,26 +159,30 @@ AWS アカウントへの認証、課金対象リソースの作成、CodeConnec
 - CloudFormation Export や SSM Parameter を Stack 間参照の正本にしない
 - CDK 管理リソースの共通タグは `Project=WorkOps`、`Environment={stage}`、`ManagedBy=CDK` とする
 - タグに機密情報、個人情報、account ID、credential、実 Cognito `sub`、DB 値を入れない
-- RunTask 実行時に追加の user tag や `startedBy` 運用は導入しない
-- Pipeline 実行との対応は、CodeBuild logs、ECS taskArn、CloudWatch Logs stream、commit SHA image tag で追跡する
+- Phase 2-beta 以降は、migration 実行のための ECS RunTask、追加 user tag、`startedBy` 運用は導入しない
+- Pipeline 実行との対応は、CodeBuild logs、CloudWatch Logs stream、commit SHA image tag で追跡する
 - CodeBuild image は `aws/codebuild/amazonlinux-aarch64-standard:3.0` を使う
 - CodeBuild compute は ARM_64 / Graviton 系の Medium とする
 - Docker build と Testcontainers のため CodeBuild は `privileged: true` とする
-- CodeBuild VPC mode は使わない
-- VPC Endpoint は作らない
+- Build & Test / Build Web Image の CodeBuild は VPC mode を使わない
+- RunMigration CodeBuild は app private subnet の VPC mode で実行する
+- Interface Endpoint は作らない
+- S3 Gateway Endpoint だけを `FoundationStack` に常設する
 - ECR image tag は commit SHA tag のみを使う
 - `latest`、`dev`、phase 名 tag、manual tag は使わない
-- Web image と migration image は同じ commit SHA tag を使う
+- Web image は commit SHA tag を使う
+- Phase 2-beta 以降は migration image を build しない
 - Phase 2 の `WORKOPS_WEB_IMAGE_TAG` 単独運用は廃止する
-- Pipeline では `webImageTag` と `migrationImageTag` を明示的に扱い、どちらも同じ commit SHA を渡す
+- Pipeline では `webImageTag` を明示的に扱い、commit SHA を渡す
+- `migrationImageTag` は Phase 2-beta 以降の正本設計では使わない
 - ローカル synth / test 用の image tag は `test-sha` のような明示値を使う
 - 本 image repository は immutable tag、commit SHA tag、最新 10 個保持とする
 - cache repository は mutable tag、`buildcache` tag 上書き、最新 5 個保持とする
 - Docker buildx registry cache は `--cache-from` と `--cache-to mode=max` を常に使う
 - 初回 cache miss 用の事前存在確認、分岐、特別処理は作らない
-- buildx builder は CodeBuild の各 Build Images project で `docker-container` driver を作成して使う
+- buildx builder は Build Web Image の CodeBuild project で `docker-container` driver を作成して使う
 - ECR Enhanced Scanning は ECR 側設定として扱い、Pipeline gate にはしない
-- Build Images stage の合否判定は Trivy image scan と docker push 結果で行う
+- Build Web Image stage の合否判定は Trivy image scan と docker push 結果で行う
 - Trivy は image scan のみに限定する
 - Trivy は MEDIUM / HIGH / CRITICAL で fail する
 - Trivy DB cache 専用の永続 cache は作らない
@@ -179,17 +206,22 @@ AWS アカウントへの認証、課金対象リソースの作成、CodeConnec
 
 ## Flyway / DB migration 方針
 
-Phase 2α では、Flyway 実行方式を環境を問わず CLI に統一します。
+Phase 2-beta 以降は、Flyway 実行方式を `db/pom.xml` からの Maven Flyway 実行に統一します。
+Phase 2α-1 から Phase 2α-3 までの migration image / ECS RunTask 記述は履歴として扱い、Phase 2-beta の実装では採用しません。
 
-- AWS dev では、ECS RunTask が migration image 内の Flyway CLI を実行する
-- local では、同じ migration image を `docker compose run --rm migration` で実行し、Docker Compose MySQL に対して Flyway CLI を実行する
-- apps/web 起動時 Flyway は廃止する
-- Spring Boot Flyway AutoConfiguration を migration 実行経路として使わない
-- Maven Flyway plugin を migration 実行経路として使わない
-- apps/web から Spring Boot Flyway 実行依存を削除する
-- Flyway CLI と MySQL driver は migration image 側に閉じ込める
+- SQL 正本は root `db/` 配下に維持する
+- apps/web、apps/api、apps/batch のいずれにも migration 責務を持たせない
+- apps/web 起動時 Flyway は廃止済みであり、Phase 2-beta でも戻さない
+- `apps/web` に Flyway dependency、Flyway plugin、`spring.flyway.*` を追加しない
+- `db/pom.xml` は Spring Boot parent に寄せない Flyway 実行専用の最小 Maven project とする
+- Flyway Maven plugin version と MySQL driver version は `db/pom.xml` 内の property で明示する
+- `db/` には Maven wrapper を置かず、RunMigration CodeBuild では CodeBuild の `mvn` を使う
+- RunMigration stage は `cd db` 後に `mvn -Pdev flyway:migrate` を実行する
+- local 確認では `mvn -Plocal flyway:info` などを使う
+- `db/seed/aws-dev` は `db/seed/dev` にリネームする
+- 既存 DB の `flyway_schema_history` 互換は考慮せず、新規または再作成 DB 前提で扱う
 
-SQL 正本は root `db/` に移します。
+SQL 配置は次に揃えます。
 
 ```text
 db/
@@ -197,74 +229,60 @@ db/
   seed/
     common/
     local/
-    aws-dev/
+    dev/
 ```
 
-migration image には、次をすべて含めます。
-
-- `db/migration`
-- `db/seed/common`
-- `db/seed/local`
-- `db/seed/aws-dev`
-
-実行時の locations だけを環境ごとに切り替えます。
+Maven profile と locations は次に揃えます。
 
 ```text
 local:
-  filesystem:/flyway/sql/migration
-  filesystem:/flyway/sql/seed/common
-  filesystem:/flyway/sql/seed/local
+  filesystem:migration
+  filesystem:seed/common
+  filesystem:seed/local
 
-aws-dev:
-  filesystem:/flyway/sql/migration
-  filesystem:/flyway/sql/seed/common
-  filesystem:/flyway/sql/seed/aws-dev
+dev:
+  filesystem:migration
+  filesystem:seed/common
+  filesystem:seed/dev
 ```
 
-migration container に注入する DB 接続環境変数は、Web と揃えます。
+RunMigration CodeBuild は VPC mode で実行します。
 
-- `WORKOPS_DB_URL`
-- `WORKOPS_DB_USERNAME`
-- `WORKOPS_DB_PASSWORD`
-- `WORKOPS_FLYWAY_LOCATIONS`
+- app private subnet で実行する
+- security group は `migration-sg` を使う
+- RDS への接続は既存の `db-sg` ingress from `migration-sg`:3306 を使う
+- CodeArtifact、STS、Secrets Manager、CloudWatch Logs への外向き通信は `EgressStack` の NAT Gateway 経由とする
+- Interface Endpoint は作らない
+- S3 Gateway Endpoint だけを `FoundationStack` に常設する
 
-Flyway CLI は entrypoint 内で `WORKOPS_DB_*` を `flyway -url`、`-user`、`-password` に渡して実行します。
-`FLYWAY_USER`、`FLYWAY_PASSWORD` は使いません。
-
-Migration RunTask のネットワーク経路は Web ECS Task と同じにします。
-
-- app private subnet で起動する
-- security group は `app-sg` を使う
-- RDS への接続は既存の `db-sg` ingress from `app-sg`:3306 を使う
-- Migration 専用 Security Group は作らない
-- DB Security Group の追加 ingress は作らない
-- CloudShell 経路、別 subnet、NAT 経由の DB 接続は使わない
-- ECR image pull、Secrets Manager、SSM Parameter Store、CloudWatch Logs への通信は、Phase 2 と同じく `EgressStack` の NAT Gateway 経由とする
-
-Migration RunTask stage は、RunTask 起動だけで完了扱いにしません。
-CodeBuild buildspec 内の bash + AWS CLI で次を実行します。
-
-- `aws ecs run-task` で migration task を起動する
-- `run-task` の `failures` が空であることを確認する
-- taskArn を取得する
-- `aws ecs wait tasks-stopped` で停止まで待機する
-- `aws ecs describe-tasks` で `stopCode`、`stoppedReason`、`containers[].exitCode`、`containers[].reason` を確認する
-- migration container の `exitCode` が 0 の場合だけ成功とする
-- `exitCode` が 0 以外、`exitCode` が取れない、`run-task` failures がある、stopCode が異常系の場合は CodeBuild step を失敗させる
+DB 接続値と credential は CodeBuild environment variable と Secrets Manager / SSM Parameter Store から渡します。
+実 DB 値、secret 値、endpoint 実値は git 管理文書に記録しません。
 
 ## Pipeline stage 方針
 
-Phase 2α の Pipeline stage は次の順序に固定します。
+Phase 2-beta 以降の Pipeline stage は次の順序に固定します。
 
 1. Source
 2. Synth
 3. Build & Test
-4. ManualApproval
-5. Deploy Registry
-6. Build Images
-7. Deploy Data / Network / Migration
-8. Migration RunTask
+4. Deploy Permanent
+5. Build Web Image
+6. ManualApproval
+7. Deploy Chargeable / Runtime
+8. RunMigration
 9. Deploy AppRuntime
+
+```mermaid
+flowchart LR
+  Source["Source"] --> Synth["Synth<br/>CodeArtifact npm"]
+  Synth --> BuildTest["Build & Test<br/>npm + Maven via CodeArtifact"]
+  BuildTest --> Permanent["Deploy Permanent"]
+  Permanent --> BuildWeb["Build Web Image<br/>BuildKit secret + CodeArtifact Maven"]
+  BuildWeb --> Approval["ManualApproval"]
+  Approval --> Chargeable["Deploy Chargeable / Runtime"]
+  Chargeable --> Migration["RunMigration<br/>CodeBuild: cd db; mvn -Pdev flyway:migrate"]
+  Migration --> Runtime["Deploy AppRuntimeStack"]
+```
 
 ### Source
 
@@ -276,64 +294,55 @@ file path filter は使いません。
 
 CDK Pipelines の synth を実行します。
 `cdk synth` を実行します。
+Synth を含む CodeBuild step では CodeArtifact を使います。
 
 ### Build & Test
 
 Java と CDK TypeScript の品質ゲートを FAIL mode で実行します。
 2α-1 で整えたローカル用 command / npm script / Maven goal と同じものを CodeBuild でも使います。
+Maven と npm の依存取得は CodeArtifact 経由にします。
 
-### ManualApproval
+### Deploy Permanent
 
-Build Images の前に ManualApproval を置きます。
-承認待ちは CodeStar Notifications + SNS + メールで通知します。
-承認期限は default 7 days とします。
+ManualApproval 前に常設群を deploy します。
+対象は `FoundationStack`、`LogsStack`、`IdentityStack`、`RegistryStack`、`DataPauseStack` とします。
+`DependencyStack` と `PipelineStack` は Top-level / Pipeline 基盤として初回 `cdk deploy --all` と self-mutation の対象にします。
+`WebDeliveryStack` はライフサイクル分類上は常設ですが、`WebIngressStack` の ALB DNS name SSM parameter を deploy 時に解決するため、Pipeline stage 上は `WebIngressStack` 後に配置します。
 
-### Deploy Registry
+### Build Web Image
 
-ManualApproval 後に RegistryStack を deploy します。
-Build Images の前提として、次の 4 repository を作成・更新します。
-
-- `workops-${stage}-web`
-- `workops-${stage}-migration`
-- `workops-${stage}-web-cache`
-- `workops-${stage}-migration-cache`
-
-Build Images stage 前に ECR repository の個別存在確認 step は置きません。
-RegistryStack deploy が失敗すれば Deploy Registry stage で停止し、Build Images stage で push できなければ Build Images stage が失敗します。
-
-### Build Images
-
-Web image と migration image を別々の CodeBuild project に分け、並列実行します。
-1 つの buildspec にまとめません。
-
-- BuildWebImage
-- BuildMigrationImage
-
-両方とも同じ commit SHA tag で push します。
-Web image tag と migration image tag は Pipeline 内で同じ commit SHA として扱います。
-既存の `WORKOPS_WEB_IMAGE_TAG` 単独運用は廃止します。
+ManualApproval 前に Web image を build し、commit SHA tag で ECR に push します。
+Migration image は作りません。
+Docker build 内の Maven 依存取得には CodeArtifact を使い、Maven settings は Docker BuildKit secret で渡します。
 
 ```text
 workops-${stage}-web:${commitSha}
-workops-${stage}-migration:${commitSha}
 ```
 
 cache tag は `buildcache` に固定します。
 
 ```text
 workops-${stage}-web-cache:buildcache
-workops-${stage}-migration-cache:buildcache
 ```
 
-### Deploy Data / Network / Migration
+### ManualApproval
 
-DataStack、EgressStack、EdgeStack、MigrationStack を deploy します。
-MigrationStack は維持対象ですが、migration RunTask 実行に必要な Task Definition をこの stage で確定します。
+Build Web Image の後、課金が始まる手前の唯一の関門として ManualApproval を置きます。
+承認待ちは CodeStar Notifications + SNS + メールで通知します。
+承認期限は default 7 days とします。
 
-### Migration RunTask
+### Deploy Chargeable / Runtime
 
-MigrationStack の Task Definition を ECS RunTask として起動し、Flyway CLI を実行します。
-RunTask の終了まで待機し、exit code 0 の場合だけ次へ進みます。
+ManualApproval 後に、撤去分類、休止分類、stage 配置例外の Stack を deploy / update します。
+対象順序は `EgressStack`、`WebIngressStack`、`WebDeliveryStack`、`DataStack`、`MigrationRunnerStack` とします。
+`WebDeliveryStack` は常設分類ですが、`WebIngressStack` の ALB DNS name SSM parameter を必要とするため、この stage に置きます。
+Pipeline は RDS の通常起動 / 停止運用に関心を持ちません。
+RunMigration は RDS が実行可能状態であることを前提にし、RDS 停止中なら失敗し得ます。
+
+### RunMigration
+
+MigrationRunnerStack の VPC attached CodeBuild project で、Source artifact 内の root `db/` を使って `mvn -Pdev flyway:migrate` を実行します。
+Flyway が成功した場合だけ次へ進みます。
 
 ### Deploy AppRuntime
 
@@ -726,4 +735,3 @@ Cleanup:
 
 P2-alpha-3 着手前に、初回 deploy 手順、Pipeline 自走確認、チェックリスト消化、cleanup 記録の単位で詳細 agent task 分割案を作成します。
 P2-alpha-3 の詳細 task は、P2-alpha-2 完了時点の実装結果に合わせて作成します。
-
