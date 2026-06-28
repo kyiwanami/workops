@@ -208,7 +208,7 @@ flowchart LR
   - dev: `migration`, `seed/common`, `seed/dev`
 - DB 接続値は `WORKOPS_DB_URL` / `WORKOPS_DB_USERNAME` / `WORKOPS_DB_PASSWORD` を使う
 - `WORKOPS_DB_URL` は SSM、username / password は `/workops/${stage}/db/master` の secret JSON から取得する
-- `db/seed/aws-dev` は `db/seed/dev` にリネームし、`aws-dev` 名は残さない
+- 旧 AWS dev 用 seed directory は `db/seed/dev` に統一し、旧 directory 名は残さない
 
 ### Docker build 方針
 

@@ -880,7 +880,7 @@ describe('WorkOps CDK app', () => {
           }),
           Match.objectLike({
             Name: 'WORKOPS_FLYWAY_LOCATIONS',
-            Value: 'filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/aws-dev',
+            Value: 'filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/dev',
           }),
         ]),
       }),

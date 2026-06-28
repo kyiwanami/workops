@@ -21,32 +21,5 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-
-  migration:
-    profiles:
-      - migration
-    image: redgate/flyway:12.9.0
-    working_dir: /workops
-    entrypoint:
-      - /bin/sh
-      - -c
-    command:
-      - >
-        export FLYWAY_URL="$${WORKOPS_DB_URL}"
-        && export FLYWAY_USER="$${WORKOPS_DB_USERNAME}"
-        && export FLYWAY_PASSWORD="$${WORKOPS_DB_PASSWORD}"
-        && export FLYWAY_LOCATIONS="$${WORKOPS_FLYWAY_LOCATIONS}"
-        && /flyway/flyway migrate
-    volumes:
-      - .:/workops
-    depends_on:
-      workops-mysql:
-        condition: service_healthy
-    environment:
-      WORKOPS_DB_URL: jdbc:mysql://workops-mysql:3306/workops?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Tokyo
-      WORKOPS_DB_USERNAME: workops
-      WORKOPS_DB_PASSWORD: workops
-      WORKOPS_FLYWAY_LOCATIONS: filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/local
-
 volumes:
   workops_mysql_data:

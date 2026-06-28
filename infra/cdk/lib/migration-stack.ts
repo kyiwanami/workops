@@ -29,7 +29,7 @@ export class MigrationStack extends Stack {
     super(scope, id, props);
 
     const flywayLocations =
-      'filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/aws-dev';
+      'filesystem:db/migration,filesystem:db/seed/common,filesystem:db/seed/dev';
     const flywayVersion = '12.9.0';
     const flywayDownloadUrl = `https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${flywayVersion}/flyway-commandline-${flywayVersion}-linux-x64.tar.gz`;
     const dbUrlParameter = StringParameter.fromStringParameterName(

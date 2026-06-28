@@ -41,9 +41,10 @@ MVP の実装対象は `apps/web` です。
 
 - Java 25 LTS
 - Docker Desktop
+- Apache Maven
 - PowerShell
 
-Maven は `apps/web/mvnw.cmd` が取得するため、ローカルに Maven を直接インストールする必要はありません。
+`apps/web` は Maven Wrapper を使います。`db/` の Flyway 実行は Maven Wrapper を置かず、ローカルまたは CodeBuild の `mvn` を使います。
 
 ## ローカル DB 起動
 
@@ -76,8 +77,9 @@ jdbc:mysql://localhost:3306/workops?useSSL=false&allowPublicKeyRetrieval=true&se
 
 ## Flyway / seed
 
-Spring Boot 起動時に Flyway が profile 別 locations の migration と seed を適用します。
+DB migration は `db/pom.xml` の Flyway Maven plugin で実行します。
 通常のローカル再現では `local` profile を使い、`db/migration`、`db/seed/common`、`db/seed/local` を読み込みます。
+Pipeline の RunMigration では `dev` profile を使い、`db/migration`、`db/seed/common`、`db/seed/dev` を読み込みます。
 
 | migration | 内容 |
 | --- | --- |
@@ -91,7 +93,7 @@ Spring Boot 起動時に Flyway が profile 別 locations の migration と seed
 | `V8__insert_request_sample_seed.sql` | 申請サンプル |
 
 `local` profile の `V6__insert_users.sql` は固定 `cognito_sub` を持ちます。
-AWS dev 用の `dev` profile は `db/seed/aws-dev/V6__insert_users.sql` を読み込み、`users.cognito_sub` は全件 `NULL` にします。
+AWS dev 用の `dev` profile は `db/seed/dev/V6__insert_users.sql` を読み込み、`users.cognito_sub` は全件 `NULL` にします。
 local と AWS dev の `V6` は同時に読み込まない locations なので、各 profile の適用順はどちらも `V1` から `V8` まで連続します。
 
 local DB を空から作り直す場合は、MySQL ボリュームを削除してから起動します。
@@ -103,10 +105,27 @@ docker compose up -d workops-mysql
 docker compose ps
 ```
 
+local DB へ migration と seed を適用します。
+
+```powershell
+cd C:\git\workops\db
+$env:WORKOPS_DB_URL = "jdbc:mysql://localhost:3306/workops"
+$env:WORKOPS_DB_USERNAME = "workops"
+$env:WORKOPS_DB_PASSWORD = "workops"
+mvn -Plocal flyway:migrate "-Dflyway.url=$env:WORKOPS_DB_URL" "-Dflyway.user=$env:WORKOPS_DB_USERNAME" "-Dflyway.password=$env:WORKOPS_DB_PASSWORD"
+```
+
+適用状況だけ確認する場合は `flyway:info` を使います。
+
+```powershell
+mvn -Plocal flyway:info "-Dflyway.url=$env:WORKOPS_DB_URL" "-Dflyway.user=$env:WORKOPS_DB_USERNAME" "-Dflyway.password=$env:WORKOPS_DB_PASSWORD"
+```
+
 ## Spring Boot 起動
 
 通常の MVP 再現では `local` profile を使います。
 `local` profile では Cognito にリダイレクトせず、DB seed の local 疑似ユーザーを現在ユーザーとして扱います。
+起動前に `db/` の Flyway Maven 手順で local DB へ migration と seed を適用してください。
 
 ```powershell
 cd C:\git\workops\apps\web
@@ -293,7 +312,7 @@ Phase 2β の Pipeline は次の順序で実行します。
 | Deploy Registry | Web / Web cache ECR repository を作成・更新 |
 | Build Images | Web image を commit SHA tag で build / scan / push |
 | Deploy Data / Network / Migration | DB、egress、edge、migration CodeBuild を deploy |
-| RunMigration | Migration CodeBuild project で Flyway を実行 |
+| RunMigration | Migration CodeBuild project で `cd db; mvn -Pdev flyway:migrate` を実行 |
 | Deploy AppRuntime | ECS native Blue/Green で Web runtime を deploy |
 
 ローカルで CDK synth だけ確認する場合は次を使います。

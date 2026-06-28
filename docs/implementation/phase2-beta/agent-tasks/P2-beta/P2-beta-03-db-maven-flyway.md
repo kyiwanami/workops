@@ -7,8 +7,8 @@ DB migration 実行方式を migration image / ECS RunTask から `db/pom.xml` �
 
 ## ユーザー要件
 
-- `db/seed/aws-dev` は `db/seed/dev` にリネームする。
-- `aws-dev` という名前は残さない。
+- 旧 AWS dev 用 seed directory は `db/seed/dev` に統一する。
+- 旧 directory 名は残さない。
 - `db/` に Maven wrapper は置かない。
 - apps/web / apps/api / apps/batch に migration 責務を持たせない。
 - 恒久手順に影響する変更は同じ task 内で README / 開発手順へ反映する。
@@ -65,7 +65,7 @@ DB接続値は実行時に次で渡す。
 
 ## Verification
 
-- `rg` で `aws-dev` が正本として残っていないことを確認する。
+- `rg` で旧 directory 名が正本として残っていないことを確認する。
 - `db/pom.xml` の Maven profile と locations を確認する。
 - local DB が利用可能な場合は `mvn -Plocal flyway:info` 相当を実行する。
 - apps/web に Flyway dependency / plugin / `spring.flyway.*` が追加されていないことを確認する。
@@ -76,4 +76,3 @@ DB接続値は実行時に次で渡す。
 
 - `db/` Maven wrapper は作らない。
 - local DBが利用できない場合は、コマンド手順と未実施理由を記録する。
-
