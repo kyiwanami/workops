@@ -1,9 +1,8 @@
-import { CfnOutput, Fn, Stack, StackProps } from 'aws-cdk-lib';
+import { Stack, StackProps } from 'aws-cdk-lib';
 import { Cluster } from 'aws-cdk-lib/aws-ecs';
 import { IpAddresses, ISubnet, SecurityGroup, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 import { readWorkopsStage, workopsStackName } from './environment';
-import { exportName } from './stack-exports';
 
 export class FoundationStack extends Stack {
   public readonly vpc: Vpc;
@@ -51,9 +50,6 @@ export class FoundationStack extends Stack {
     this.publicSubnets = this.vpc.selectSubnets({ subnetGroupName: 'public' }).subnets;
     this.appSubnets = this.vpc.selectSubnets({ subnetGroupName: 'app' }).subnets;
     this.dbSubnets = this.vpc.selectSubnets({ subnetGroupName: 'db' }).subnets;
-    const appSubnetOne = this.appSubnets[0];
-    const appSubnetTwo = this.appSubnets[1];
-
     // Security groups are named now; traffic rules are added by resource-owning stacks.
     this.albSecurityGroup = new SecurityGroup(this, 'AlbSecurityGroup', {
       vpc: this.vpc,
@@ -84,63 +80,6 @@ export class FoundationStack extends Stack {
     this.ecsCluster = new Cluster(this, 'EcsCluster', {
       vpc: this.vpc,
       clusterName: `workops-${stage}-cluster`,
-    });
-
-    new CfnOutput(this, 'vpcId', {
-      exportName: exportName(stage, 'foundation-vpc-id'),
-      value: this.vpc.vpcId,
-    });
-    new CfnOutput(this, 'publicSubnetIds', {
-      value: Fn.join(
-        ',',
-        this.publicSubnets.map((subnet) => subnet.subnetId),
-      ),
-    });
-    new CfnOutput(this, 'appSubnetIds', {
-      value: Fn.join(
-        ',',
-        this.appSubnets.map((subnet) => subnet.subnetId),
-      ),
-    });
-    new CfnOutput(this, 'appSubnetOneId', {
-      exportName: exportName(stage, 'foundation-app-subnet-one-id'),
-      value: appSubnetOne.subnetId,
-    });
-    new CfnOutput(this, 'appSubnetTwoId', {
-      exportName: exportName(stage, 'foundation-app-subnet-two-id'),
-      value: appSubnetTwo.subnetId,
-    });
-    new CfnOutput(this, 'appSubnetOneRouteTableId', {
-      exportName: exportName(stage, 'foundation-app-subnet-one-route-table-id'),
-      value: appSubnetOne.routeTable.routeTableId,
-    });
-    new CfnOutput(this, 'appSubnetTwoRouteTableId', {
-      exportName: exportName(stage, 'foundation-app-subnet-two-route-table-id'),
-      value: appSubnetTwo.routeTable.routeTableId,
-    });
-    new CfnOutput(this, 'dbSubnetIds', {
-      value: Fn.join(
-        ',',
-        this.dbSubnets.map((subnet) => subnet.subnetId),
-      ),
-    });
-    new CfnOutput(this, 'ecsClusterName', {
-      exportName: exportName(stage, 'foundation-ecs-cluster-name'),
-      value: this.ecsCluster.clusterName,
-    });
-    new CfnOutput(this, 'albSecurityGroupId', {
-      exportName: exportName(stage, 'foundation-alb-security-group-id'),
-      value: this.albSecurityGroup.securityGroupId,
-    });
-    new CfnOutput(this, 'appSecurityGroupId', {
-      exportName: exportName(stage, 'foundation-app-security-group-id'),
-      value: this.appSecurityGroup.securityGroupId,
-    });
-    new CfnOutput(this, 'dbSecurityGroupId', {
-      value: this.dbSecurityGroup.securityGroupId,
-    });
-    new CfnOutput(this, 'migrationSecurityGroupId', {
-      value: this.migrationSecurityGroup.securityGroupId,
     });
   }
 }

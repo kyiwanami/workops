@@ -1,4 +1,4 @@
-import { Aws, CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { Aws, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import {
   BuildEnvironmentVariableType,
   BuildSpec,
@@ -23,7 +23,6 @@ export interface MigrationRunnerStackProps extends StackProps {
 
 export class MigrationRunnerStack extends Stack {
   public readonly migrationProject: PipelineProject;
-  public readonly migrationProjectNameOutput: CfnOutput;
 
   constructor(scope: Construct, id: string, props: MigrationRunnerStackProps) {
     const stage = readWorkopsStage(scope);
@@ -123,10 +122,6 @@ export class MigrationRunnerStack extends Stack {
         ],
       }),
     );
-
-    this.migrationProjectNameOutput = new CfnOutput(this, 'migrationProjectName', {
-      value: this.migrationProject.projectName,
-    });
   }
 
   private createCodeArtifactPolicyStatements(stage: string): PolicyStatement[] {

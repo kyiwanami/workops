@@ -1,8 +1,7 @@
-import { CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { readWorkopsStage, workopsStackName } from './environment';
-import { exportName } from './stack-exports';
 
 export class LogsStack extends Stack {
   public readonly webLogGroup: LogGroup;
@@ -54,26 +53,6 @@ export class LogsStack extends Stack {
       logGroupName: `/workops/${stage}/data-pause/stop-marked-db`,
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    new CfnOutput(this, 'webLogGroupName', {
-      exportName: exportName(stage, 'logs-web-log-group-name'),
-      value: this.webLogGroup.logGroupName,
-    });
-    new CfnOutput(this, 'migrationLogGroupName', {
-      value: this.migrationLogGroup.logGroupName,
-    });
-    new CfnOutput(this, 'cognitoClientUrlUpdaterLogGroupName', {
-      value: this.cognitoClientUrlUpdaterLogGroup.logGroupName,
-    });
-    new CfnOutput(this, 'cognitoClientUrlUpdaterProviderLogGroupName', {
-      value: this.cognitoClientUrlUpdaterProviderLogGroup.logGroupName,
-    });
-    new CfnOutput(this, 'dataPauseMarkAutoRestartLogGroupName', {
-      value: this.dataPauseMarkAutoRestartLogGroup.logGroupName,
-    });
-    new CfnOutput(this, 'dataPauseStopMarkedDbLogGroupName', {
-      value: this.dataPauseStopMarkedDbLogGroup.logGroupName,
     });
   }
 }

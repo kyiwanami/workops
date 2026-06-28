@@ -143,24 +143,6 @@ export class DataStack extends Stack {
       stringValue: `jdbc:mysql://${this.endpointAddress}:${this.databasePort}/${this.databaseName}?useSSL=true&serverTimezone=Asia/Tokyo`,
     });
 
-    new CfnOutput(this, 'rdsInstanceIdentifier', {
-      value: this.instance.instanceIdentifier,
-    });
-    new CfnOutput(this, 'rdsEndpointAddress', {
-      value: this.endpointAddress,
-    });
-    new CfnOutput(this, 'rdsPort', {
-      value: this.databasePort,
-    });
-    new CfnOutput(this, 'databaseName', {
-      value: this.databaseName,
-    });
-    new CfnOutput(this, 'dbSubnetGroupName', {
-      value: this.subnetGroup.subnetGroupName,
-    });
-    new CfnOutput(this, 'rdsMasterSecretArn', {
-      value: masterSecret.secretArn,
-    });
     new CfnOutput(this, 'rdsConsoleCloudShellSecurityGroupId', {
       value: this.rdsConsoleCloudShellSecurityGroup.securityGroupId,
     });

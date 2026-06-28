@@ -1,4 +1,4 @@
-import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Repository, TagMutability, TagStatus } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
 import { readWorkopsStage, workopsStackName } from './environment';
@@ -22,9 +22,6 @@ export class RegistryStack extends Stack {
       'WebCacheRepository',
       `workops-${stage}-web-cache`,
     );
-
-    this.outputRepository('webRepository', this.webRepository);
-    this.outputRepository('webCacheRepository', this.webCacheRepository);
   }
 
   private createImageRepository(id: string, repositoryName: string): Repository {
@@ -68,15 +65,6 @@ export class RegistryStack extends Stack {
           maxImageAge: Duration.days(1),
         },
       ],
-    });
-  }
-
-  private outputRepository(outputPrefix: string, repository: Repository): void {
-    new CfnOutput(this, `${outputPrefix}Name`, {
-      value: repository.repositoryName,
-    });
-    new CfnOutput(this, `${outputPrefix}Uri`, {
-      value: repository.repositoryUri,
     });
   }
 }

@@ -1,4 +1,4 @@
-import { Aws, CfnOutput, Fn, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { Aws, Fn, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import {
   AccountRecovery,
   CfnManagedLoginBranding,
@@ -12,7 +12,6 @@ import {
 } from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 import { readWorkopsStage, workopsStackName } from './environment';
-import { exportName } from './stack-exports';
 
 function managedLoginSettings(
   primaryColor: string,
@@ -179,23 +178,6 @@ export class IdentityStack extends Stack {
     this.tenantUserPoolClientId = this.tenantUserPoolClient.userPoolClientId;
     this.hostedUiDomainBaseUrl = Fn.sub('https://${Domain}.auth.${AWS::Region}.amazoncognito.com', {
       Domain: this.userPoolDomain.domainName,
-    });
-
-    new CfnOutput(this, 'userPoolId', {
-      exportName: exportName(stage, 'identity-user-pool-id'),
-      value: this.userPoolId,
-    });
-    new CfnOutput(this, 'platformUserPoolClientId', {
-      exportName: exportName(stage, 'identity-platform-user-pool-client-id'),
-      value: this.platformUserPoolClientId,
-    });
-    new CfnOutput(this, 'tenantUserPoolClientId', {
-      exportName: exportName(stage, 'identity-tenant-user-pool-client-id'),
-      value: this.tenantUserPoolClientId,
-    });
-    new CfnOutput(this, 'hostedUiDomainBaseUrl', {
-      exportName: exportName(stage, 'identity-hosted-ui-domain-base-url'),
-      value: this.hostedUiDomainBaseUrl,
     });
   }
 }

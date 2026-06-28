@@ -121,10 +121,6 @@ export class WebDeliveryStack extends Stack {
         CloudFrontDomainName: this.cloudFrontDomainName,
       },
     });
-
-    new CfnOutput(this, 'cloudFrontDomainName', {
-      value: this.cloudFrontDomainName,
-    });
     new CfnOutput(this, 'cloudFrontHttpsUrl', {
       value: this.cloudFrontHttpsUrl,
     });

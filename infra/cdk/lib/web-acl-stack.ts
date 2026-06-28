@@ -1,4 +1,4 @@
-import { CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { CfnLoggingConfiguration, CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
@@ -58,10 +58,6 @@ export class WebAclStack extends Stack {
     new CfnLoggingConfiguration(this, 'WafLoggingConfiguration', {
       logDestinationConfigs: [logGroup.logGroupArn],
       resourceArn: webAcl.attrArn,
-    });
-
-    new CfnOutput(this, 'webAclArn', {
-      value: this.webAclArn,
     });
   }
 }

@@ -1,4 +1,4 @@
-import { CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import {
   AwsCustomResource,
   AwsCustomResourcePolicy,
@@ -84,16 +84,6 @@ export class WebIngressStack extends Stack {
       `/workops/${stage}/web-ingress/origin/alb-security-group-id`,
       props.albSecurityGroup.securityGroupId,
     );
-
-    new CfnOutput(this, 'albDnsName', {
-      value: this.loadBalancer.loadBalancerDnsName,
-    });
-    new CfnOutput(this, 'listenerArn', {
-      value: this.listener.listenerArn,
-    });
-    new CfnOutput(this, 'loadBalancerFullName', {
-      value: this.loadBalancer.loadBalancerFullName,
-    });
   }
 
   private createParameter(id: string, parameterName: string, stringValue: string): void {
