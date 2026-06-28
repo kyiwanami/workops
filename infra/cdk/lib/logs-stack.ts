@@ -12,6 +12,8 @@ export class LogsStack extends Stack {
   public readonly migrationLogGroup: LogGroup;
   public readonly cognitoClientUrlUpdaterLogGroup: LogGroup;
   public readonly cognitoClientUrlUpdaterProviderLogGroup: LogGroup;
+  public readonly dataPauseMarkAutoRestartLogGroup: LogGroup;
+  public readonly dataPauseStopMarkedDbLogGroup: LogGroup;
 
   constructor(scope: Construct, id: string, props: LogsStackProps) {
     super(scope, id, props);
@@ -42,6 +44,16 @@ export class LogsStack extends Stack {
         removalPolicy: RemovalPolicy.DESTROY,
       },
     );
+    this.dataPauseMarkAutoRestartLogGroup = new LogGroup(this, 'DataPauseMarkAutoRestartLogGroup', {
+      logGroupName: `/workops/${props.stage}/data-pause/mark-auto-restart`,
+      retention: RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    this.dataPauseStopMarkedDbLogGroup = new LogGroup(this, 'DataPauseStopMarkedDbLogGroup', {
+      logGroupName: `/workops/${props.stage}/data-pause/stop-marked-db`,
+      retention: RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
 
     new CfnOutput(this, 'webLogGroupName', {
       exportName: exportName(props.stage, 'logs-web-log-group-name'),
@@ -55,6 +67,12 @@ export class LogsStack extends Stack {
     });
     new CfnOutput(this, 'cognitoClientUrlUpdaterProviderLogGroupName', {
       value: this.cognitoClientUrlUpdaterProviderLogGroup.logGroupName,
+    });
+    new CfnOutput(this, 'dataPauseMarkAutoRestartLogGroupName', {
+      value: this.dataPauseMarkAutoRestartLogGroup.logGroupName,
+    });
+    new CfnOutput(this, 'dataPauseStopMarkedDbLogGroupName', {
+      value: this.dataPauseStopMarkedDbLogGroup.logGroupName,
     });
   }
 }

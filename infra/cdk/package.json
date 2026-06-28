@@ -11,9 +11,11 @@
     "format:write": "prettier --write ."
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.162",
     "@types/jest": "^30",
     "@types/node": "^24.10.1",
     "aws-cdk": "2.1126.0",
+    "aws-sdk-client-mock": "^4.1.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.5.0",
     "jest": "^30",
@@ -25,6 +27,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.1070.0",
+    "@aws-sdk/client-rds": "^3.1075.0",
+    "@aws-sdk/client-ssm": "^3.1075.0",
     "aws-cdk-lib": "^2.238.0",
     "constructs": "^10.0.0"
   }

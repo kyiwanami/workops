@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { Construct } from 'constructs';
 import { AppRuntimeStack } from '../lib/app-runtime-stack';
+import { DataPauseStack } from '../lib/data-pause-stack';
 import { DataStack } from '../lib/data-stack';
 import { DependencyStack } from '../lib/dependency-stack';
 import { EgressStack } from '../lib/egress-stack';
@@ -77,6 +78,13 @@ describe('WorkOps CDK app', () => {
       env: testEnv,
       stage,
       stackName: `workops-${stage}-logs`,
+    });
+    const dataPauseStack = new DataPauseStack(app, 'DataPauseStack', {
+      env: testEnv,
+      markAutoRestartLogGroup: logsStack.dataPauseMarkAutoRestartLogGroup,
+      stage,
+      stackName: `workops-${stage}-data-pause`,
+      stopMarkedDbLogGroup: logsStack.dataPauseStopMarkedDbLogGroup,
     });
     const migrationRunnerStack = new MigrationRunnerStack(app, 'MigrationRunnerStack', {
       appSubnets: foundationStack.appSubnets,
@@ -153,6 +161,7 @@ describe('WorkOps CDK app', () => {
     expect(identityStack.stackName).toBe('workops-dev-identity');
     expect(registryStack.stackName).toBe('workops-dev-registry');
     expect(logsStack.stackName).toBe('workops-dev-logs');
+    expect(dataPauseStack.stackName).toBe('workops-dev-data-pause');
     expect(migrationRunnerStack.stackName).toBe('workops-dev-migration-runner');
     expect(egressStack.stackName).toBe('workops-dev-egress');
     expect(webAclStack.stackName).toBe('workops-dev-web-acl');
@@ -511,7 +520,7 @@ describe('WorkOps CDK app', () => {
         Type: 'ARM_CONTAINER',
       }),
     });
-    template.resourceCountIs('AWS::CodeBuild::Project', 9);
+    template.resourceCountIs('AWS::CodeBuild::Project', 11);
     expect(templateText).toContain('ec2:DescribeAvailabilityZones');
     expect(templateText).not.toContain('ec2:DescribeManagedPrefixLists');
     expect(templateText).not.toContain('ec2:GetManagedPrefixListEntries');
@@ -553,6 +562,9 @@ describe('WorkOps CDK app', () => {
           Actions: Match.arrayWith([
             Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-web-acl.Prepare'),
+            }),
+            Match.objectLike({
+              Name: Match.stringLikeRegexp('workops-dev-data-pause.Prepare'),
             }),
             Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-data.Prepare'),
@@ -978,7 +990,7 @@ describe('WorkOps CDK app', () => {
     });
     const template = Template.fromStack(logsStack);
 
-    template.resourceCountIs('AWS::Logs::LogGroup', 4);
+    template.resourceCountIs('AWS::Logs::LogGroup', 6);
     template.hasResourceProperties('AWS::Logs::LogGroup', {
       LogGroupName: '/workops/dev/web',
       RetentionInDays: 7,
@@ -993,6 +1005,14 @@ describe('WorkOps CDK app', () => {
     });
     template.hasResourceProperties('AWS::Logs::LogGroup', {
       LogGroupName: '/workops/dev/lambda/cognito-client-url-updater-provider',
+      RetentionInDays: 7,
+    });
+    template.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: '/workops/dev/data-pause/mark-auto-restart',
+      RetentionInDays: 7,
+    });
+    template.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: '/workops/dev/data-pause/stop-marked-db',
       RetentionInDays: 7,
     });
     template.hasResource('AWS::Logs::LogGroup', {
@@ -1023,6 +1043,20 @@ describe('WorkOps CDK app', () => {
       DeletionPolicy: 'Delete',
       UpdateReplacePolicy: 'Delete',
     });
+    template.hasResource('AWS::Logs::LogGroup', {
+      Properties: {
+        LogGroupName: '/workops/dev/data-pause/mark-auto-restart',
+      },
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    template.hasResource('AWS::Logs::LogGroup', {
+      Properties: {
+        LogGroupName: '/workops/dev/data-pause/stop-marked-db',
+      },
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
     template.hasOutput('webLogGroupName', {
       Export: {
         Name: 'workops-dev-logs-web-log-group-name',
@@ -1031,6 +1065,188 @@ describe('WorkOps CDK app', () => {
     template.hasOutput('migrationLogGroupName', {});
     template.hasOutput('cognitoClientUrlUpdaterLogGroupName', {});
     template.hasOutput('cognitoClientUrlUpdaterProviderLogGroupName', {});
+    template.hasOutput('dataPauseMarkAutoRestartLogGroupName', {});
+    template.hasOutput('dataPauseStopMarkedDbLogGroupName', {});
+  });
+
+  test('creates the DataPauseStack RDS event handlers and alarms', () => {
+    const app = new App();
+    const stage = 'dev';
+    const logsStack = new LogsStack(app, 'LogsStack', {
+      env: testEnv,
+      stage,
+      stackName: `workops-${stage}-logs`,
+    });
+    const dataPauseStack = new DataPauseStack(app, 'DataPauseStack', {
+      env: testEnv,
+      markAutoRestartLogGroup: logsStack.dataPauseMarkAutoRestartLogGroup,
+      stage,
+      stackName: `workops-${stage}-data-pause`,
+      stopMarkedDbLogGroup: logsStack.dataPauseStopMarkedDbLogGroup,
+    });
+    const template = Template.fromStack(dataPauseStack);
+    const templateText = JSON.stringify(template.toJSON());
+
+    template.resourceCountIs('AWS::Events::Rule', 2);
+    template.resourceCountIs('AWS::Lambda::Function', 2);
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 2);
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'workops-dev-data-pause-mark-auto-restart',
+      Handler: 'index.handler',
+      Runtime: 'nodejs24.x',
+      Environment: {
+        Variables: {
+          WORKOPS_STAGE: 'dev',
+        },
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'workops-dev-data-pause-stop-marked-db',
+      Handler: 'index.handler',
+      Runtime: 'nodejs24.x',
+      Environment: {
+        Variables: {
+          WORKOPS_STAGE: 'dev',
+        },
+      },
+    });
+    expect(templateText).toContain('DataPauseMarkAutoRestartLogGroup');
+    expect(templateText).toContain('DataPauseStopMarkedDbLogGroup');
+    template.hasResourceProperties('AWS::Events::Rule', {
+      Name: 'workops-dev-data-pause-mark-auto-restart',
+      EventPattern: {
+        source: ['aws.rds'],
+        'detail-type': ['RDS DB Instance Event'],
+        detail: {
+          EventID: ['RDS-EVENT-0154'],
+          SourceIdentifier: [
+            {
+              exists: true,
+            },
+          ],
+        },
+      },
+      Targets: Match.arrayWith([
+        Match.objectLike({
+          Arn: {
+            'Fn::GetAtt': [Match.stringLikeRegexp('MarkAutoRestartFunction'), 'Arn'],
+          },
+        }),
+      ]),
+    });
+    template.hasResourceProperties('AWS::Events::Rule', {
+      Name: 'workops-dev-data-pause-stop-marked-db',
+      EventPattern: {
+        source: ['aws.rds'],
+        'detail-type': ['RDS DB Instance Event'],
+        detail: {
+          EventID: ['RDS-EVENT-0088'],
+          SourceIdentifier: [
+            {
+              exists: true,
+            },
+          ],
+        },
+      },
+      Targets: Match.arrayWith([
+        Match.objectLike({
+          Arn: {
+            'Fn::GetAtt': [Match.stringLikeRegexp('StopMarkedDbFunction'), 'Arn'],
+          },
+        }),
+      ]),
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'ssm:PutParameter',
+            Resource: {
+              'Fn::Join': [
+                '',
+                [
+                  'arn:',
+                  {
+                    Ref: 'AWS::Partition',
+                  },
+                  ':ssm:ap-northeast-1:123456789012:parameter/workops/dev/data-pause/*',
+                ],
+              ],
+            },
+          }),
+        ]),
+      },
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['ssm:GetParameter', 'ssm:DeleteParameter']),
+            Resource: {
+              'Fn::Join': [
+                '',
+                [
+                  'arn:',
+                  {
+                    Ref: 'AWS::Partition',
+                  },
+                  ':ssm:ap-northeast-1:123456789012:parameter/workops/dev/data-pause/*',
+                ],
+              ],
+            },
+          }),
+          Match.objectLike({
+            Action: 'rds:StopDBInstance',
+            Resource: {
+              'Fn::Join': [
+                '',
+                [
+                  'arn:',
+                  {
+                    Ref: 'AWS::Partition',
+                  },
+                  ':rds:ap-northeast-1:123456789012:db:workops-dev-db',
+                ],
+              ],
+            },
+          }),
+        ]),
+      },
+    });
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'workops-dev-data-pause-mark-auto-restart-errors',
+      ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+      DatapointsToAlarm: 1,
+      EvaluationPeriods: 1,
+      MetricName: 'Errors',
+      Namespace: 'AWS/Lambda',
+      Period: 60,
+      Statistic: 'Sum',
+      Threshold: 1,
+      TreatMissingData: 'notBreaching',
+      AlarmActions: Match.arrayWith([
+        {
+          Ref: Match.stringLikeRegexp(
+            'SsmParameterValueworkopsdevdependenciesnotificationsopstopicarn',
+          ),
+        },
+      ]),
+    });
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'workops-dev-data-pause-stop-marked-db-errors',
+      AlarmActions: Match.arrayWith([
+        {
+          Ref: Match.stringLikeRegexp(
+            'SsmParameterValueworkopsdevdependenciesnotificationsopstopicarn',
+          ),
+        },
+      ]),
+    });
+    expect(templateText).toContain('/workops/dev/dependencies/notifications/ops-topic-arn');
+    expect(templateText).not.toContain('LookupEvents');
+    expect(templateText).not.toContain('RDS-EVENT-0087');
+    expect(templateText).not.toContain('DescribeDBInstances');
+    expect(templateText).not.toContain('ScheduleExpression');
   });
 
   test('creates the P2-3 EgressStack NAT route for app subnets', () => {

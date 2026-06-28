@@ -47,6 +47,7 @@ import {
 import { Construct } from 'constructs';
 import { AppRuntimeStack } from './app-runtime-stack';
 import { RuntimeResources } from './app-runtime-stack';
+import { DataPauseStack } from './data-pause-stack';
 import { DataStack } from './data-stack';
 import { EgressStack } from './egress-stack';
 import { FoundationStack } from './foundation-stack';
@@ -191,6 +192,13 @@ class DataNetworkMigrationDeployStage extends Stage {
       stage: props.stage,
       stackName: `workops-${props.stage}-logs`,
     });
+    const dataPauseStack = new DataPauseStack(this, 'DataPauseStack', {
+      env: props.env,
+      markAutoRestartLogGroup: logsStack.dataPauseMarkAutoRestartLogGroup,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-data-pause`,
+      stopMarkedDbLogGroup: logsStack.dataPauseStopMarkedDbLogGroup,
+    });
     const egressStack = new EgressStack(this, 'EgressStack', {
       appSubnets: foundationStack.appSubnets,
       env: props.env,
@@ -250,6 +258,7 @@ class DataNetworkMigrationDeployStage extends Stage {
     webDeliveryStack.addDependency(webIngressStack);
     webDeliveryStack.addDependency(identityStack);
     webDeliveryStack.addDependency(logsStack);
+    dataPauseStack.addDependency(logsStack);
     this.migrationRunnerStack.addDependency(dataStack);
     this.migrationRunnerStack.addDependency(egressStack);
     this.migrationRunnerStack.addDependency(logsStack);
