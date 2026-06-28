@@ -174,6 +174,9 @@ export class PipelineStack extends Stack {
     const buildAndTestStep = new CodeBuildStep('BuildAndTest', {
       buildEnvironment,
       commands: [],
+      env: {
+        TESTCONTAINERS_RYUK_DISABLED: 'true',
+      },
       input: source,
       rolePolicyStatements: codeArtifactPolicyStatements,
       partialBuildSpec: BuildSpec.fromObject({

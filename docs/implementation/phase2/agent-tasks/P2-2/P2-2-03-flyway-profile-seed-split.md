@@ -70,7 +70,7 @@ AWS dev の RDS for MySQL 8.4 LTS に対して、`apps/web` 起動時 Flyway で
 - 既存 V2 から V5 の seed 内容は、実装時に内容を見て `common` / `local` / `aws-dev` へ分解する
 - Flyway version番号は local profile と dev profile の active locations それぞれで `V1` から `V8` まで連続させる
 - `db/seed/local/V6__insert_users.sql` と `db/seed/aws-dev/V6__insert_users.sql` は同時に読み込まない
-- Testcontainers MySQL image が `mysql:8.4` であることを確認する
+- Testcontainers MySQL image は `mysql:8.4` compatible substitute として ECR Public mirror を使うことを確認する
 - Docker Compose MySQL image が `mysql:8.4` であることを確認する
 - local と Testcontainers で既存テストが通る構成を維持する
 

@@ -339,6 +339,7 @@ describe('WorkOps CDK pipeline', () => {
     expect(templateText).toContain('$(cat');
     expect(templateText).toContain('./mvnw --settings');
     expect(templateText).toContain('WORKOPS_MAVEN_SETTINGS_PATH');
+    expect(templateText).toContain('TESTCONTAINERS_RYUK_DISABLED');
     expect(templateText).toContain('spotless:check');
     expect(templateText).toContain('compile spotbugs:check');
     expect(templateText).toContain('verify');

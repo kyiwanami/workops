@@ -150,6 +150,7 @@ P2-3 手動 deploy 用 image tag は `workops-web:p2-3-manual`、ローカル確
 - Pipeline では Docker Hub 匿名 pull に依存せず、AWS 側 registry と Amazon Corretto を Java 25 の base image 方針として採用する。
 - CodeArtifact は Maven / npm dependency 管理に使い、Docker base image は container registry 管理として扱う。
 - Amazon Linux 2023 minimal の runtime stage は `microdnf`、Amazon Corretto AL2023 の build stage は `dnf` を使う。local Docker build で package manager と Maven Wrapper 必須コマンドを確認し、Dockerfile に反映した。
+- Pipeline の Maven integration test も Docker Hub 匿名 pull に依存しない。Testcontainers MySQL は ECR Public mirror を `mysql` compatible substitute として使い、CodeBuild の使い捨て build host では Ryuk を無効化する。
 
 ### 確認結果
 

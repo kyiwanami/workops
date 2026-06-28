@@ -102,7 +102,10 @@ abstract class MapperIntegrationTestBase {
   @SuppressWarnings("resource")
   private static MySQLContainer createMysqlContainer() {
     configureDockerClientStrategy();
-    return new MySQLContainer(DockerImageName.parse("mysql:8.4"))
+    DockerImageName mysqlImage =
+        DockerImageName.parse("public.ecr.aws/docker/library/mysql:8.4")
+            .asCompatibleSubstituteFor("mysql");
+    return new MySQLContainer(mysqlImage)
         .withDatabaseName("workops")
         .withUsername("workops")
         .withPassword("workops")
