@@ -2,16 +2,17 @@ import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { CfnLoggingConfiguration, CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
+import { readStage, stackName } from '../shared/environment';
+import { createParameter } from '../shared/ssm-parameters';
 
 export class WebAclStack extends Stack {
   public readonly webAclArn: string;
 
   constructor(scope: Construct, id: string, props: StackProps) {
-    const stage = readWorkopsStage(scope);
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'web-acl'),
+      stackName: stackName(scope, 'web-acl'),
     });
 
     // WebAcl starts in Count mode so Phase 2-beta observes managed rule matches without blocking traffic.
@@ -48,6 +49,12 @@ export class WebAclStack extends Stack {
       ],
     });
     this.webAclArn = webAcl.attrArn;
+    createParameter(
+      this,
+      'CloudFrontWebAclArnParameter',
+      'web-acl/cloudfront-web-acl-arn',
+      this.webAclArn,
+    );
 
     // TODO: Split stage-specific WAF log retention and destination handling when stage policy is settled.
     const logGroup = new LogGroup(this, 'WafLogGroup', {
@@ -60,4 +67,5 @@ export class WebAclStack extends Stack {
       resourceArn: webAcl.attrArn,
     });
   }
+
 }

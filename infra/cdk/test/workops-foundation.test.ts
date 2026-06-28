@@ -16,9 +16,6 @@ import { WebIngressStack } from '../lib/web/web-ingress-stack';
 import {
   TaggedResourceStack,
   createTestApp,
-  testCognitoPlatformUserPoolClientId,
-  testCognitoTenantUserPoolClientId,
-  testCognitoUserPoolId,
   testEnv,
   testOpsNotificationEmail,
   testWebImageTag,
@@ -36,12 +33,7 @@ describe('WorkOps CDK foundation stacks', () => {
       notificationEmail: testOpsNotificationEmail,
     });
     const dataStack = new DataStack(app, 'DataStack', {
-      appSecurityGroup: foundationStack.appSecurityGroup,
-      dbSecurityGroup: foundationStack.dbSecurityGroup,
-      dbSubnets: foundationStack.dbSubnets,
       env: testEnv,
-      migrationSecurityGroup: foundationStack.migrationSecurityGroup,
-      vpc: foundationStack.vpc,
     });
     const identityStack = new IdentityStack(app, 'IdentityStack', {
       env: testEnv,
@@ -58,17 +50,10 @@ describe('WorkOps CDK foundation stacks', () => {
       stopMarkedDbLogGroup: logsStack.dataPauseStopMarkedDbLogGroup,
     });
     const migrationRunnerStack = new MigrationRunnerStack(app, 'MigrationRunnerStack', {
-      appSubnets: foundationStack.appSubnets,
       env: testEnv,
-      migrationSecurityGroup: foundationStack.migrationSecurityGroup,
-      migrationLogGroup: logsStack.migrationLogGroup,
-      vpc: foundationStack.vpc,
     });
     const egressStack = new EgressStack(app, 'EgressStack', {
-      appSubnets: foundationStack.appSubnets,
       env: testEnv,
-      publicSubnets: foundationStack.publicSubnets,
-      vpc: foundationStack.vpc,
     });
     const webAclStack = new WebAclStack(app, 'WebAclStack', {
       crossRegionReferences: true,
@@ -78,39 +63,14 @@ describe('WorkOps CDK foundation stacks', () => {
       },
     });
     const webIngressStack = new WebIngressStack(app, 'WebIngressStack', {
-      albSecurityGroup: foundationStack.albSecurityGroup,
-      appSubnets: foundationStack.appSubnets,
       env: testEnv,
-      vpc: foundationStack.vpc,
     });
     const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
-      cognitoPlatformUserPoolClientId: testCognitoPlatformUserPoolClientId,
-      cognitoTenantUserPoolClientId: testCognitoTenantUserPoolClientId,
-      cognitoUserPoolId: testCognitoUserPoolId,
-      cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
-      cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
       crossRegionReferences: true,
       env: testEnv,
-      webAclArn: webAclStack.webAclArn,
     });
     const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
       env: testEnv,
-      runtimeResources: {
-        albSecurityGroup: foundationStack.albSecurityGroup,
-        appSecurityGroup: foundationStack.appSecurityGroup,
-        appSubnets: foundationStack.appSubnets,
-        cloudFrontHttpsUrl: webDeliveryStack.cloudFrontHttpsUrl,
-        cluster: foundationStack.ecsCluster,
-        cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
-        cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
-        cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
-        cognitoUserPoolId: identityStack.userPoolId,
-        listener: webIngressStack.listener,
-        loadBalancerFullName: webIngressStack.loadBalancer.loadBalancerFullName,
-        repository: registryStack.webRepository,
-        vpc: foundationStack.vpc,
-        webLogGroup: logsStack.webLogGroup,
-      },
       webImageTag: testWebImageTag,
     });
 

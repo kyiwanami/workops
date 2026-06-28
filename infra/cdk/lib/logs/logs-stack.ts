@@ -1,7 +1,7 @@
 import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { FilterPattern, LogGroup, MetricFilter, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
+import { readStage, stackName, stagePath } from '../shared/environment';
 
 interface SecurityMetric {
   id: string;
@@ -52,26 +52,26 @@ export class LogsStack extends Stack {
   public readonly dataPauseStopMarkedDbLogGroup: LogGroup;
 
   constructor(scope: Construct, id: string, props: StackProps) {
-    const stage = readWorkopsStage(scope);
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'logs'),
+      stackName: stackName(scope, 'logs'),
     });
 
     // Runtime stacks can be replaced while these short-retention logs remain available.
     this.webLogGroup = new LogGroup(this, 'WebLogGroup', {
-      logGroupName: `/workops/${stage}/web`,
+      logGroupName: stagePath(this, 'web'),
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });
     this.migrationLogGroup = new LogGroup(this, 'MigrationLogGroup', {
-      logGroupName: `/workops/${stage}/migration`,
+      logGroupName: stagePath(this, 'migration'),
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });
     // Lambda logs are owned outside runtime stacks to avoid recreation races during WebDeliveryStack replacement.
     this.cognitoClientUrlUpdaterLogGroup = new LogGroup(this, 'CognitoClientUrlUpdaterLogGroup', {
-      logGroupName: `/workops/${stage}/lambda/cognito-client-url-updater`,
+      logGroupName: stagePath(this, 'lambda/cognito-client-url-updater'),
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -79,18 +79,18 @@ export class LogsStack extends Stack {
       this,
       'CognitoClientUrlUpdaterProviderLogGroup',
       {
-        logGroupName: `/workops/${stage}/lambda/cognito-client-url-updater-provider`,
+        logGroupName: stagePath(this, 'lambda/cognito-client-url-updater-provider'),
         retention: RetentionDays.ONE_WEEK,
         removalPolicy: RemovalPolicy.DESTROY,
       },
     );
     this.dataPauseMarkAutoRestartLogGroup = new LogGroup(this, 'DataPauseMarkAutoRestartLogGroup', {
-      logGroupName: `/workops/${stage}/data-pause/mark-auto-restart`,
+      logGroupName: stagePath(this, 'data-pause/mark-auto-restart'),
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });
     this.dataPauseStopMarkedDbLogGroup = new LogGroup(this, 'DataPauseStopMarkedDbLogGroup', {
-      logGroupName: `/workops/${stage}/data-pause/stop-marked-db`,
+      logGroupName: stagePath(this, 'data-pause/stop-marked-db'),
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });

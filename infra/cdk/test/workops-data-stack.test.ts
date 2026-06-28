@@ -1,23 +1,13 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { DataStack } from '../lib/data/data-stack';
-import { FoundationStack } from '../lib/foundation/foundation-stack';
 import { createTestApp } from './workops-test-fixtures';
 
 describe('WorkOps CDK data stack', () => {
   test('creates the DataStack database resources', () => {
     const stage = 'dev';
     const app = createTestApp(stage);
-    const foundationStack = new FoundationStack(app, 'FoundationStack', {
-    });
-    const dataStack = new DataStack(app, 'DataStack', {
-      appSecurityGroup: foundationStack.appSecurityGroup,
-      dbSecurityGroup: foundationStack.dbSecurityGroup,
-      dbSubnets: foundationStack.dbSubnets,
-      migrationSecurityGroup: foundationStack.migrationSecurityGroup,
-      vpc: foundationStack.vpc,
-    });
+    const dataStack = new DataStack(app, 'DataStack', {});
     const dataTemplate = Template.fromStack(dataStack);
-    const foundationTemplate = Template.fromStack(foundationStack);
     const dataTemplateText = JSON.stringify(dataTemplate.toJSON());
 
     dataTemplate.resourceCountIs('AWS::RDS::DBInstance', 1);
@@ -70,7 +60,6 @@ describe('WorkOps CDK data stack', () => {
       IpProtocol: 'tcp',
       ToPort: 3306,
     });
-    foundationTemplate.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
     dataTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
       Description: 'Allow WorkOps app tasks to reach MySQL',
       FromPort: 3306,

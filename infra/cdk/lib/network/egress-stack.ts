@@ -1,28 +1,24 @@
-import { CfnEIP, CfnNatGateway, CfnRoute, ISubnet, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { CfnEIP, CfnNatGateway, CfnRoute } from 'aws-cdk-lib/aws-ec2';
 import { Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
-
-export interface EgressStackProps extends StackProps {
-  vpc: Vpc;
-  publicSubnets: ISubnet[];
-  appSubnets: ISubnet[];
-}
+import { foundationNetwork } from '../shared/contract-imports';
+import { readStage, stackName } from '../shared/environment';
 
 export class EgressStack extends Stack {
   public readonly natGateway: CfnNatGateway;
 
-  constructor(scope: Construct, id: string, props: EgressStackProps) {
-    const stage = readWorkopsStage(scope);
+  constructor(scope: Construct, id: string, props: StackProps) {
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'egress'),
+      stackName: stackName(scope, 'egress'),
     });
 
-    if (props.publicSubnets.length === 0) {
+    const network = foundationNetwork(this);
+    if (network.publicSubnets.length === 0) {
       throw new Error('EgressStack requires at least one public subnet');
     }
-    const natSubnet = props.publicSubnets[0];
+    const natSubnet = network.publicSubnets[0];
 
     // P2-3 runtime tasks need temporary internet egress for ECR image pulls and CloudWatch Logs.
     const natEip = new CfnEIP(this, 'NatGatewayEip', {
@@ -46,7 +42,7 @@ export class EgressStack extends Stack {
       ],
     });
 
-    props.appSubnets.forEach((subnet, index) => {
+    network.appSubnets.forEach((subnet, index) => {
       const routeNumber = String(index + 1);
       new CfnRoute(this, `AppSubnetDefaultRoute${routeNumber}`, {
         routeTableId: subnet.routeTable.routeTableId,

@@ -11,7 +11,8 @@ import {
   UserPoolDomain,
 } from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
+import { readStage, stackName } from '../shared/environment';
+import { createParameter } from '../shared/ssm-parameters';
 
 function managedLoginSettings(
   primaryColor: string,
@@ -70,10 +71,10 @@ export class IdentityStack extends Stack {
   public readonly hostedUiDomainBaseUrl: string;
 
   constructor(scope: Construct, id: string, props: StackProps) {
-    const stage = readWorkopsStage(scope);
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'identity'),
+      stackName: stackName(scope, 'identity'),
     });
 
     // IdentityStack owns Cognito resources independently from recreated runtime stacks.
@@ -179,5 +180,30 @@ export class IdentityStack extends Stack {
     this.hostedUiDomainBaseUrl = Fn.sub('https://${Domain}.auth.${AWS::Region}.amazoncognito.com', {
       Domain: this.userPoolDomain.domainName,
     });
+
+    createParameter(
+      this,
+      'UserPoolIdParameter',
+      'identity/user-pool-id',
+      this.userPoolId,
+    );
+    createParameter(
+      this,
+      'PlatformClientIdParameter',
+      'identity/platform-client-id',
+      this.platformUserPoolClientId,
+    );
+    createParameter(
+      this,
+      'TenantClientIdParameter',
+      'identity/tenant-client-id',
+      this.tenantUserPoolClientId,
+    );
+    createParameter(
+      this,
+      'HostedUiDomainBaseUrlParameter',
+      'identity/hosted-ui-domain-base-url',
+      this.hostedUiDomainBaseUrl,
+    );
   }
 }

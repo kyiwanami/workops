@@ -9,7 +9,8 @@ import {
   Vpc,
 } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
+import { readStage, stackName } from '../shared/environment';
+import { createParameter } from '../shared/ssm-parameters';
 
 export class FoundationStack extends Stack {
   public readonly vpc: Vpc;
@@ -23,10 +24,10 @@ export class FoundationStack extends Stack {
   public readonly ecsCluster: Cluster;
 
   constructor(scope: Construct, id: string, props: StackProps) {
-    const stage = readWorkopsStage(scope);
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'foundation'),
+      stackName: stackName(scope, 'foundation'),
     });
 
     // Foundation networking is shared by later RDS, ECS, and Cognito-facing stacks.
@@ -97,5 +98,114 @@ export class FoundationStack extends Stack {
       vpc: this.vpc,
       clusterName: `workops-${stage}-cluster`,
     });
+
+    this.createFoundationContract(stage);
+  }
+
+  private createFoundationContract(stage: string): void {
+    const publicSubnetOne = this.requiredSubnet(this.publicSubnets, 0, 'public subnet 1');
+    const publicSubnetTwo = this.requiredSubnet(this.publicSubnets, 1, 'public subnet 2');
+    const appSubnetOne = this.requiredSubnet(this.appSubnets, 0, 'app subnet 1');
+    const appSubnetTwo = this.requiredSubnet(this.appSubnets, 1, 'app subnet 2');
+    const dbSubnetOne = this.requiredSubnet(this.dbSubnets, 0, 'db subnet 1');
+    const dbSubnetTwo = this.requiredSubnet(this.dbSubnets, 1, 'db subnet 2');
+
+    createParameter(this, 'VpcIdParameter', 'foundation/vpc-id', this.vpc.vpcId);
+    createParameter(
+      this,
+      'VpcCidrBlockParameter',
+      'foundation/vpc-cidr-block',
+      this.vpc.vpcCidrBlock,
+    );
+    createParameter(
+      this,
+      'AvailabilityZoneOneParameter',
+      'foundation/availability-zones/az-1',
+      publicSubnetOne.availabilityZone,
+    );
+    createParameter(
+      this,
+      'AvailabilityZoneTwoParameter',
+      'foundation/availability-zones/az-2',
+      publicSubnetTwo.availabilityZone,
+    );
+
+    this.createSubnetContract(stage, 'PublicSubnetOne', 'public-1', publicSubnetOne);
+    this.createSubnetContract(stage, 'PublicSubnetTwo', 'public-2', publicSubnetTwo);
+    this.createSubnetContract(stage, 'AppSubnetOne', 'app-1', appSubnetOne);
+    this.createSubnetContract(stage, 'AppSubnetTwo', 'app-2', appSubnetTwo);
+    this.createSubnetContract(stage, 'DbSubnetOne', 'db-1', dbSubnetOne);
+    this.createSubnetContract(stage, 'DbSubnetTwo', 'db-2', dbSubnetTwo);
+
+    createParameter(
+      this,
+      'AlbSecurityGroupIdParameter',
+      'foundation/security-groups/alb-sg-id',
+      this.albSecurityGroup.securityGroupId,
+    );
+    createParameter(
+      this,
+      'AppSecurityGroupIdParameter',
+      'foundation/security-groups/app-sg-id',
+      this.appSecurityGroup.securityGroupId,
+    );
+    createParameter(
+      this,
+      'DbSecurityGroupIdParameter',
+      'foundation/security-groups/db-sg-id',
+      this.dbSecurityGroup.securityGroupId,
+    );
+    createParameter(
+      this,
+      'MigrationSecurityGroupIdParameter',
+      'foundation/security-groups/migration-sg-id',
+      this.migrationSecurityGroup.securityGroupId,
+    );
+    createParameter(
+      this,
+      'EcsClusterNameParameter',
+      'foundation/ecs/cluster-name',
+      this.ecsCluster.clusterName,
+    );
+    createParameter(
+      this,
+      'EcsClusterArnParameter',
+      'foundation/ecs/cluster-arn',
+      this.ecsCluster.clusterArn,
+    );
+  }
+
+  private createSubnetContract(
+    stage: string,
+    idPrefix: string,
+    contractName: string,
+    subnet: ISubnet,
+  ): void {
+    createParameter(
+      this,
+      `${idPrefix}IdParameter`,
+      `foundation/subnets/${contractName}/id`,
+      subnet.subnetId,
+    );
+    createParameter(
+      this,
+      `${idPrefix}AvailabilityZoneParameter`,
+      `foundation/subnets/${contractName}/availability-zone`,
+      subnet.availabilityZone,
+    );
+    createParameter(
+      this,
+      `${idPrefix}RouteTableIdParameter`,
+      `foundation/subnets/${contractName}/route-table-id`,
+      subnet.routeTable.routeTableId,
+    );
+  }
+
+  private requiredSubnet(subnets: ISubnet[], index: number, description: string): ISubnet {
+    const subnet = subnets[index];
+    if (!subnet) {
+      throw new Error(`FoundationStack requires ${description}`);
+    }
+    return subnet;
   }
 }

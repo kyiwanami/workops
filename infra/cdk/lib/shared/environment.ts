@@ -12,11 +12,11 @@ export function readRequiredEnv(name: string): string {
 }
 
 // WorkOps stacks share the stage through CDK context so naming-only props stay out of stack APIs.
-export function setWorkopsStage(scope: Construct, stage: string): void {
+export function setStage(scope: Construct, stage: string): void {
   scope.node.setContext(WORKOPS_STAGE_CONTEXT_KEY, stage);
 }
 
-export function readWorkopsStage(scope: Construct): string {
+export function readStage(scope: Construct): string {
   const value = scope.node.getContext(WORKOPS_STAGE_CONTEXT_KEY);
   if (typeof value !== 'string' || !value) {
     throw new Error(`${WORKOPS_STAGE_CONTEXT_KEY} context is required`);
@@ -24,6 +24,10 @@ export function readWorkopsStage(scope: Construct): string {
   return value;
 }
 
-export function workopsStackName(scope: Construct, suffix: string): string {
-  return `workops-${readWorkopsStage(scope)}-${suffix}`;
+export function stackName(scope: Construct, suffix: string): string {
+  return `workops-${readStage(scope)}-${suffix}`;
+}
+
+export function stagePath(scope: Construct, suffix: string): string {
+  return `/workops/${readStage(scope)}/${suffix}`;
 }

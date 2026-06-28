@@ -2,8 +2,8 @@
 
 ## Summary
 
-`P2-beta-01` から `P2-beta-08` の成果を統合し、Pipeline stage順序とStack配置を再構成する。
-この task で実AWS deployと改善後Pipeline完走確認を必須完了条件にする。
+`P2-beta-01` から `P2-beta-08` の成果を統合し、ADR-067 に合わせて CDK Pipelines の Stage 境界と Stack 配置を再構成する。
+Stage 境界をまたぐ construct 参照は廃止し、非 secret 値は SSM contract または明示名で受け渡す。
 
 ## ユーザー要件
 
@@ -11,7 +11,7 @@
 - PipelineはRDS start / stop運用に関心を持たない。
 - ManualApprovalは課金が始まる手前の関門にする。
 - `Build Images` は `Build Web Image` にリネームする。
-- `WebDeliveryStack` は常設だが、stage上は `WebIngressStack` 後に置くことを明記する。
+- `WebDeliveryStack` は常設分類だが、Pipeline stage上は `WebIngressStack` 後に置くことを明記する。
 - Source actionは `P2-beta-07` で確定したsource branchをfilterする。
 - ECS Blue/Green alarm は target health 中心の2本にする。
 
@@ -26,7 +26,7 @@ Pipeline stage順序は次に固定する。
 4. Deploy Permanent
 5. Build Web Image
 6. ManualApproval
-7. Deploy Chargeable / Runtime
+7. Deploy Runtime Prereq
 8. RunMigration
 9. Deploy AppRuntime
 ```
@@ -38,8 +38,8 @@ flowchart LR
   BuildTest --> Permanent["Deploy Permanent"]
   Permanent --> BuildWeb["Build Web Image"]
   BuildWeb --> Approval["ManualApproval"]
-  Approval --> Chargeable["Deploy Chargeable / Runtime"]
-  Chargeable --> Migration["RunMigration"]
+  Approval --> RuntimePrereq["Deploy Runtime Prereq"]
+  RuntimePrereq --> Migration["RunMigration"]
   Migration --> App["Deploy AppRuntimeStack"]
 ```
 
@@ -47,10 +47,13 @@ flowchart LR
 
 - CDK Pipelines self-mutationは維持する。
 - Source actionのbranch filterは `P2-beta-07` のsource branch方針を維持する。
-- Deploy Permanent対象は `FoundationStack`、`LogsStack`、`IdentityStack`、`RegistryStack`、`DataPauseStack`、`WebAclStack`。
-- Deploy Chargeable / Runtime対象順序は `EgressStack`、`WebIngressStack`、`WebDeliveryStack`、`DataStack`、`MigrationRunnerStack`。
-- `WebDeliveryStack` は常設分類だが、Web ingress origin contractをSSMから読むため `WebIngressStack` 後に置く。
-- RunMigration成功後に `AppRuntimeStack` をdeployする。
+- `PermanentStage` 対象は `FoundationStack`、`LogsStack`、`IdentityStack`、`RegistryStack`、`DataPauseStack`、`WebAclStack`。
+- `RuntimePrereqStage` 対象は `DataStack`、`EgressStack`、`WebIngressStack`、`MigrationRunnerStack`、`WebDeliveryStack`。
+- `AppRuntimeStage` 対象は `AppRuntimeStack`。
+- `WebDeliveryStack` は常設分類だが、Web ingress origin contractをSSMから読むため `RuntimePrereqStage` で `WebIngressStack` 後に置く。
+- `RunMigration` 成功後に `AppRuntimeStack` をdeployする。
+- `StringParameter.valueFromLookup` と `Vpc.fromLookup` は使わず、consumer Stack 内で `StringParameter.valueForStringParameter` を使う。
+- subnet list token は使わず、Phase 2β は 2AZ 分の subnet ID / AZ / route table ID を個別 contract として扱う。
 
 ## Implementation
 
@@ -59,6 +62,9 @@ flowchart LR
 - Synth / Build & Test / Build Web Image / RunMigration は CodeArtifact helperを使う。
 - `RunMigration` は `MigrationRunnerStack` の CodeBuild project を起動する。
 - Pipeline failure / ManualApproval通知は DependencyStack の ops notification topic を使う。
+- `FoundationStack`、`IdentityStack`、`RegistryStack`、`WebAclStack`、`WebIngressStack`、`WebDeliveryStack` は非 secret contract を SSM Standard Parameter に公開する。
+- `DataStack`、`EgressStack`、`WebIngressStack`、`MigrationRunnerStack`、`WebDeliveryStack`、`AppRuntimeStack` は必要値を自 Stack scope 内で contract から復元する。
+- DB password、CodeArtifact authorization token、credential値は SSM contract に置かない。
 - ECS Native Blue/Green deployment failure detection は次の2本のCloudWatch Alarmを使う。
   - `HealthyHostCount < 1`
   - `UnHealthyHostCount > 0`
@@ -66,6 +72,8 @@ flowchart LR
 
 ## Verification
 
+- ローカルでは `npm run build`、`npx jest --runInBand`、Python unittest を実行する。
+- AWS接続、`cdk diff`、`cdk deploy`、Pipeline実走確認は、ユーザーの明示依頼がある場合だけ実行する。
 - AWS profile / region を明示する。
 - AWS credential環境変数を削除してprofileを使う。
 - `aws sts get-caller-identity --region $env:AWS_REGION` で認証先を確認する。
@@ -79,7 +87,7 @@ flowchart LR
   - `WebAclStack` を含む
 - Build Web Image
 - ManualApproval
-- Deploy Chargeable / Runtime
+- Deploy Runtime Prereq
 - RunMigration
 - Deploy AppRuntime
 - CloudFront default domain経由到達

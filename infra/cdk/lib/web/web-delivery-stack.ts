@@ -1,4 +1,12 @@
-import { ArnFormat, CfnOutput, CustomResource, Duration, Stack, StackProps } from 'aws-cdk-lib';
+import {
+  ArnFormat,
+  CfnOutput,
+  CustomResource,
+  Duration,
+  RemovalPolicy,
+  Stack,
+  StackProps,
+} from 'aws-cdk-lib';
 import {
   AllowedMethods,
   CachePolicy,
@@ -14,49 +22,50 @@ import { ApplicationLoadBalancer } from 'aws-cdk-lib/aws-elasticloadbalancingv2'
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { ILogGroup } from 'aws-cdk-lib/aws-logs';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Provider } from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
 import { join } from 'path';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
-
-export interface WebDeliveryStackProps extends StackProps {
-  webAclArn: string;
-  cognitoUserPoolId: string;
-  cognitoPlatformUserPoolClientId: string;
-  cognitoTenantUserPoolClientId: string;
-  cognitoClientUrlUpdaterLogGroup: ILogGroup;
-  cognitoClientUrlUpdaterProviderLogGroup: ILogGroup;
-}
+import { contractValue, logsGroup } from '../shared/contract-imports';
+import { readStage, stackName } from '../shared/environment';
+import { createParameter } from '../shared/ssm-parameters';
 
 export class WebDeliveryStack extends Stack {
   public readonly distribution: Distribution;
   public readonly cloudFrontDomainName: string;
   public readonly cloudFrontHttpsUrl: string;
 
-  constructor(scope: Construct, id: string, props: WebDeliveryStackProps) {
-    const stage = readWorkopsStage(scope);
+  constructor(scope: Construct, id: string, props: StackProps) {
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'web-delivery'),
+      stackName: stackName(scope, 'web-delivery'),
     });
 
+    const userPoolId = contractValue(this, 'identity/user-pool-id');
+    const platformClientId = contractValue(this, 'identity/platform-client-id');
+    const tenantClientId = contractValue(this, 'identity/tenant-client-id');
+    const cognitoClientUrlUpdaterLogGroup = logsGroup(
+      this,
+      'CognitoClientUrlUpdaterLogGroup',
+      'lambda/cognito-client-url-updater',
+    );
+    const cognitoClientUrlUpdaterProviderLogGroup = logsGroup(
+      this,
+      'CognitoClientUrlUpdaterProviderLogGroup',
+      'lambda/cognito-client-url-updater-provider',
+    );
     const loadBalancer = ApplicationLoadBalancer.fromApplicationLoadBalancerAttributes(
       this,
       'WebIngressAlb',
       {
-        loadBalancerArn: StringParameter.valueForStringParameter(
+        loadBalancerArn: contractValue(this, 'web-ingress/origin/alb-arn'),
+        loadBalancerDnsName: contractValue(
           this,
-          `/workops/${stage}/web-ingress/origin/alb-arn`,
+          'web-ingress/origin/alb-dns-name',
         ),
-        loadBalancerDnsName: StringParameter.valueForStringParameter(
+        securityGroupId: contractValue(
           this,
-          `/workops/${stage}/web-ingress/origin/alb-dns-name`,
-        ),
-        securityGroupId: StringParameter.valueForStringParameter(
-          this,
-          `/workops/${stage}/web-ingress/origin/alb-security-group-id`,
+          'web-ingress/origin/alb-security-group-id',
         ),
       },
     );
@@ -75,11 +84,17 @@ export class WebDeliveryStack extends Stack {
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       priceClass: PriceClass.PRICE_CLASS_200,
-      webAclId: props.webAclArn,
+      webAclId: contractValue(this, 'web-acl/cloudfront-web-acl-arn'),
     });
 
     this.cloudFrontDomainName = this.distribution.distributionDomainName;
     this.cloudFrontHttpsUrl = `https://${this.cloudFrontDomainName}`;
+    createParameter(
+      this,
+      'CloudFrontHttpsUrlParameter',
+      'web-delivery/cloudfront-https-url',
+      this.cloudFrontHttpsUrl,
+    );
 
     const updaterFunction = new NodejsFunction(this, 'CognitoClientUrlUpdaterFunction', {
       functionName: `workops-${stage}-cognito-client-url-updater`,
@@ -87,7 +102,7 @@ export class WebDeliveryStack extends Stack {
       entry: join(__dirname, 'lambda', 'cognito-client-url-updater.ts'),
       handler: 'handler',
       timeout: Duration.minutes(1),
-      logGroup: props.cognitoClientUrlUpdaterLogGroup,
+      logGroup: cognitoClientUrlUpdaterLogGroup,
       bundling: {
         bundleAwsSDK: true,
       },
@@ -99,7 +114,7 @@ export class WebDeliveryStack extends Stack {
           this.formatArn({
             service: 'cognito-idp',
             resource: 'userpool',
-            resourceName: props.cognitoUserPoolId,
+            resourceName: userPoolId,
             arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
           }),
         ],
@@ -107,7 +122,7 @@ export class WebDeliveryStack extends Stack {
     );
     const updaterProvider = new Provider(this, 'CognitoClientUrlUpdaterProvider', {
       onEventHandler: updaterFunction,
-      logGroup: props.cognitoClientUrlUpdaterProviderLogGroup,
+      logGroup: cognitoClientUrlUpdaterProviderLogGroup,
     });
 
     // The custom resource registers the current CloudFront endpoint without making IdentityStack depend on delivery.
@@ -115,9 +130,9 @@ export class WebDeliveryStack extends Stack {
       resourceType: 'Custom::WorkOpsCognitoClientUrlUpdater',
       serviceToken: updaterProvider.serviceToken,
       properties: {
-        UserPoolId: props.cognitoUserPoolId,
-        PlatformClientId: props.cognitoPlatformUserPoolClientId,
-        TenantClientId: props.cognitoTenantUserPoolClientId,
+        UserPoolId: userPoolId,
+        PlatformClientId: platformClientId,
+        TenantClientId: tenantClientId,
         CloudFrontDomainName: this.cloudFrontDomainName,
       },
     });
@@ -125,4 +140,5 @@ export class WebDeliveryStack extends Stack {
       value: this.cloudFrontHttpsUrl,
     });
   }
+
 }

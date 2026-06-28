@@ -49,7 +49,8 @@ Pipeline 遅延、承認位置、Stack 分類、Migration 実行方式、CodeArt
 - Pipeline は RDS start / stop 運用に関心を持たず、CloudFormation deploy / update と migration 実行だけを扱う
 - `ConfigStack` と空の `SecretStack` は削除する
 - RDS master secret と DB 接続 SSM parameters は `DataStack` 所有のままとする
-- 非 secret の安定設定は `DependencyStack` 所有の SSM Parameter に集約する
+- Stage 境界をまたぐ非 secret 値は、所有Stackが SSM contract として公開し、consumer Stack が deploy 時に読む
+- `StringParameter.valueFromLookup` と `Vpc.fromLookup` は使わず、consumer Stack 内で `StringParameter.valueForStringParameter` を使う
 - Secret 値、credential 値、token 入り設定ファイルは git 管理しない
 - 恒久手順に影響する変更は、該当 task 内で README / 開発手順も同時に更新する
 
@@ -110,6 +111,7 @@ flowchart TB
 ```
 
 - `WebDeliveryStack` は常設ですが、CloudFront VPC Origin の接続先として `WebIngressStack` が公開する Web ingress origin contract を deploy 時に解決するため、Pipeline stage 上は `WebIngressStack` 後に配置する
+- ADR-067 以降、Pipeline deploy 境界をまたぐ construct 参照は使わず、Foundation / Identity / Registry / WebAcl / WebIngress / WebDelivery の非 secret contract を SSM Standard Parameter で受け渡す
 - `ConfigStack` と `SecretStack` は 2-beta で削除する。これはライフサイクル分類の「撤去」とは別の作業として扱う
 - `DependencyStack` 所有の SSM parameters は `/workops/${stage}/dependencies/...` 配下に集約する
 - `DataStack` 所有の DB 接続系 SSM parameters と RDS master secret は `DataStack` に残す
@@ -125,7 +127,7 @@ flowchart LR
   BuildTest --> Permanent["Deploy Permanent"]
   Permanent --> BuildWeb["Build Web Image<br/>BuildKit secret + CodeArtifact Maven"]
   BuildWeb --> Approval["ManualApproval"]
-  Approval --> Runtime["Deploy Chargeable / Runtime"]
+  Approval --> Runtime["Deploy Runtime Prereq"]
   Runtime --> Migration["RunMigration<br/>CodeBuild: cd db; mvn -Pdev flyway:migrate"]
   Migration --> App["Deploy AppRuntimeStack"]
 
@@ -136,10 +138,10 @@ flowchart LR
   Permanent --> DataPause["DataPauseStack"]
   Permanent --> WebAcl["WebAclStack<br/>us-east-1"]
 
+  Runtime --> Data["DataStack"]
   Runtime --> Egress["EgressStack"]
   Runtime --> WebIngress["WebIngressStack"]
   WebIngress --> WebDelivery["WebDeliveryStack<br/>uses WebACL ARN"]
-  Runtime --> Data["DataStack"]
   Runtime --> MigrationRunner["MigrationRunnerStack"]
 ```
 
@@ -147,7 +149,7 @@ flowchart LR
 
 - `cdk.json` / `package.json` は標準寄りに整理し、複数 entrypoint を `bin/cdk.ts` に統合する
 - 初回 bootstrap だけ `DependencyStack` → `PipelineStack` の先行 deploy 例外を認める
-- `Build Images` は `Build Web Image` にリネームし、ManualApproval 前に置く
+- `BuildImages` は廃止し、Pipeline stage / wave 名は `BuildWebImage` に統一してManualApproval 前に置く
 - migration image は作らない
 - ManualApproval は課金が始まる手前の唯一の関門とする
 - `RunMigration` は CodeBuild build status で成功判定する
@@ -155,12 +157,14 @@ flowchart LR
 
 ### DependencyStack / SSM 方針
 
-`DependencyStack` は CodeArtifact、ops notification topic、非 secret SSM parameters を所有します。
-`PipelineStack`、CodeBuild、`DataPauseStack`、`AppRuntimeStack` は必要値を SSM Parameter 経由で読み、存在しなければ失敗でよい方針とします。
+`DependencyStack` は CodeArtifact、ops notification topic、依存基盤の非 secret SSM parameters を所有します。
+ADR-067 以降は deploy Stage 境界の非 secret 値も各所有Stackが SSM contract として公開し、consumer Stack が自分の Stack scope で読みます。
 
 - 旧 `/workops/${stage}/spring/profile` は維持しない
 - SSM parameters は明示名 + `RemovalPolicy.DESTROY` とする
 - CodeArtifact endpoint、authorization token、AWS account ID、domain-owner は SSM に保存しない
+- DB password、CodeArtifact token、credential値は Stage 境界 contract に保存しない
+- Phase 2β の subnet contract は 2AZ 分の subnet ID / AZ / route table ID を個別 parameter とし、subnet list token は使わない
 - `DependencyStack` 所有の SSM parameters は次に固定する
 
 ```text
@@ -243,10 +247,11 @@ flowchart LR
 - `WebIngressStack` は ALB / listener / target group / ALB SG ingress を所有する
 - `WebIngressStack` は CloudFront VPC Origin の接続先として使う Web ingress origin contract を SSM へ書く
 - Web ingress origin contract は `/workops/${stage}/web-ingress/origin/alb-arn`、`/workops/${stage}/web-ingress/origin/alb-dns-name`、`/workops/${stage}/web-ingress/origin/alb-security-group-id` とする
+- AppRuntime 用 contract として `/workops/${stage}/web-ingress/listener/http-listener-arn` と `/workops/${stage}/web-ingress/alb-full-name` も公開する
 - `WebDeliveryStack` は Web ingress origin contract を SSM deploy 時解決で読み、synth 時 lookup はしない
 - `WebDeliveryStack` は SSM から復元した `IApplicationLoadBalancer` を `VpcOrigin.withApplicationLoadBalancer` に渡し、`AWS::CloudFront::VpcOrigin` と CloudFront Distribution を同じ Stack で管理する
 - `AWS::CloudFront::VpcOrigin` の `VpcOriginEndpointConfig.Arn` に必要なのは VPC Origin 自体の ARN ではなく、origin endpoint として使う ALB ARN である
-- `AppRuntimeStack` と `WebIngressStack` の listener / target group 連携は props 参照を維持する
+- `AppRuntimeStack` と `WebIngressStack` の listener / target group 連携は SSM contract 経由で行い、Stage 境界をまたぐ props 参照は使わない
 - `WebIngressStack` 再作成時に `WebDeliveryStack` 更新が必要になり、CloudFront 待ち時間が発生し得ることは受け入れる
 
 ### DataStack / RDS 休止方針

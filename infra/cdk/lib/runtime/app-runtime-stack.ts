@@ -1,9 +1,10 @@
 import { ArnFormat, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import { CfnSecurityGroupIngress, ISecurityGroup, ISubnet, IVpc } from 'aws-cdk-lib/aws-ec2';
-import { IRepository } from 'aws-cdk-lib/aws-ecr';
+import { IRepository, Repository } from 'aws-cdk-lib/aws-ecr';
 import {
   AlarmBehavior,
   AlternateTarget,
+  Cluster,
   ContainerImage,
   CpuArchitecture,
   DeploymentStrategy,
@@ -16,6 +17,7 @@ import {
   Secret as EcsSecret,
 } from 'aws-cdk-lib/aws-ecs';
 import {
+  ApplicationListener,
   IApplicationListener,
   ApplicationListenerRule,
   ApplicationProtocol,
@@ -36,9 +38,16 @@ import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
+import {
+  contractValue,
+  foundationNetwork,
+  foundationSecurityGroups,
+  identityContract,
+  logsGroup,
+} from '../shared/contract-imports';
+import { readStage, stackName, stagePath } from '../shared/environment';
 
-export interface RuntimeResources {
+interface RuntimeResources {
   cluster: ICluster;
   vpc: IVpc;
   appSubnets: ISubnet[];
@@ -57,7 +66,6 @@ export interface RuntimeResources {
 
 export interface AppRuntimeStackProps extends StackProps {
   webImageTag: string;
-  runtimeResources: RuntimeResources;
 }
 
 export class AppRuntimeStack extends Stack {
@@ -65,13 +73,13 @@ export class AppRuntimeStack extends Stack {
   public readonly taskDefinition: FargateTaskDefinition;
 
   constructor(scope: Construct, id: string, props: AppRuntimeStackProps) {
-    const stage = readWorkopsStage(scope);
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'app-runtime'),
+      stackName: stackName(scope, 'app-runtime'),
     });
 
-    const resources = props.runtimeResources;
+    const resources = this.runtimeResources(stage);
 
     // The ALB reaches only the Spring Boot container port exposed by the P2-3 image.
     new CfnSecurityGroupIngress(this, 'AppHttpIngressFromAlb', {
@@ -86,17 +94,17 @@ export class AppRuntimeStack extends Stack {
     const dbUrlParameter = StringParameter.fromStringParameterName(
       this,
       'DbUrlParameter',
-      `/workops/${stage}/db/url`,
+      stagePath(this, 'db/url'),
     );
     const springProfileParameter = StringParameter.fromStringParameterName(
       this,
       'SpringProfileParameter',
-      `/workops/${stage}/dependencies/runtime/spring-profile`,
+      stagePath(this, 'dependencies/runtime/spring-profile'),
     );
     const dbMasterSecret = SecretsManagerSecret.fromSecretNameV2(
       this,
       'DbMasterSecret',
-      `/workops/${stage}/db/master`,
+      stagePath(this, 'db/master'),
     );
 
     this.taskDefinition = new FargateTaskDefinition(this, 'WebTaskDefinition', {
@@ -177,7 +185,7 @@ export class AppRuntimeStack extends Stack {
       conditions: [ListenerCondition.pathPatterns(['/*'])],
       action: ListenerAction.forward([blueTargetGroup]),
     });
-    const target5xxAlarm = this.createTarget5xxAlarm(
+    const healthyHostAlarm = this.createHealthyHostAlarm(
       stage,
       resources.loadBalancerFullName,
       blueTargetGroup,
@@ -202,7 +210,7 @@ export class AppRuntimeStack extends Stack {
       deploymentStrategy: DeploymentStrategy.BLUE_GREEN,
       bakeTime: Duration.minutes(3),
       deploymentAlarms: {
-        alarmNames: [target5xxAlarm.alarmName, unhealthyHostAlarm.alarmName],
+        alarmNames: [healthyHostAlarm.alarmName, unhealthyHostAlarm.alarmName],
         behavior: AlarmBehavior.ROLLBACK_ON_ALARM,
       },
       healthCheckGracePeriod: Duration.seconds(90),
@@ -225,6 +233,50 @@ export class AppRuntimeStack extends Stack {
     });
     target.attachToApplicationTargetGroup(blueTargetGroup);
     this.service.node.addDependency(listenerRule);
+  }
+
+  private runtimeResources(stage: string): RuntimeResources {
+    // AppRuntime imports only SSM contracts and explicit names produced before this deploy action.
+    const network = foundationNetwork(this);
+    const securityGroups = foundationSecurityGroups(this);
+    const identity = identityContract(this);
+
+    return {
+      cluster: Cluster.fromClusterAttributes(this, 'EcsCluster', {
+        clusterArn: contractValue(this, 'foundation/ecs/cluster-arn'),
+        clusterName: contractValue(this, 'foundation/ecs/cluster-name'),
+        hasEc2Capacity: false,
+        vpc: network.vpc,
+      }),
+      vpc: network.vpc,
+      appSubnets: network.appSubnets,
+      appSecurityGroup: securityGroups.appSecurityGroup,
+      albSecurityGroup: securityGroups.albSecurityGroup,
+      repository: Repository.fromRepositoryName(
+        this,
+        'WebRepository',
+        contractValue(this, 'registry/web-repository-name'),
+      ),
+      webLogGroup: logsGroup(this, 'WebLogGroup', 'web'),
+      listener: ApplicationListener.fromApplicationListenerAttributes(
+        this,
+        'WebHttpListener',
+        {
+          defaultPort: 80,
+          listenerArn: contractValue(this, 'web-ingress/listener/http-listener-arn'),
+          securityGroup: securityGroups.albSecurityGroup,
+        },
+      ),
+      loadBalancerFullName: contractValue(this, 'web-ingress/alb-full-name'),
+      cognitoUserPoolId: identity.userPoolId,
+      cognitoPlatformUserPoolClientId: identity.platformClientId,
+      cognitoTenantUserPoolClientId: identity.tenantClientId,
+      cognitoHostedUiDomainBaseUrl: identity.hostedUiDomainBaseUrl,
+      cloudFrontHttpsUrl: contractValue(
+        this,
+        'web-delivery/cloudfront-https-url',
+      ),
+    };
   }
 
   private createTargetGroup(
@@ -252,38 +304,38 @@ export class AppRuntimeStack extends Stack {
     return targetGroup;
   }
 
-  private createTarget5xxAlarm(
+  private createHealthyHostAlarm(
     stage: string,
     loadBalancerFullName: string,
     blueTargetGroup: ApplicationTargetGroup,
     greenTargetGroup: ApplicationTargetGroup,
   ): Alarm {
-    const totalTarget5xx = new MathExpression({
-      expression: 'blue5xx + green5xx',
-      label: 'Total target 5xx',
+    const totalHealthyHosts = new MathExpression({
+      expression: 'blueHealthy + greenHealthy',
+      label: 'Total healthy hosts',
       period: Duration.minutes(1),
       usingMetrics: {
-        blue5xx: this.createTargetGroupMetric(
+        blueHealthy: this.createTargetGroupMetric(
           loadBalancerFullName,
           blueTargetGroup,
-          'HTTPCode_Target_5XX_Count',
-          'Sum',
+          'HealthyHostCount',
+          'Minimum',
         ),
-        green5xx: this.createTargetGroupMetric(
+        greenHealthy: this.createTargetGroupMetric(
           loadBalancerFullName,
           greenTargetGroup,
-          'HTTPCode_Target_5XX_Count',
-          'Sum',
+          'HealthyHostCount',
+          'Minimum',
         ),
       },
     });
-    return new Alarm(this, 'WebTarget5xxAlarm', {
-      alarmName: `workops-${stage}-web-target-5xx`,
-      metric: totalTarget5xx,
-      threshold: 0,
+    return new Alarm(this, 'WebHealthyHostAlarm', {
+      alarmName: `workops-${stage}-web-healthy-host-count-low`,
+      metric: totalHealthyHosts,
+      threshold: 1,
       evaluationPeriods: 2,
       datapointsToAlarm: 2,
-      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      comparisonOperator: ComparisonOperator.LESS_THAN_THRESHOLD,
       treatMissingData: TreatMissingData.NOT_BREACHING,
     });
   }
@@ -314,7 +366,7 @@ export class AppRuntimeStack extends Stack {
       },
     });
     return new Alarm(this, 'WebUnhealthyHostAlarm', {
-      alarmName: `workops-${stage}-web-unhealthy-host`,
+      alarmName: `workops-${stage}-web-unhealthy-host-count`,
       metric: totalUnhealthyHosts,
       threshold: 0,
       evaluationPeriods: 2,

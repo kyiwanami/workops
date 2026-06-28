@@ -1,7 +1,6 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { DataPauseStack } from '../lib/data-pause/data-pause-stack';
 import { EgressStack } from '../lib/network/egress-stack';
-import { FoundationStack } from '../lib/foundation/foundation-stack';
 import { LogsStack } from '../lib/logs/logs-stack';
 import { MigrationRunnerStack } from '../lib/migration/migration-runner-stack';
 import { createTestApp, testEnv } from './workops-test-fixtures';
@@ -10,18 +9,8 @@ describe('WorkOps CDK network and migration support', () => {
   test('creates the MigrationRunnerStack VPC CodeBuild project without an ECS task', () => {
     const stage = 'dev';
     const app = createTestApp(stage);
-    const foundationStack = new FoundationStack(app, 'FoundationStack', {
-      env: testEnv,
-    });
-    const logsStack = new LogsStack(app, 'LogsStack', {
-      env: testEnv,
-    });
     const migrationRunnerStack = new MigrationRunnerStack(app, 'MigrationRunnerStack', {
-      appSubnets: foundationStack.appSubnets,
       env: testEnv,
-      migrationSecurityGroup: foundationStack.migrationSecurityGroup,
-      migrationLogGroup: logsStack.migrationLogGroup,
-      vpc: foundationStack.vpc,
     });
     const template = Template.fromStack(migrationRunnerStack);
     const templateText = JSON.stringify(template.toJSON());
@@ -477,14 +466,8 @@ describe('WorkOps CDK network and migration support', () => {
   test('creates the P2-3 EgressStack NAT route for app subnets', () => {
     const stage = 'dev';
     const app = createTestApp(stage);
-    const foundationStack = new FoundationStack(app, 'FoundationStack', {
-      env: testEnv,
-    });
     const egressStack = new EgressStack(app, 'EgressStack', {
-      appSubnets: foundationStack.appSubnets,
       env: testEnv,
-      publicSubnets: foundationStack.publicSubnets,
-      vpc: foundationStack.vpc,
     });
     const template = Template.fromStack(egressStack);
 

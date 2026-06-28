@@ -80,7 +80,7 @@ describe('WorkOps CDK pipeline', () => {
         Type: 'ARM_CONTAINER',
       }),
     });
-    template.resourceCountIs('AWS::CodeBuild::Project', 11);
+    template.resourceCountIs('AWS::CodeBuild::Project', 9);
     expect(templateText).toContain('ec2:DescribeAvailabilityZones');
     expect(templateText).not.toContain('ec2:DescribeManagedPrefixLists');
     expect(templateText).not.toContain('ec2:GetManagedPrefixListEntries');
@@ -96,11 +96,11 @@ describe('WorkOps CDK pipeline', () => {
               RunOrder: 1,
             }),
             Match.objectLike({
-              Name: 'ManualApproval',
+              Name: Match.stringLikeRegexp('workops-dev-registry.Prepare'),
               RunOrder: 2,
             }),
           ]),
-          Name: 'DeployRegistry',
+          Name: 'DeployPermanent',
         }),
         Match.objectLike({
           Actions: Match.arrayWith([
@@ -112,7 +112,16 @@ describe('WorkOps CDK pipeline', () => {
               RunOrder: 1,
             }),
           ]),
-          Name: 'BuildImages',
+          Name: 'BuildWebImage',
+        }),
+        Match.objectLike({
+          Actions: Match.arrayWith([
+            Match.objectLike({
+              Name: 'ManualApproval',
+              RunOrder: 1,
+            }),
+          ]),
+          Name: 'DeployRuntimePrereq',
         }),
       ]),
     });
@@ -121,11 +130,19 @@ describe('WorkOps CDK pipeline', () => {
         Match.objectLike({
           Actions: Match.arrayWith([
             Match.objectLike({
+              Name: Match.stringLikeRegexp('workops-dev-registry.Prepare'),
+            }),
+            Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-web-acl.Prepare'),
             }),
             Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-data-pause.Prepare'),
             }),
+          ]),
+          Name: 'DeployPermanent',
+        }),
+        Match.objectLike({
+          Actions: Match.arrayWith([
             Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-data.Prepare'),
             }),
@@ -141,11 +158,19 @@ describe('WorkOps CDK pipeline', () => {
             Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-web-delivery.Prepare'),
             }),
+          ]),
+          Name: 'DeployRuntimePrereq',
+        }),
+        Match.objectLike({
+          Actions: Match.arrayWith([
             Match.objectLike({
-              Name: Match.stringLikeRegexp('workops-dev-app-runtime.Prepare'),
+              Name: 'Prepare',
+            }),
+            Match.objectLike({
+              Name: 'Deploy',
             }),
           ]),
-          Name: 'DeployDataNetworkMigration',
+          Name: 'DeployAppRuntime',
         }),
       ]),
     });
@@ -161,10 +186,10 @@ describe('WorkOps CDK pipeline', () => {
                 EnvironmentVariables: Match.stringLikeRegexp('COMMIT_SHA.*CommitId'),
                 ProjectName: 'workops-dev-migration-runner',
               }),
-              Name: Match.stringLikeRegexp('workops-dev-app-runtime.RunMigration'),
+              Name: 'RunMigration',
             }),
           ]),
-          Name: 'DeployDataNetworkMigration',
+          Name: 'DeployAppRuntime',
         }),
       ]),
     });
@@ -178,10 +203,10 @@ describe('WorkOps CDK pipeline', () => {
                   Name: 'SourceArtifact',
                 }),
               ]),
-              Name: Match.stringLikeRegexp('workops-dev-app-runtime.RunMigration'),
+              Name: 'RunMigration',
             }),
           ]),
-          Name: 'DeployDataNetworkMigration',
+          Name: 'DeployAppRuntime',
         }),
       ]),
     });
@@ -319,9 +344,10 @@ describe('WorkOps CDK pipeline', () => {
     expect(templateText).toContain('npm run lint');
     expect(templateText).toContain('npm run format:check');
     expect(templateText).toContain('ManualApproval');
-    expect(templateText).toContain('DeployRegistry');
+    expect(templateText).toContain('DeployPermanent');
     expect(templateText).toContain('workops-dev-registry');
-    expect(templateText).toContain('BuildImages');
+    expect(templateText).not.toContain('DeployRegistry');
+    expect(templateText).not.toContain('BuildImages');
     expect(templateText).toContain('BuildWebImage');
     expect(templateText).toContain('workops-dev-web');
     expect(templateText).toContain('workops-dev-web-cache:buildcache');
@@ -339,10 +365,13 @@ describe('WorkOps CDK pipeline', () => {
     expect(templateText).toContain('docker push');
     expect(templateText).toContain('$COMMIT_SHA');
     expect(templateText).toContain('WORKOPS_IMAGE_TAG');
-    expect(templateText).toContain('DeployDataNetworkMigration');
+    expect(templateText).toContain('DeployRuntimePrereq');
+    expect(templateText).toContain('DeployAppRuntime');
+    expect(templateText).not.toContain('DeployDataNetworkMigration');
     expect(templateText).toContain('RunMigration');
     expect(templateText).toContain('workops-dev-app-runtime');
-    expect(appRuntimeStackText).toContain('runtimeResources: RuntimeResources');
+    expect(appRuntimeStackText).not.toContain('runtimeResources: RuntimeResources');
+    expect(appRuntimeStackText).toContain('private runtimeResources');
     expect(appRuntimeStackText).not.toContain('Fn.importValue');
     expect(appRuntimeStackText).not.toContain('createRuntimeResources');
     expect(templateText).toContain('workops-dev-migration-runner');

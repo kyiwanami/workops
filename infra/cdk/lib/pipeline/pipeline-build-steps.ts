@@ -7,6 +7,7 @@ import {
 } from 'aws-cdk-lib/aws-codebuild';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { CodeBuildStep, CodePipelineFileSet } from 'aws-cdk-lib/pipelines';
+import { stagePath } from '../shared/environment';
 
 export interface CodeArtifactParameterNames {
   domainName: string;
@@ -103,11 +104,11 @@ export function createBuildImageStep(
   });
 }
 
-export function createCodeArtifactParameterNames(stage: string): CodeArtifactParameterNames {
+export function createCodeArtifactParameterNames(stack: Stack): CodeArtifactParameterNames {
   return {
-    domainName: `/workops/${stage}/dependencies/codeartifact/domain-name`,
-    mavenRepositoryName: `/workops/${stage}/dependencies/codeartifact/maven-repository-name`,
-    npmRepositoryName: `/workops/${stage}/dependencies/codeartifact/npm-repository-name`,
+    domainName: stagePath(stack, 'dependencies/codeartifact/domain-name'),
+    mavenRepositoryName: stagePath(stack, 'dependencies/codeartifact/maven-repository-name'),
+    npmRepositoryName: stagePath(stack, 'dependencies/codeartifact/npm-repository-name'),
   };
 }
 

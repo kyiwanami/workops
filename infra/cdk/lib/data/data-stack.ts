@@ -4,10 +4,8 @@ import {
   InstanceClass,
   InstanceSize,
   InstanceType,
-  ISubnet,
   Port,
   SecurityGroup,
-  Vpc,
 } from 'aws-cdk-lib/aws-ec2';
 import {
   Credentials,
@@ -17,17 +15,10 @@ import {
   StorageType,
   SubnetGroup,
 } from 'aws-cdk-lib/aws-rds';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
-
-export interface DataStackProps extends StackProps {
-  vpc: Vpc;
-  dbSubnets: ISubnet[];
-  appSecurityGroup: SecurityGroup;
-  dbSecurityGroup: SecurityGroup;
-  migrationSecurityGroup: SecurityGroup;
-}
+import { foundationNetwork, foundationSecurityGroups } from '../shared/contract-imports';
+import { readStage, stackName, stagePath } from '../shared/environment';
+import { createParameter } from '../shared/ssm-parameters';
 
 export class DataStack extends Stack {
   public readonly databaseName: string;
@@ -37,13 +28,15 @@ export class DataStack extends Stack {
   public readonly rdsConsoleCloudShellSecurityGroup: SecurityGroup;
   public readonly subnetGroup: SubnetGroup;
 
-  constructor(scope: Construct, id: string, props: DataStackProps) {
-    const stage = readWorkopsStage(scope);
+  constructor(scope: Construct, id: string, props: StackProps) {
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'data'),
+      stackName: stackName(scope, 'data'),
     });
 
+    const network = foundationNetwork(this);
+    const securityGroups = foundationSecurityGroups(this);
     this.databaseName = 'workops';
     this.databasePort = '3306';
 
@@ -51,9 +44,9 @@ export class DataStack extends Stack {
     this.subnetGroup = new SubnetGroup(this, 'DbSubnetGroup', {
       description: 'WorkOps database isolated subnets',
       subnetGroupName: `workops-${stage}-db-subnet-group`,
-      vpc: props.vpc,
+      vpc: network.vpc,
       vpcSubnets: {
-        subnets: props.dbSubnets,
+        subnets: network.dbSubnets,
       },
     });
 
@@ -65,7 +58,7 @@ export class DataStack extends Stack {
         allowAllOutbound: false,
         description: 'WorkOps RDS Console CloudShell VPC security group',
         securityGroupName: `workops-${stage}-rds-console-cloudshell-sg`,
-        vpc: props.vpc,
+        vpc: network.vpc,
       },
     );
     this.rdsConsoleCloudShellSecurityGroup.addEgressRule(
@@ -80,17 +73,17 @@ export class DataStack extends Stack {
     );
 
     new CfnSecurityGroupIngress(this, 'DbIngressFromApp', {
-      groupId: props.dbSecurityGroup.securityGroupId,
+      groupId: securityGroups.dbSecurityGroup.securityGroupId,
       ipProtocol: 'tcp',
-      sourceSecurityGroupId: props.appSecurityGroup.securityGroupId,
+      sourceSecurityGroupId: securityGroups.appSecurityGroup.securityGroupId,
       fromPort: 3306,
       toPort: 3306,
       description: 'Allow WorkOps app tasks to reach MySQL',
     });
     new CfnSecurityGroupIngress(this, 'DbIngressFromMigration', {
-      groupId: props.dbSecurityGroup.securityGroupId,
+      groupId: securityGroups.dbSecurityGroup.securityGroupId,
       ipProtocol: 'tcp',
-      sourceSecurityGroupId: props.migrationSecurityGroup.securityGroupId,
+      sourceSecurityGroupId: securityGroups.migrationSecurityGroup.securityGroupId,
       fromPort: 3306,
       toPort: 3306,
       description: 'Allow WorkOps migration CodeBuild to reach MySQL',
@@ -101,7 +94,7 @@ export class DataStack extends Stack {
       allocatedStorage: 20,
       backupRetention: Duration.days(1),
       credentials: Credentials.fromGeneratedSecret('workops_admin', {
-        secretName: `/workops/${stage}/db/master`,
+        secretName: stagePath(this, 'db/master'),
       }),
       databaseName: this.databaseName,
       deletionProtection: false,
@@ -113,13 +106,16 @@ export class DataStack extends Stack {
       multiAz: false,
       publiclyAccessible: false,
       removalPolicy: RemovalPolicy.DESTROY,
-      securityGroups: [props.dbSecurityGroup, this.rdsConsoleCloudShellSecurityGroup],
+      securityGroups: [
+        securityGroups.dbSecurityGroup,
+        this.rdsConsoleCloudShellSecurityGroup,
+      ],
       storageEncrypted: true,
       storageType: StorageType.GP2,
       subnetGroup: this.subnetGroup,
-      vpc: props.vpc,
+      vpc: network.vpc,
       vpcSubnets: {
-        subnets: props.dbSubnets,
+        subnets: network.dbSubnets,
       },
     });
 
@@ -130,18 +126,14 @@ export class DataStack extends Stack {
     }
 
     // DB connection parameters are owned with the RDS lifecycle because the endpoint changes when RDS is recreated.
-    new StringParameter(this, 'DbNameParameter', {
-      parameterName: `/workops/${stage}/db/name`,
-      stringValue: this.databaseName,
-    });
-    new StringParameter(this, 'DbPortParameter', {
-      parameterName: `/workops/${stage}/db/port`,
-      stringValue: this.databasePort,
-    });
-    new StringParameter(this, 'DbUrlParameter', {
-      parameterName: `/workops/${stage}/db/url`,
-      stringValue: `jdbc:mysql://${this.endpointAddress}:${this.databasePort}/${this.databaseName}?useSSL=true&serverTimezone=Asia/Tokyo`,
-    });
+    createParameter(this, 'DbNameParameter', 'db/name', this.databaseName);
+    createParameter(this, 'DbPortParameter', 'db/port', this.databasePort);
+    createParameter(
+      this,
+      'DbUrlParameter',
+      'db/url',
+      `jdbc:mysql://${this.endpointAddress}:${this.databasePort}/${this.databaseName}?useSSL=true&serverTimezone=Asia/Tokyo`,
+    );
 
     new CfnOutput(this, 'rdsConsoleCloudShellSecurityGroupId', {
       value: this.rdsConsoleCloudShellSecurityGroup.securityGroupId,

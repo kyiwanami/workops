@@ -2,9 +2,9 @@ import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { CfnDomain, CfnRepository } from 'aws-cdk-lib/aws-codeartifact';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
+import { readStage, stackName } from '../shared/environment';
+import { createParameter } from '../shared/ssm-parameters';
 
 export interface DependencyStackProps extends StackProps {
   notificationEmail: string;
@@ -12,10 +12,10 @@ export interface DependencyStackProps extends StackProps {
 
 export class DependencyStack extends Stack {
   constructor(scope: Construct, id: string, props: DependencyStackProps) {
-    const stage = readWorkopsStage(scope);
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'dependency'),
+      stackName: stackName(scope, 'dependency'),
     });
 
     const domainName = `workops-${stage}`;
@@ -49,38 +49,35 @@ export class DependencyStack extends Stack {
     });
     opsTopic.addSubscription(new EmailSubscription(props.notificationEmail));
 
-    this.createParameter(
+    createParameter(
+      this,
       'SpringProfileParameter',
-      `/workops/${stage}/dependencies/runtime/spring-profile`,
+      'dependencies/runtime/spring-profile',
       'dev',
     );
-    this.createParameter(
+    createParameter(
+      this,
       'CodeArtifactDomainNameParameter',
-      `/workops/${stage}/dependencies/codeartifact/domain-name`,
+      'dependencies/codeartifact/domain-name',
       domainName,
     );
-    this.createParameter(
+    createParameter(
+      this,
       'CodeArtifactNpmRepositoryNameParameter',
-      `/workops/${stage}/dependencies/codeartifact/npm-repository-name`,
+      'dependencies/codeartifact/npm-repository-name',
       npmRepositoryName,
     );
-    this.createParameter(
+    createParameter(
+      this,
       'CodeArtifactMavenRepositoryNameParameter',
-      `/workops/${stage}/dependencies/codeartifact/maven-repository-name`,
+      'dependencies/codeartifact/maven-repository-name',
       mavenRepositoryName,
     );
-    this.createParameter(
+    createParameter(
+      this,
       'OpsTopicArnParameter',
-      `/workops/${stage}/dependencies/notifications/ops-topic-arn`,
+      'dependencies/notifications/ops-topic-arn',
       opsTopic.topicArn,
     );
-  }
-
-  private createParameter(id: string, parameterName: string, stringValue: string): void {
-    const parameter = new StringParameter(this, id, {
-      parameterName,
-      stringValue,
-    });
-    parameter.applyRemovalPolicy(RemovalPolicy.DESTROY);
   }
 }

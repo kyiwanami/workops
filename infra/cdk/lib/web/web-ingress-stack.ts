@@ -4,7 +4,7 @@ import {
   AwsCustomResourcePolicy,
   PhysicalResourceId,
 } from 'aws-cdk-lib/custom-resources';
-import { CfnSecurityGroupIngress, ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { CfnSecurityGroupIngress } from 'aws-cdk-lib/aws-ec2';
 import {
   ApplicationLoadBalancer,
   ApplicationListener,
@@ -13,37 +13,35 @@ import {
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
+import { foundationNetwork, foundationSecurityGroups } from '../shared/contract-imports';
+import { readStage, stackName, stagePath } from '../shared/environment';
+import { createParameter } from '../shared/ssm-parameters';
 
 const CLOUD_FRONT_ORIGIN_PREFIX_LIST_NAME = 'com.amazonaws.global.cloudfront.origin-facing';
-
-export interface WebIngressStackProps extends StackProps {
-  vpc: Vpc;
-  appSubnets: ISubnet[];
-  albSecurityGroup: SecurityGroup;
-}
 
 export class WebIngressStack extends Stack {
   public readonly loadBalancer: ApplicationLoadBalancer;
   public readonly listener: ApplicationListener;
 
-  constructor(scope: Construct, id: string, props: WebIngressStackProps) {
-    const stage = readWorkopsStage(scope);
+  constructor(scope: Construct, id: string, props: StackProps) {
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'web-ingress'),
+      stackName: stackName(scope, 'web-ingress'),
     });
+
+    const network = foundationNetwork(this);
+    const securityGroups = foundationSecurityGroups(this);
 
     // WebIngress owns the replaceable ALB side of the CloudFront VPC origin path.
     this.loadBalancer = new ApplicationLoadBalancer(this, 'WebAlb', {
-      vpc: props.vpc,
+      vpc: network.vpc,
       internetFacing: false,
       loadBalancerName: `workops-${stage}-web-alb`,
-      securityGroup: props.albSecurityGroup,
+      securityGroup: securityGroups.albSecurityGroup,
       vpcSubnets: {
-        subnets: props.appSubnets,
+        subnets: network.appSubnets,
       },
     });
 
@@ -61,7 +59,7 @@ export class WebIngressStack extends Stack {
 
     // CloudFront VPC Origin still needs ALB inbound permission; use the AWS managed list without static pl-* IDs.
     new CfnSecurityGroupIngress(this, 'AlbHttpIngressFromCloudFront', {
-      groupId: props.albSecurityGroup.securityGroupId,
+      groupId: securityGroups.albSecurityGroup.securityGroupId,
       ipProtocol: 'tcp',
       sourcePrefixListId: cloudFrontOriginPrefixListId,
       fromPort: 80,
@@ -69,34 +67,41 @@ export class WebIngressStack extends Stack {
       description: 'Allow CloudFront VPC origin to reach WorkOps ALB',
     });
 
-    this.createParameter(
+    createParameter(
+      this,
       'WebIngressAlbArnParameter',
-      `/workops/${stage}/web-ingress/origin/alb-arn`,
+      'web-ingress/origin/alb-arn',
       this.loadBalancer.loadBalancerArn,
     );
-    this.createParameter(
+    createParameter(
+      this,
       'WebIngressAlbDnsNameParameter',
-      `/workops/${stage}/web-ingress/origin/alb-dns-name`,
+      'web-ingress/origin/alb-dns-name',
       this.loadBalancer.loadBalancerDnsName,
     );
-    this.createParameter(
+    createParameter(
+      this,
       'WebIngressAlbSecurityGroupIdParameter',
-      `/workops/${stage}/web-ingress/origin/alb-security-group-id`,
-      props.albSecurityGroup.securityGroupId,
+      'web-ingress/origin/alb-security-group-id',
+      securityGroups.albSecurityGroup.securityGroupId,
     );
-  }
-
-  private createParameter(id: string, parameterName: string, stringValue: string): void {
-    const parameter = new StringParameter(this, id, {
-      parameterName,
-      stringValue,
-    });
-    parameter.applyRemovalPolicy(RemovalPolicy.DESTROY);
+    createParameter(
+      this,
+      'WebIngressHttpListenerArnParameter',
+      'web-ingress/listener/http-listener-arn',
+      this.listener.listenerArn,
+    );
+    createParameter(
+      this,
+      'WebIngressAlbFullNameParameter',
+      'web-ingress/alb-full-name',
+      this.loadBalancer.loadBalancerFullName,
+    );
   }
 
   private cloudFrontOriginPrefixListId(stage: string): string {
     const logGroup = new LogGroup(this, 'CloudFrontOriginPrefixListLogGroup', {
-      logGroupName: `/workops/${stage}/web-ingress/cloudfront-origin-prefix-list`,
+      logGroupName: stagePath(this, 'web-ingress/cloudfront-origin-prefix-list'),
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });

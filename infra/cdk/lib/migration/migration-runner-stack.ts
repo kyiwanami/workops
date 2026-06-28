@@ -6,40 +6,39 @@ import {
   LinuxBuildImage,
   PipelineProject,
 } from 'aws-cdk-lib/aws-codebuild';
-import { ISubnet, SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
-
-export interface MigrationRunnerStackProps extends StackProps {
-  appSubnets: ISubnet[];
-  migrationSecurityGroup: SecurityGroup;
-  migrationLogGroup: ILogGroup;
-  vpc: Vpc;
-}
+import {
+  foundationNetwork,
+  foundationSecurityGroups,
+  logsGroup,
+} from '../shared/contract-imports';
+import { readStage, stackName, stagePath } from '../shared/environment';
 
 export class MigrationRunnerStack extends Stack {
   public readonly migrationProject: PipelineProject;
 
-  constructor(scope: Construct, id: string, props: MigrationRunnerStackProps) {
-    const stage = readWorkopsStage(scope);
+  constructor(scope: Construct, id: string, props: StackProps) {
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'migration-runner'),
+      stackName: stackName(scope, 'migration-runner'),
     });
 
+    const network = foundationNetwork(this);
+    const securityGroups = foundationSecurityGroups(this);
+    const migrationLogGroup = logsGroup(this, 'MigrationLogGroup', 'migration');
     const dbUrlParameter = StringParameter.fromStringParameterName(
       this,
       'DbUrlParameter',
-      `/workops/${stage}/db/url`,
+      stagePath(this, 'db/url'),
     );
     const dbMasterSecret = SecretsManagerSecret.fromSecretNameV2(
       this,
       'DbMasterSecret',
-      `/workops/${stage}/db/master`,
+      stagePath(this, 'db/master'),
     );
     // MigrationRunner executes the db Maven project from the CodePipeline source artifact inside the RDS VPC.
     this.migrationProject = new PipelineProject(this, 'MigrationCodeBuildProject', {
@@ -85,28 +84,28 @@ export class MigrationRunnerStack extends Stack {
           },
           WORKOPS_CODEARTIFACT_DOMAIN_NAME: {
             type: BuildEnvironmentVariableType.PARAMETER_STORE,
-            value: `/workops/${stage}/dependencies/codeartifact/domain-name`,
+            value: stagePath(this, 'dependencies/codeartifact/domain-name'),
           },
           WORKOPS_CODEARTIFACT_MAVEN_REPOSITORY_NAME: {
             type: BuildEnvironmentVariableType.PARAMETER_STORE,
-            value: `/workops/${stage}/dependencies/codeartifact/maven-repository-name`,
+            value: stagePath(this, 'dependencies/codeartifact/maven-repository-name'),
           },
         },
       },
       logging: {
         cloudWatch: {
-          logGroup: props.migrationLogGroup,
+          logGroup: migrationLogGroup,
           prefix: 'migration',
         },
       },
-      securityGroups: [props.migrationSecurityGroup],
+      securityGroups: [securityGroups.migrationSecurityGroup],
       subnetSelection: {
-        subnets: props.appSubnets,
+        subnets: network.appSubnets,
       },
       timeout: Duration.minutes(30),
-      vpc: props.vpc,
+      vpc: network.vpc,
     });
-    props.migrationLogGroup.grantWrite(this.migrationProject);
+    migrationLogGroup.grantWrite(this.migrationProject);
     dbUrlParameter.grantRead(this.migrationProject);
     dbMasterSecret.grantRead(this.migrationProject);
     for (const statement of this.createCodeArtifactPolicyStatements(stage)) {

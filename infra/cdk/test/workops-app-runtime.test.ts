@@ -1,71 +1,13 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { AppRuntimeStack } from '../lib/runtime/app-runtime-stack';
-import { FoundationStack } from '../lib/foundation/foundation-stack';
-import { IdentityStack } from '../lib/identity/identity-stack';
-import { LogsStack } from '../lib/logs/logs-stack';
-import { RegistryStack } from '../lib/registry/registry-stack';
-import { WebAclStack } from '../lib/web/web-acl-stack';
-import { WebDeliveryStack } from '../lib/web/web-delivery-stack';
-import { WebIngressStack } from '../lib/web/web-ingress-stack';
 import { createTestApp, testEnv, testWebImageTag } from './workops-test-fixtures';
 
 describe('WorkOps CDK app runtime', () => {
   test('creates the P2-3 AppRuntimeStack web service', () => {
     const stage = 'dev';
     const app = createTestApp(stage);
-    const foundationStack = new FoundationStack(app, 'FoundationStack', {
-      env: testEnv,
-    });
-    const identityStack = new IdentityStack(app, 'IdentityStack', {
-      env: testEnv,
-    });
-    const registryStack = new RegistryStack(app, 'RegistryStack', {
-      env: testEnv,
-    });
-    const logsStack = new LogsStack(app, 'LogsStack', {
-      env: testEnv,
-    });
-    const webAclStack = new WebAclStack(app, 'WebAclStack', {
-      crossRegionReferences: true,
-      env: {
-        account: testEnv.account,
-        region: 'us-east-1',
-      },
-    });
-    const webIngressStack = new WebIngressStack(app, 'WebIngressStack', {
-      albSecurityGroup: foundationStack.albSecurityGroup,
-      appSubnets: foundationStack.appSubnets,
-      env: testEnv,
-      vpc: foundationStack.vpc,
-    });
-    const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
-      cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
-      cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
-      cognitoUserPoolId: identityStack.userPoolId,
-      cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
-      cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
-      crossRegionReferences: true,
-      env: testEnv,
-      webAclArn: webAclStack.webAclArn,
-    });
     const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
       env: testEnv,
-      runtimeResources: {
-        albSecurityGroup: foundationStack.albSecurityGroup,
-        appSecurityGroup: foundationStack.appSecurityGroup,
-        appSubnets: foundationStack.appSubnets,
-        cloudFrontHttpsUrl: webDeliveryStack.cloudFrontHttpsUrl,
-        cluster: foundationStack.ecsCluster,
-        cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
-        cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
-        cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
-        cognitoUserPoolId: identityStack.userPoolId,
-        listener: webIngressStack.listener,
-        loadBalancerFullName: webIngressStack.loadBalancer.loadBalancerFullName,
-        repository: registryStack.webRepository,
-        vpc: foundationStack.vpc,
-        webLogGroup: logsStack.webLogGroup,
-      },
       webImageTag: testWebImageTag,
     });
     const template = Template.fromStack(appRuntimeStack);
@@ -164,7 +106,14 @@ describe('WorkOps CDK app runtime', () => {
     expect(templateText).toContain(testWebImageTag);
     expect(templateText).not.toContain('p2-3-manual');
     expect(templateText).toContain('WORKOPS_COGNITO_HOSTED_UI_DOMAIN_BASE_URL');
-    expect(templateText).toContain('amazoncognito.com');
+    expect(templateText).toContain('/workops/dev/identity/hosted-ui-domain-base-url');
+    expect(templateText).toContain('/workops/dev/identity/user-pool-id');
+    expect(templateText).toContain('/workops/dev/identity/platform-client-id');
+    expect(templateText).toContain('/workops/dev/identity/tenant-client-id');
+    expect(templateText).toContain('/workops/dev/registry/web-repository-name');
+    expect(templateText).toContain('/workops/dev/web-ingress/listener/http-listener-arn');
+    expect(templateText).toContain('/workops/dev/web-ingress/alb-full-name');
+    expect(templateText).toContain('/workops/dev/web-delivery/cloudfront-https-url');
     expect(templateText).toContain('/login');
     expect(templateText).toContain('/login/oauth2/code/platform');
     expect(templateText).toContain('/login/oauth2/code/tenant');
@@ -217,20 +166,20 @@ describe('WorkOps CDK app runtime', () => {
     });
     template.resourceCountIs('AWS::CloudWatch::Alarm', 2);
     template.hasResourceProperties('AWS::CloudWatch::Alarm', {
-      AlarmName: 'workops-dev-web-target-5xx',
-      ComparisonOperator: 'GreaterThanThreshold',
+      AlarmName: 'workops-dev-web-healthy-host-count-low',
+      ComparisonOperator: 'LessThanThreshold',
       DatapointsToAlarm: 2,
       EvaluationPeriods: 2,
       Metrics: Match.arrayWith([
         Match.objectLike({
-          Expression: 'blue5xx + green5xx',
+          Expression: 'blueHealthy + greenHealthy',
         }),
       ]),
-      Threshold: 0,
+      Threshold: 1,
       TreatMissingData: 'notBreaching',
     });
     template.hasResourceProperties('AWS::CloudWatch::Alarm', {
-      AlarmName: 'workops-dev-web-unhealthy-host',
+      AlarmName: 'workops-dev-web-unhealthy-host-count',
       ComparisonOperator: 'GreaterThanThreshold',
       DatapointsToAlarm: 2,
       EvaluationPeriods: 2,
@@ -248,7 +197,7 @@ describe('WorkOps CDK app runtime', () => {
         Alarms: Match.objectLike({
           AlarmNames: Match.arrayWith([
             Match.objectLike({
-              Ref: Match.stringLikeRegexp('WebTarget5xxAlarm'),
+              Ref: Match.stringLikeRegexp('WebHealthyHostAlarm'),
             }),
             Match.objectLike({
               Ref: Match.stringLikeRegexp('WebUnhealthyHostAlarm'),
@@ -322,6 +271,10 @@ describe('WorkOps CDK app runtime', () => {
       },
     });
     expect(templateText).toContain('WORKOPS_COGNITO_USER_POOL_ID');
+    expect(templateText).toContain('HealthyHostCount');
+    expect(templateText).toContain('UnHealthyHostCount');
+    expect(templateText).not.toContain('HTTPCode_Target_5XX_Count');
+    expect(templateText).not.toContain('TargetResponseTime');
     expect(templateText).not.toContain('cognito-idp:AdminDeleteUser');
     expect(templateText).not.toContain('cognito-idp:AdminGetUser');
     expect(templateText).not.toContain('cognito-idp:AdminUpdateUserAttributes');

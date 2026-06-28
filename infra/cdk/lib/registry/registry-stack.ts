@@ -1,17 +1,18 @@
 import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Repository, TagMutability, TagStatus } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
+import { readStage, stackName } from '../shared/environment';
+import { createParameter } from '../shared/ssm-parameters';
 
 export class RegistryStack extends Stack {
   public readonly webRepository: Repository;
   public readonly webCacheRepository: Repository;
 
   constructor(scope: Construct, id: string, props: StackProps) {
-    const stage = readWorkopsStage(scope);
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'registry'),
+      stackName: stackName(scope, 'registry'),
     });
 
     // Application image repositories keep immutable commit SHA tags for Pipeline traceability.
@@ -21,6 +22,25 @@ export class RegistryStack extends Stack {
     this.webCacheRepository = this.createCacheRepository(
       'WebCacheRepository',
       `workops-${stage}-web-cache`,
+    );
+
+    createParameter(
+      this,
+      'WebRepositoryNameParameter',
+      'registry/web-repository-name',
+      this.webRepository.repositoryName,
+    );
+    createParameter(
+      this,
+      'WebRepositoryUriParameter',
+      'registry/web-repository-uri',
+      this.webRepository.repositoryUri,
+    );
+    createParameter(
+      this,
+      'WebCacheRepositoryNameParameter',
+      'registry/web-cache-repository-name',
+      this.webCacheRepository.repositoryName,
     );
   }
 

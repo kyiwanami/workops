@@ -1,29 +1,15 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { FoundationStack } from '../lib/foundation/foundation-stack';
-import { LogsStack } from '../lib/logs/logs-stack';
 import { WebAclStack } from '../lib/web/web-acl-stack';
 import { WebDeliveryStack } from '../lib/web/web-delivery-stack';
 import { WebIngressStack } from '../lib/web/web-ingress-stack';
-import {
-  createTestApp,
-  testCognitoPlatformUserPoolClientId,
-  testCognitoTenantUserPoolClientId,
-  testCognitoUserPoolId,
-  testEnv,
-} from './workops-test-fixtures';
+import { createTestApp, testEnv } from './workops-test-fixtures';
 
 describe('WorkOps CDK web delivery', () => {
   test('creates the P2-beta web ingress, delivery, and ACL stacks', () => {
     const stage = 'dev';
     const app = createTestApp(stage);
-    const foundationStack = new FoundationStack(app, 'FoundationStack', {
-      env: testEnv,
-    });
-    const logsStack = new LogsStack(app, 'LogsStack', {
-      env: testEnv,
-    });
     const webAclStack = new WebAclStack(app, 'WebAclStack', {
       crossRegionReferences: true,
       env: {
@@ -32,25 +18,15 @@ describe('WorkOps CDK web delivery', () => {
       },
     });
     const webIngressStack = new WebIngressStack(app, 'WebIngressStack', {
-      albSecurityGroup: foundationStack.albSecurityGroup,
-      appSubnets: foundationStack.appSubnets,
       env: testEnv,
-      vpc: foundationStack.vpc,
     });
     const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
-      cognitoPlatformUserPoolClientId: testCognitoPlatformUserPoolClientId,
-      cognitoTenantUserPoolClientId: testCognitoTenantUserPoolClientId,
-      cognitoUserPoolId: testCognitoUserPoolId,
-      cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
-      cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
       crossRegionReferences: true,
       env: testEnv,
-      webAclArn: webAclStack.webAclArn,
     });
     const ingressTemplate = Template.fromStack(webIngressStack);
     const deliveryTemplate = Template.fromStack(webDeliveryStack);
     const aclTemplate = Template.fromStack(webAclStack);
-    const foundationTemplate = Template.fromStack(foundationStack);
     const ingressTemplateText = JSON.stringify(ingressTemplate.toJSON());
     const deliveryTemplateText = JSON.stringify(deliveryTemplate.toJSON());
     const ingressStackSource = readFileSync(
@@ -59,7 +35,6 @@ describe('WorkOps CDK web delivery', () => {
     );
 
     ingressTemplate.resourceCountIs('AWS::EC2::SecurityGroupIngress', 1);
-    foundationTemplate.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
     ingressTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
       Description: 'Allow CloudFront VPC origin to reach WorkOps ALB',
       FromPort: 80,
@@ -109,7 +84,7 @@ describe('WorkOps CDK web delivery', () => {
       Protocol: 'HTTP',
     });
     ingressTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 0);
-    ingressTemplate.resourceCountIs('AWS::SSM::Parameter', 3);
+    ingressTemplate.resourceCountIs('AWS::SSM::Parameter', 5);
     ingressTemplate.hasResourceProperties('AWS::SSM::Parameter', {
       Name: '/workops/dev/web-ingress/origin/alb-arn',
       Type: 'String',
@@ -120,6 +95,14 @@ describe('WorkOps CDK web delivery', () => {
     });
     ingressTemplate.hasResourceProperties('AWS::SSM::Parameter', {
       Name: '/workops/dev/web-ingress/origin/alb-security-group-id',
+      Type: 'String',
+    });
+    ingressTemplate.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/web-ingress/listener/http-listener-arn',
+      Type: 'String',
+    });
+    ingressTemplate.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/web-ingress/alb-full-name',
       Type: 'String',
     });
     ingressTemplate.resourceCountIs('AWS::CloudFront::Distribution', 0);
@@ -159,6 +142,10 @@ describe('WorkOps CDK web delivery', () => {
     expect(deliveryTemplateText).toContain('/workops/dev/web-ingress/origin/alb-arn');
     expect(deliveryTemplateText).toContain('/workops/dev/web-ingress/origin/alb-dns-name');
     expect(deliveryTemplateText).toContain('/workops/dev/web-ingress/origin/alb-security-group-id');
+    expect(deliveryTemplateText).toContain('/workops/dev/web-acl/cloudfront-web-acl-arn');
+    expect(deliveryTemplateText).toContain('/workops/dev/identity/user-pool-id');
+    expect(deliveryTemplateText).toContain('/workops/dev/identity/platform-client-id');
+    expect(deliveryTemplateText).toContain('/workops/dev/identity/tenant-client-id');
     deliveryTemplate.hasOutput('cloudFrontHttpsUrl', {});
     deliveryTemplate.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'workops-dev-cognito-client-url-updater',
@@ -172,8 +159,10 @@ describe('WorkOps CDK web delivery', () => {
       },
     });
     deliveryTemplate.resourceCountIs('AWS::Logs::LogGroup', 0);
-    expect(deliveryTemplateText).toContain('CognitoClientUrlUpdaterLogGroup');
-    expect(deliveryTemplateText).toContain('CognitoClientUrlUpdaterProviderLogGroup');
+    expect(deliveryTemplateText).toContain('/workops/dev/lambda/cognito-client-url-updater');
+    expect(deliveryTemplateText).toContain(
+      '/workops/dev/lambda/cognito-client-url-updater-provider',
+    );
     expect(deliveryTemplateText).not.toContain(
       '/workops/dev/custom-resources/cognito-client-url-updater',
     );
@@ -192,9 +181,9 @@ describe('WorkOps CDK web delivery', () => {
     });
     deliveryTemplate.resourceCountIs('Custom::WorkOpsCognitoClientUrlUpdater', 1);
     deliveryTemplate.hasResourceProperties('Custom::WorkOpsCognitoClientUrlUpdater', {
-      UserPoolId: testCognitoUserPoolId,
-      PlatformClientId: testCognitoPlatformUserPoolClientId,
-      TenantClientId: testCognitoTenantUserPoolClientId,
+      UserPoolId: Match.anyValue(),
+      PlatformClientId: Match.anyValue(),
+      TenantClientId: Match.anyValue(),
       CloudFrontDomainName: Match.anyValue(),
     });
     expect(deliveryTemplateText).not.toContain('"CidrIp":"0.0.0.0/0"');

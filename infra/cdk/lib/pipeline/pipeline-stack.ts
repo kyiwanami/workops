@@ -25,7 +25,7 @@ import {
   ManualApprovalStep,
 } from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
-import { workopsStackName } from '../shared/environment';
+import { stackName } from '../shared/environment';
 import {
   createBuildEnvironment,
   createBuildImageStep,
@@ -33,7 +33,11 @@ import {
   createCodeArtifactParameterStoreEnvironment,
   createCodeArtifactPolicyStatements,
 } from './pipeline-build-steps';
-import { DataNetworkMigrationDeployStage, RegistryDeployStage } from './pipeline-deploy-stages';
+import {
+  AppRuntimeStage,
+  PermanentStage,
+  RuntimePrereqStage,
+} from './pipeline-deploy-stages';
 import { MigrationActionStep } from './pipeline-migration-action-step';
 
 export interface PipelineStackProps extends StackProps {
@@ -52,11 +56,11 @@ export class PipelineStack extends Stack {
   constructor(scope: Construct, id: string, props: PipelineStackProps) {
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'pipeline'),
+      stackName: stackName(scope, 'pipeline'),
     });
 
     const buildEnvironment = createBuildEnvironment();
-    const codeArtifactParameterNames = createCodeArtifactParameterNames(props.stage);
+    const codeArtifactParameterNames = createCodeArtifactParameterNames(this);
     const codeArtifactPolicyStatements = createCodeArtifactPolicyStatements(this, props.stage);
     const codeStarNotificationsRole = new CfnServiceLinkedRole(
       this,
@@ -213,18 +217,15 @@ export class PipelineStack extends Stack {
     });
     const manualApprovalStep = new ManualApprovalStep('ManualApproval', {
       comment:
-        'Approve WorkOps dev registry deployment before image build and runtime deploy stages.',
+        'Approve WorkOps dev chargeable runtime deployment after permanent resources and image build complete.',
       notificationTopic,
     });
-    manualApprovalStep.addStepDependency(buildAndTestStep);
 
-    pipeline.addStage(
-      new RegistryDeployStage(this, 'DeployRegistry'),
-      {
-        pre: [buildAndTestStep, manualApprovalStep],
-      },
-    );
-    pipeline.addWave('BuildImages', {
+    const permanentStage = new PermanentStage(this, 'DeployPermanent');
+    pipeline.addStage(permanentStage, {
+      pre: [buildAndTestStep],
+    });
+    pipeline.addWave('BuildWebImage', {
       pre: [
         createBuildImageStep(this, source, {
           buildContext: 'apps/web',
@@ -238,17 +239,17 @@ export class PipelineStack extends Stack {
         }),
       ],
     });
-    const dataNetworkMigrationStage = new DataNetworkMigrationDeployStage(
-      this,
-      'DeployDataNetworkMigration',
-      {
-        webImageTag: props.webImageTag,
-      },
-    );
-    pipeline.addStage(dataNetworkMigrationStage, {
+    const runtimePrereqStage = new RuntimePrereqStage(this, 'DeployRuntimePrereq');
+    pipeline.addStage(runtimePrereqStage, {
+      pre: [manualApprovalStep],
+    });
+    const appRuntimeStage = new AppRuntimeStage(this, 'DeployAppRuntime', {
+      webImageTag: props.webImageTag,
+    });
+    pipeline.addStage(appRuntimeStage, {
       stackSteps: [
         {
-          stack: dataNetworkMigrationStage.appRuntimeStack,
+          stack: appRuntimeStage.appRuntimeStack,
           pre: [
             new MigrationActionStep('RunMigration', {
               commitSha,

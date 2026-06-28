@@ -11,7 +11,7 @@ import { ITopic, Topic } from 'aws-cdk-lib/aws-sns';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { join } from 'path';
-import { readWorkopsStage, workopsStackName } from '../shared/environment';
+import { readStage, stackName, stagePath } from '../shared/environment';
 
 export interface DataPauseStackProps extends StackProps {
   markAutoRestartLogGroup: ILogGroup;
@@ -20,10 +20,10 @@ export interface DataPauseStackProps extends StackProps {
 
 export class DataPauseStack extends Stack {
   constructor(scope: Construct, id: string, props: DataPauseStackProps) {
-    const stage = readWorkopsStage(scope);
+    const stage = readStage(scope);
     super(scope, id, {
       ...props,
-      stackName: workopsStackName(scope, 'data-pause'),
+      stackName: stackName(scope, 'data-pause'),
     });
 
     const markerParameterArn = this.formatArn({
@@ -39,7 +39,7 @@ export class DataPauseStack extends Stack {
     });
     const opsTopicArn = StringParameter.valueForStringParameter(
       this,
-      `/workops/${stage}/dependencies/notifications/ops-topic-arn`,
+      stagePath(this, 'dependencies/notifications/ops-topic-arn'),
     );
     const opsTopic = Topic.fromTopicArn(this, 'OpsNotificationTopic', opsTopicArn);
 

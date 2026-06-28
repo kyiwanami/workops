@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { App, Environment, Tags } from 'aws-cdk-lib';
 import { DependencyStack } from '../lib/dependencies/dependency-stack';
-import { readRequiredEnv, setWorkopsStage } from '../lib/shared/environment';
+import { readRequiredEnv, setStage } from '../lib/shared/environment';
 import { PipelineStack } from '../lib/pipeline/pipeline-stack';
 
 const app = new App();
 const stage = readRequiredEnv('WORKOPS_SOURCE_BRANCH');
-setWorkopsStage(app, stage);
+setStage(app, stage);
 const githubRepository = readRequiredEnv('GITHUB_REPOSITORY');
 const notificationEmail = readRequiredEnv('WORKOPS_OPS_NOTIFICATION_EMAIL');
 const imageTag = readRequiredEnv('WORKOPS_IMAGE_TAG');
