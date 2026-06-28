@@ -28,7 +28,7 @@ WebAclStack
 ```
 
 `WebDeliveryStack` は常設分類だが、この中間確認から除外する。
-理由は `WebIngressStack` が作る `/workops/${stage}/web-ingress/alb-dns-name` を deploy時に解決するため。
+理由は `WebIngressStack` が作る Web ingress origin contract を deploy時に解決するため。
 
 ## ADR
 

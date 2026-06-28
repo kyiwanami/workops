@@ -102,7 +102,7 @@ flowchart TB
   end
 ```
 
-- `WebDeliveryStack` は常設ですが、`WebIngressStack` が作る `/workops/${stage}/web-ingress/alb-dns-name` を deploy 時に解決するため、Pipeline stage 上は `WebIngressStack` 後に配置する
+- `WebDeliveryStack` は常設ですが、CloudFront VPC Origin の接続先として `WebIngressStack` が公開する Web ingress origin contract を deploy 時に解決するため、Pipeline stage 上は `WebIngressStack` 後に配置する
 - `ConfigStack` と `SecretStack` は 2-beta で削除する。これはライフサイクル分類の「撤去」とは別の作業として扱う
 - `DependencyStack` 所有の SSM parameters は `/workops/${stage}/dependencies/...` 配下に集約する
 - `DataStack` 所有の DB 接続系 SSM parameters と RDS master secret は `DataStack` に残す
@@ -180,8 +180,8 @@ flowchart LR
   DataPause["DataPauseStack"] --> OpsTopic
   AppRuntime["AppRuntimeStack"] --> SpringProfile
 
-  WebIngress["WebIngressStack"] --> AlbDnsName["/workops/${stage}/web-ingress/alb-dns-name"]
-  WebDelivery["WebDeliveryStack"] --> AlbDnsName
+  WebIngress["WebIngressStack"] --> OriginContract["/workops/${stage}/web-ingress/origin/*"]
+  WebDelivery["WebDeliveryStack"] --> OriginContract
 ```
 
 ### CodeArtifact 方針
@@ -234,8 +234,11 @@ flowchart LR
 - 既存記録上の `EdgeStack` deploy 約 15 分 11 秒を実測根拠とする
 - `WebDeliveryStack` は CloudFront Distribution / VPC Origin / Cognito URL updater を所有する
 - `WebIngressStack` は ALB / listener / target group / ALB SG ingress を所有する
-- `WebIngressStack` は `/workops/${stage}/web-ingress/alb-dns-name` を SSM へ書く
-- `WebDeliveryStack` は ALB DNS name を SSM deploy 時解決で読み、synth 時 lookup はしない
+- `WebIngressStack` は CloudFront VPC Origin の接続先として使う Web ingress origin contract を SSM へ書く
+- Web ingress origin contract は `/workops/${stage}/web-ingress/origin/alb-arn`、`/workops/${stage}/web-ingress/origin/alb-dns-name`、`/workops/${stage}/web-ingress/origin/alb-security-group-id` とする
+- `WebDeliveryStack` は Web ingress origin contract を SSM deploy 時解決で読み、synth 時 lookup はしない
+- `WebDeliveryStack` は SSM から復元した `IApplicationLoadBalancer` を `VpcOrigin.withApplicationLoadBalancer` に渡し、`AWS::CloudFront::VpcOrigin` と CloudFront Distribution を同じ Stack で管理する
+- `AWS::CloudFront::VpcOrigin` の `VpcOriginEndpointConfig.Arn` に必要なのは VPC Origin 自体の ARN ではなく、origin endpoint として使う ALB ARN である
 - `AppRuntimeStack` と `WebIngressStack` の listener / target group 連携は props 参照を維持する
 - `WebIngressStack` 再作成時に `WebDeliveryStack` 更新が必要になり、CloudFront 待ち時間が発生し得ることは受け入れる
 

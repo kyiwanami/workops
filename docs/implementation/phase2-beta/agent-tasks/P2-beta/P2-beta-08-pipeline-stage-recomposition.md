@@ -47,7 +47,7 @@ flowchart LR
 - CDK Pipelines self-mutationは維持する。
 - Deploy Permanent対象は `FoundationStack`、`LogsStack`、`IdentityStack`、`RegistryStack`、`DataPauseStack`、`WebAclStack`。
 - Deploy Chargeable / Runtime対象順序は `EgressStack`、`WebIngressStack`、`WebDeliveryStack`、`DataStack`、`MigrationRunnerStack`。
-- `WebDeliveryStack` は常設分類だが、ALB DNS name SSM parameterのため `WebIngressStack` 後に置く。
+- `WebDeliveryStack` は常設分類だが、Web ingress origin contractをSSMから読むため `WebIngressStack` 後に置く。
 - RunMigration成功後に `AppRuntimeStack` をdeployする。
 
 ## Implementation
