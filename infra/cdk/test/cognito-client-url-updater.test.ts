@@ -14,7 +14,7 @@ import {
   CustomResourceEvent,
   handleEvent,
   ResourceProperties,
-} from '../custom-resources/cognito-client-url-updater/index';
+} from '../lambda/cognito-client-url-updater/index';
 
 interface DescribeCall {
   kind: 'describe';

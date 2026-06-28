@@ -322,7 +322,8 @@ CloudFront 用 Web ACL は AWS 仕様に合わせて `us-east-1` に作成しま
 
 - AWS Managed Rules Common Rule Set を Count mode で有効化する
 - Bot Control、Fraud Control、CAPTCHA、Challenge、Marketplace managed rule は使わない
-- WAF log は通常無効とし、検証時だけ CDK context flag で有効化する
+- WAF log は作成する
+- stage 別の WAF log retention / destination 方針は後続 TODO とし、Phase 2β の現時点では扱わない
 
 ### ECS Blue/Green Alarm 方針
 

@@ -13,7 +13,8 @@
 - CloudFront deploy時間が長い既存実測を根拠として記録する。
 - 通常運用を複雑にしない。
 - CloudFront 前段に AWS WAF Web ACL を追加する。
-- WAF log は通常無効とし、検証時のみ有効化する。
+- WAF log を作成する。
+- stage 別の WAF log retention / destination 方針は後続 TODO とし、このtaskでは扱わない。
 
 ## 案
 
@@ -56,7 +57,8 @@
 - L1 `CfnVpcOrigin` を直接組み立てる実装は採用しない。
 - `WebAclStack` は AWS Managed Rules Common Rule Set だけを作る。
 - Bot Control、Fraud Control、CAPTCHA、Challenge、Marketplace managed rule は使わない。
-- WAF log は既定無効とし、CDK context flag で有効化した場合だけ LogGroup と LoggingConfiguration を作る。
+- WAF log は LogGroup と LoggingConfiguration を作る。
+- stage 別の WAF log retention / destination 方針は後続 TODO とし、このtaskでは扱わない。
 - `infra/cdk/custom-resources/cognito-client-url-updater/` を `infra/cdk/lambda/cognito-client-url-updater/` に移す。
 - Cognito URL updater は Node.js 24.x に更新し、AWS SDKをbundleする。
 - Lambda実行コード置き場は `infra/cdk/lambda/` に統一する。
@@ -82,7 +84,7 @@ flowchart LR
 - `WebDeliveryStack` template の CloudFront Distribution が同一Stack内の VPC Origin ID を参照することを確認する。
 - `WebAclStack` が CloudFront scope の Web ACL を作ることを確認する。
 - AWS Managed Rules Common Rule Set が Count mode であることを確認する。
-- WAF log が既定無効で、context flag有効時だけLoggingConfigurationを作ることを確認する。
+- WAF log の LogGroup と LoggingConfiguration を作ることを確認する。
 - `WebDeliveryStack` の CloudFront Distribution が Web ACL ARN を使うことを確認する。
 - Cognito URL updater runtimeが Node.js 24.x であることを確認する。
 - Cognito URL updater handler単体テストを追加し、`DescribeUserPoolClient` から既存設定を取得し、URLだけを `UpdateUserPoolClient` で更新する流れをmock検証する。

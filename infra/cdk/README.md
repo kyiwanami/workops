@@ -91,6 +91,9 @@ CDK app は次の Stack を管理します。
 - `workops-{stage}-registry`
 - `workops-{stage}-logs`
 - `workops-{stage}-migration-runner`
+- `workops-{stage}-web-acl`
+- `workops-{stage}-web-ingress`
+- `workops-{stage}-web-delivery`
 - `workops-{stage}-pipeline`
 
 `stage` は `WORKOPS_STAGE` の値です。
@@ -98,6 +101,12 @@ CDK app は次の Stack を管理します。
 `workops-{stage}-dependency` は CodeArtifact domain / npm repository / Maven repository、ops notification topic、非 secret SSM parameters を所有する Top-level / Pipeline 基盤 Stack です。
 
 `workops-{stage}-identity` は Cognito User Pool、Hosted UI domain、App Client を所有する維持対象 Stack です。CloudFront / ALB / ECS / NAT Gateway の実行確認セッション Stack とは lifecycle を分けます。
+
+`workops-{stage}-web-acl` は CloudFront 用 WAF Web ACL を us-east-1 に作る常設 Stack です。AWS Managed Rules Common Rule Set は Count mode で有効化し、WAF log を作成します。stage 別の WAF log retention / destination 方針は後続 TODO として扱います。
+
+`workops-{stage}-web-ingress` は ALB / listener / CloudFront origin 向け ALB ingress と `/workops/{stage}/web-ingress/origin/*` SSM parameters を所有します。
+
+`workops-{stage}-web-delivery` は CloudFront Distribution / VPC Origin / Cognito URL updater を所有します。旧 EdgeStack deploy の既存実測は約 15分11秒で、長時間・低頻度変更側を隔離するために WebIngressStack と分割しています。
 
 `workops-{stage}-pipeline` は CodePipeline V2、CodeBuild、CodeConnection、Artifact bucket を所有し、通知先は `DependencyStack` の ops notification topic を参照します。GitHub Actions OIDC deploy 経路は使いません。
 
@@ -159,7 +168,7 @@ npx cdk deploy DependencyStack PipelineStack --profile $env:AWS_PROFILE
 P2-alpha-3 以降、runtime resource の作成・更新・削除は Pipeline 管理に寄せます。
 個別 runtime CDK entrypoint は使いません。
 
-PipelineStack、DependencyStack、MigrationRunnerStack、FoundationStack、IdentityStack、RegistryStack、LogsStack、Artifact bucket、ECR repository、CodeConnection は維持対象です。
+PipelineStack、DependencyStack、MigrationRunnerStack、WebDeliveryStack、WebAclStack、FoundationStack、IdentityStack、RegistryStack、LogsStack、Artifact bucket、ECR repository、CodeConnection は維持対象です。
 
 ## Conventions
 
@@ -170,6 +179,6 @@ PipelineStack、DependencyStack、MigrationRunnerStack、FoundationStack、Ident
 - DB endpoint から派生する SSM Parameter は、RDS を所有する Stack に置きます。
 - DB に依存しない runtime config は `DependencyStack` の `/workops/{stage}/dependencies/...` に置きます。
 - Cognito User Pool、Hosted UI domain、App Client は `IdentityStack` に置きます。
-- `IdentityStack` は `EdgeStack` を参照しません。
+- `IdentityStack` は `WebDeliveryStack` を参照しません。
 - Stack 間参照は同一 CDK app 内の props 参照で渡し、cross-stack reference は `weak` に固定します。
 - `weak` により、生成 template は `Fn::ImportValue` ではなく `Fn::GetStackOutput` を使います。

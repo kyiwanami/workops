@@ -37,7 +37,7 @@ WebAclStack
 - `--exclusively` は使わない。
 - CodeArtifactの実 npm/Maven依存取得はこのtaskで確認せず、最終Pipeline確認で確認する。
 - DataPauseの実 `RDS-EVENT-0154` 再現はこのtaskで確認しない。
-- WAF log は通常無効のため、このtaskでは既定OFF構成を確認する。
+- WAF log は作成する。stage 別の WAF log retention / destination 方針は後続 TODO とし、このtaskでは扱わない。
 
 ## Implementation
 
@@ -79,7 +79,7 @@ npm run cdk -- deploy DependencyStack FoundationStack LogsStack IdentityStack Re
 - `WebAclStack`
   - CloudFront scope の WAF Web ACL
   - AWS Managed Rules Common Rule Set の Count mode
-  - WAF logging が既定無効であること
+  - WAF logging が作成されること
   - `us-east-1` にdeployすること
 
 ## Assumptions

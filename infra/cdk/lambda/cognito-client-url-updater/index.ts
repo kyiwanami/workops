@@ -163,7 +163,7 @@ export async function handleEvent(
 ): Promise<HandlerResponse> {
   const physicalResourceId = getPhysicalResourceId(event);
 
-  // Delete keeps the last registered Cognito URLs for the next EdgeStack replacement.
+  // Delete keeps the last registered Cognito URLs for the next WebDeliveryStack replacement.
   if (event.RequestType === 'Delete') {
     return {
       PhysicalResourceId: physicalResourceId,

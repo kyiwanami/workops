@@ -48,13 +48,15 @@ import { Construct } from 'constructs';
 import { AppRuntimeStack } from './app-runtime-stack';
 import { RuntimeResources } from './app-runtime-stack';
 import { DataStack } from './data-stack';
-import { EdgeStack } from './edge-stack';
 import { EgressStack } from './egress-stack';
 import { FoundationStack } from './foundation-stack';
 import { IdentityStack } from './identity-stack';
 import { LogsStack } from './logs-stack';
 import { MigrationRunnerStack } from './migration-runner-stack';
 import { RegistryStack } from './registry-stack';
+import { WebAclStack } from './web-acl-stack';
+import { WebDeliveryStack } from './web-delivery-stack';
+import { WebIngressStack } from './web-ingress-stack';
 
 export interface PipelineStackProps extends StackProps {
   env: Environment;
@@ -197,18 +199,34 @@ class DataNetworkMigrationDeployStage extends Stage {
       stackName: `workops-${props.stage}-egress`,
       vpc: foundationStack.vpc,
     });
-    const edgeStack = new EdgeStack(this, 'EdgeStack', {
+    const webAclStack = new WebAclStack(this, 'WebAclStack', {
+      crossRegionReferences: true,
+      env: {
+        account: props.env.account,
+        region: 'us-east-1',
+      },
+      stage: props.stage,
+      stackName: `workops-${props.stage}-web-acl`,
+    });
+    const webIngressStack = new WebIngressStack(this, 'WebIngressStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
+      env: props.env,
+      stage: props.stage,
+      stackName: `workops-${props.stage}-web-ingress`,
+      vpc: foundationStack.vpc,
+    });
+    const webDeliveryStack = new WebDeliveryStack(this, 'WebDeliveryStack', {
       cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
       cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
       cognitoUserPoolId: identityStack.userPoolId,
       cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
       cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
+      crossRegionReferences: true,
       env: props.env,
       stage: props.stage,
-      stackName: `workops-${props.stage}-edge`,
-      vpc: foundationStack.vpc,
+      stackName: `workops-${props.stage}-web-delivery`,
+      webAclArn: webAclStack.webAclArn,
     });
     const webRepository = Repository.fromRepositoryName(
       foundationStack,
@@ -227,9 +245,11 @@ class DataNetworkMigrationDeployStage extends Stage {
       vpc: foundationStack.vpc,
     });
 
-    edgeStack.addDependency(egressStack);
-    edgeStack.addDependency(identityStack);
-    edgeStack.addDependency(logsStack);
+    webIngressStack.addDependency(egressStack);
+    webDeliveryStack.addDependency(webAclStack);
+    webDeliveryStack.addDependency(webIngressStack);
+    webDeliveryStack.addDependency(identityStack);
+    webDeliveryStack.addDependency(logsStack);
     this.migrationRunnerStack.addDependency(dataStack);
     this.migrationRunnerStack.addDependency(egressStack);
     this.migrationRunnerStack.addDependency(logsStack);
@@ -238,14 +258,14 @@ class DataNetworkMigrationDeployStage extends Stage {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSecurityGroup: foundationStack.appSecurityGroup,
       appSubnets: foundationStack.appSubnets,
-      cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
+      cloudFrontHttpsUrl: webDeliveryStack.cloudFrontHttpsUrl,
       cluster: foundationStack.ecsCluster,
       cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
       cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
       cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
       cognitoUserPoolId: identityStack.userPoolId,
-      listener: edgeStack.listener,
-      loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
+      listener: webIngressStack.listener,
+      loadBalancerFullName: webIngressStack.loadBalancer.loadBalancerFullName,
       repository: webRepository,
       vpc: foundationStack.vpc,
       webLogGroup: logsStack.webLogGroup,

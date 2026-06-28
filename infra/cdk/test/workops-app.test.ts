@@ -7,7 +7,6 @@ import { Construct } from 'constructs';
 import { AppRuntimeStack } from '../lib/app-runtime-stack';
 import { DataStack } from '../lib/data-stack';
 import { DependencyStack } from '../lib/dependency-stack';
-import { EdgeStack } from '../lib/edge-stack';
 import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
 import { IdentityStack } from '../lib/identity-stack';
@@ -15,6 +14,9 @@ import { LogsStack } from '../lib/logs-stack';
 import { MigrationRunnerStack } from '../lib/migration-runner-stack';
 import { PipelineStack } from '../lib/pipeline-stack';
 import { RegistryStack } from '../lib/registry-stack';
+import { WebAclStack } from '../lib/web-acl-stack';
+import { WebDeliveryStack } from '../lib/web-delivery-stack';
+import { WebIngressStack } from '../lib/web-ingress-stack';
 
 class TaggedResourceStack extends Stack {
   constructor(scope: Construct, id: string) {
@@ -93,18 +95,34 @@ describe('WorkOps CDK app', () => {
       stackName: `workops-${stage}-egress`,
       vpc: foundationStack.vpc,
     });
-    const edgeStack = new EdgeStack(app, 'EdgeStack', {
+    const webAclStack = new WebAclStack(app, 'WebAclStack', {
+      crossRegionReferences: true,
+      env: {
+        account: testEnv.account,
+        region: 'us-east-1',
+      },
+      stage,
+      stackName: `workops-${stage}-web-acl`,
+    });
+    const webIngressStack = new WebIngressStack(app, 'WebIngressStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
+      env: testEnv,
+      stage,
+      stackName: `workops-${stage}-web-ingress`,
+      vpc: foundationStack.vpc,
+    });
+    const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
       cognitoPlatformUserPoolClientId: testCognitoPlatformUserPoolClientId,
       cognitoTenantUserPoolClientId: testCognitoTenantUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
       cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
       cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
+      crossRegionReferences: true,
       env: testEnv,
       stage,
-      stackName: `workops-${stage}-edge`,
-      vpc: foundationStack.vpc,
+      stackName: `workops-${stage}-web-delivery`,
+      webAclArn: webAclStack.webAclArn,
     });
     const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
       env: testEnv,
@@ -112,14 +130,14 @@ describe('WorkOps CDK app', () => {
         albSecurityGroup: foundationStack.albSecurityGroup,
         appSecurityGroup: foundationStack.appSecurityGroup,
         appSubnets: foundationStack.appSubnets,
-        cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
+        cloudFrontHttpsUrl: webDeliveryStack.cloudFrontHttpsUrl,
         cluster: foundationStack.ecsCluster,
         cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
         cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
         cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
         cognitoUserPoolId: identityStack.userPoolId,
-        listener: edgeStack.listener,
-        loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
+        listener: webIngressStack.listener,
+        loadBalancerFullName: webIngressStack.loadBalancer.loadBalancerFullName,
         repository: registryStack.webRepository,
         vpc: foundationStack.vpc,
         webLogGroup: logsStack.webLogGroup,
@@ -137,7 +155,9 @@ describe('WorkOps CDK app', () => {
     expect(logsStack.stackName).toBe('workops-dev-logs');
     expect(migrationRunnerStack.stackName).toBe('workops-dev-migration-runner');
     expect(egressStack.stackName).toBe('workops-dev-egress');
-    expect(edgeStack.stackName).toBe('workops-dev-edge');
+    expect(webAclStack.stackName).toBe('workops-dev-web-acl');
+    expect(webIngressStack.stackName).toBe('workops-dev-web-ingress');
+    expect(webDeliveryStack.stackName).toBe('workops-dev-web-delivery');
     expect(appRuntimeStack.stackName).toBe('workops-dev-app-runtime');
   });
 
@@ -491,7 +511,7 @@ describe('WorkOps CDK app', () => {
         Type: 'ARM_CONTAINER',
       }),
     });
-    template.resourceCountIs('AWS::CodeBuild::Project', 7);
+    template.resourceCountIs('AWS::CodeBuild::Project', 9);
     expect(templateText).toContain('ec2:DescribeAvailabilityZones');
     expect(templateText).not.toContain('ec2:DescribeManagedPrefixLists');
     expect(templateText).not.toContain('ec2:GetManagedPrefixListEntries');
@@ -532,16 +552,22 @@ describe('WorkOps CDK app', () => {
         Match.objectLike({
           Actions: Match.arrayWith([
             Match.objectLike({
+              Name: Match.stringLikeRegexp('workops-dev-web-acl.Prepare'),
+            }),
+            Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-data.Prepare'),
             }),
             Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-egress.Prepare'),
             }),
             Match.objectLike({
-              Name: Match.stringLikeRegexp('workops-dev-edge.Prepare'),
+              Name: Match.stringLikeRegexp('workops-dev-migration-runner.Prepare'),
             }),
             Match.objectLike({
-              Name: Match.stringLikeRegexp('workops-dev-migration-runner.Prepare'),
+              Name: Match.stringLikeRegexp('workops-dev-web-ingress.Prepare'),
+            }),
+            Match.objectLike({
+              Name: Match.stringLikeRegexp('workops-dev-web-delivery.Prepare'),
             }),
             Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-app-runtime.Prepare'),
@@ -962,11 +988,11 @@ describe('WorkOps CDK app', () => {
       RetentionInDays: 7,
     });
     template.hasResourceProperties('AWS::Logs::LogGroup', {
-      LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater',
+      LogGroupName: '/workops/dev/lambda/cognito-client-url-updater',
       RetentionInDays: 7,
     });
     template.hasResourceProperties('AWS::Logs::LogGroup', {
-      LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater-provider',
+      LogGroupName: '/workops/dev/lambda/cognito-client-url-updater-provider',
       RetentionInDays: 7,
     });
     template.hasResource('AWS::Logs::LogGroup', {
@@ -985,14 +1011,14 @@ describe('WorkOps CDK app', () => {
     });
     template.hasResource('AWS::Logs::LogGroup', {
       Properties: {
-        LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater',
+        LogGroupName: '/workops/dev/lambda/cognito-client-url-updater',
       },
       DeletionPolicy: 'Delete',
       UpdateReplacePolicy: 'Delete',
     });
     template.hasResource('AWS::Logs::LogGroup', {
       Properties: {
-        LogGroupName: '/workops/dev/custom-resources/cognito-client-url-updater-provider',
+        LogGroupName: '/workops/dev/lambda/cognito-client-url-updater-provider',
       },
       DeletionPolicy: 'Delete',
       UpdateReplacePolicy: 'Delete',
@@ -1041,7 +1067,7 @@ describe('WorkOps CDK app', () => {
     });
   });
 
-  test('creates the P2-4 EdgeStack CloudFront HTTPS entrypoint', () => {
+  test('creates the P2-beta web ingress, delivery, and ACL stacks', () => {
     const app = new App();
     const stage = 'dev';
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
@@ -1054,27 +1080,49 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-logs`,
     });
-    const edgeStack = new EdgeStack(app, 'EdgeStack', {
+    const webAclStack = new WebAclStack(app, 'WebAclStack', {
+      crossRegionReferences: true,
+      env: {
+        account: testEnv.account,
+        region: 'us-east-1',
+      },
+      stage,
+      stackName: `workops-${stage}-web-acl`,
+    });
+    const webIngressStack = new WebIngressStack(app, 'WebIngressStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
+      env: testEnv,
+      stage,
+      stackName: `workops-${stage}-web-ingress`,
+      vpc: foundationStack.vpc,
+    });
+    const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
       cognitoPlatformUserPoolClientId: testCognitoPlatformUserPoolClientId,
       cognitoTenantUserPoolClientId: testCognitoTenantUserPoolClientId,
       cognitoUserPoolId: testCognitoUserPoolId,
       cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
       cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
+      crossRegionReferences: true,
       env: testEnv,
       stage,
-      stackName: `workops-${stage}-edge`,
-      vpc: foundationStack.vpc,
+      stackName: `workops-${stage}-web-delivery`,
+      webAclArn: webAclStack.webAclArn,
     });
-    const template = Template.fromStack(edgeStack);
+    const ingressTemplate = Template.fromStack(webIngressStack);
+    const deliveryTemplate = Template.fromStack(webDeliveryStack);
+    const aclTemplate = Template.fromStack(webAclStack);
     const foundationTemplate = Template.fromStack(foundationStack);
-    const templateText = JSON.stringify(template.toJSON());
-    const edgeStackSource = readFileSync(join(__dirname, '..', 'lib', 'edge-stack.ts'), 'utf8');
+    const ingressTemplateText = JSON.stringify(ingressTemplate.toJSON());
+    const deliveryTemplateText = JSON.stringify(deliveryTemplate.toJSON());
+    const ingressStackSource = readFileSync(
+      join(__dirname, '..', 'lib', 'web-ingress-stack.ts'),
+      'utf8',
+    );
 
-    template.resourceCountIs('AWS::EC2::SecurityGroupIngress', 1);
+    ingressTemplate.resourceCountIs('AWS::EC2::SecurityGroupIngress', 1);
     foundationTemplate.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
-    template.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
+    ingressTemplate.hasResourceProperties('AWS::EC2::SecurityGroupIngress', {
       Description: 'Allow CloudFront VPC origin to reach WorkOps ALB',
       FromPort: 80,
       GroupId: Match.anyValue(),
@@ -1082,18 +1130,33 @@ describe('WorkOps CDK app', () => {
       SourcePrefixListId: Match.anyValue(),
       ToPort: 80,
     });
-    template.hasResourceProperties('Custom::AWS', {
+    ingressTemplate.hasResourceProperties('Custom::AWS', {
       Create: Match.stringLikeRegexp('describeManagedPrefixLists'),
       InstallLatestAwsSdk: false,
       Update: Match.stringLikeRegexp('describeManagedPrefixLists'),
     });
-    expect(templateText).toContain('com.amazonaws.global.cloudfront.origin-facing');
-    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
+    ingressTemplate.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: '/workops/dev/web-ingress/cloudfront-origin-prefix-list',
+      RetentionInDays: 7,
+    });
+    ingressTemplate.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'ec2:DescribeManagedPrefixLists',
+            Effect: 'Allow',
+            Resource: '*',
+          }),
+        ]),
+      },
+    });
+    expect(ingressTemplateText).toContain('com.amazonaws.global.cloudfront.origin-facing');
+    ingressTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
       Name: 'workops-dev-web-alb',
       Scheme: 'internal',
       Type: 'application',
     });
-    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+    ingressTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
       DefaultActions: Match.arrayWith([
         Match.objectLike({
           FixedResponseConfig: Match.objectLike({
@@ -1107,10 +1170,26 @@ describe('WorkOps CDK app', () => {
       Port: 80,
       Protocol: 'HTTP',
     });
-    template.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 0);
-    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+    ingressTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 0);
+    ingressTemplate.resourceCountIs('AWS::SSM::Parameter', 3);
+    ingressTemplate.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/web-ingress/origin/alb-arn',
+      Type: 'String',
+    });
+    ingressTemplate.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/web-ingress/origin/alb-dns-name',
+      Type: 'String',
+    });
+    ingressTemplate.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/web-ingress/origin/alb-security-group-id',
+      Type: 'String',
+    });
+    ingressTemplate.resourceCountIs('AWS::CloudFront::Distribution', 0);
+    ingressTemplate.resourceCountIs('AWS::CloudFront::VpcOrigin', 0);
+
+    deliveryTemplate.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
-        Comment: 'workops-dev-web-edge',
+        Comment: 'workops-dev-web-delivery',
         DefaultCacheBehavior: Match.objectLike({
           AllowedMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'PATCH', 'POST', 'DELETE'],
           CachedMethods: ['GET', 'HEAD'],
@@ -1129,53 +1208,42 @@ describe('WorkOps CDK app', () => {
           }),
         ]),
         PriceClass: 'PriceClass_200',
+        WebACLId: Match.anyValue(),
       }),
     });
-    template.hasResourceProperties('AWS::CloudFront::VpcOrigin', {
+    deliveryTemplate.hasResourceProperties('AWS::CloudFront::VpcOrigin', {
       VpcOriginEndpointConfig: Match.objectLike({
-        Arn: {
-          Ref: Match.stringLikeRegexp('WebAlb'),
-        },
+        Arn: Match.anyValue(),
         OriginProtocolPolicy: 'http-only',
         OriginSSLProtocols: ['TLSv1.2'],
       }),
     });
-    template.hasOutput('albDnsName', {});
-    template.hasOutput('cloudFrontDomainName', {});
-    template.hasOutput('cloudFrontHttpsUrl', {
-      Export: {
-        Name: 'workops-dev-edge-cloudfront-https-url',
-      },
-    });
-    template.hasOutput('listenerArn', {
-      Export: {
-        Name: 'workops-dev-edge-listener-arn',
-      },
-    });
-    template.hasOutput('loadBalancerFullName', {
-      Export: {
-        Name: 'workops-dev-edge-load-balancer-full-name',
-      },
-    });
-    template.hasResourceProperties('AWS::Lambda::Function', {
+    expect(deliveryTemplateText).toContain('/workops/dev/web-ingress/origin/alb-arn');
+    expect(deliveryTemplateText).toContain('/workops/dev/web-ingress/origin/alb-dns-name');
+    expect(deliveryTemplateText).toContain('/workops/dev/web-ingress/origin/alb-security-group-id');
+    deliveryTemplate.hasOutput('cloudFrontDomainName', {});
+    deliveryTemplate.hasOutput('cloudFrontHttpsUrl', {});
+    deliveryTemplate.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'workops-dev-cognito-client-url-updater',
       Handler: 'index.handler',
-      Runtime: 'nodejs22.x',
+      Runtime: 'nodejs24.x',
       Timeout: 60,
     });
-    template.hasResourceProperties('AWS::Lambda::Function', {
+    deliveryTemplate.hasResourceProperties('AWS::Lambda::Function', {
       LoggingConfig: {
         LogGroup: Match.anyValue(),
       },
     });
-    template.resourceCountIs('AWS::Logs::LogGroup', 0);
-    expect(templateText).toContain('CognitoClientUrlUpdaterLogGroup');
-    expect(templateText).toContain('CognitoClientUrlUpdaterProviderLogGroup');
-    expect(templateText).not.toContain('/workops/dev/custom-resources/cognito-client-url-updater');
-    expect(templateText).not.toContain(
+    deliveryTemplate.resourceCountIs('AWS::Logs::LogGroup', 0);
+    expect(deliveryTemplateText).toContain('CognitoClientUrlUpdaterLogGroup');
+    expect(deliveryTemplateText).toContain('CognitoClientUrlUpdaterProviderLogGroup');
+    expect(deliveryTemplateText).not.toContain(
+      '/workops/dev/custom-resources/cognito-client-url-updater',
+    );
+    expect(deliveryTemplateText).not.toContain(
       '/workops/dev/custom-resources/cognito-client-url-updater-provider',
     );
-    template.hasResourceProperties('AWS::IAM::Policy', {
+    deliveryTemplate.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
@@ -1185,18 +1253,45 @@ describe('WorkOps CDK app', () => {
         ]),
       },
     });
-    template.resourceCountIs('Custom::WorkOpsCognitoClientUrlUpdater', 1);
-    template.hasResourceProperties('Custom::WorkOpsCognitoClientUrlUpdater', {
+    deliveryTemplate.resourceCountIs('Custom::WorkOpsCognitoClientUrlUpdater', 1);
+    deliveryTemplate.hasResourceProperties('Custom::WorkOpsCognitoClientUrlUpdater', {
       UserPoolId: testCognitoUserPoolId,
       PlatformClientId: testCognitoPlatformUserPoolClientId,
       TenantClientId: testCognitoTenantUserPoolClientId,
       CloudFrontDomainName: Match.anyValue(),
     });
-    expect(templateText).not.toContain('"CidrIp":"0.0.0.0/0"');
-    expect(templateText).not.toContain('authenticate-cognito');
-    expect(edgeStackSource).toContain('com.amazonaws.global.cloudfront.origin-facing');
-    expect(edgeStackSource).not.toContain('pl-58a04531');
-    template.resourceCountIs('AWS::WAFv2::WebACLAssociation', 0);
+    expect(deliveryTemplateText).not.toContain('"CidrIp":"0.0.0.0/0"');
+    expect(deliveryTemplateText).not.toContain('authenticate-cognito');
+    expect(ingressStackSource).toContain('com.amazonaws.global.cloudfront.origin-facing');
+    expect(ingressStackSource).not.toContain('pl-58a04531');
+    deliveryTemplate.resourceCountIs('AWS::WAFv2::WebACLAssociation', 0);
+
+    aclTemplate.hasResourceProperties('AWS::WAFv2::WebACL', {
+      DefaultAction: {
+        Allow: {},
+      },
+      Name: 'workops-dev-cloudfront-web-acl',
+      Scope: 'CLOUDFRONT',
+      Rules: Match.arrayWith([
+        Match.objectLike({
+          Name: 'AWSManagedRulesCommonRuleSet',
+          OverrideAction: {
+            Count: {},
+          },
+          Statement: {
+            ManagedRuleGroupStatement: {
+              Name: 'AWSManagedRulesCommonRuleSet',
+              VendorName: 'AWS',
+            },
+          },
+        }),
+      ]),
+    });
+    aclTemplate.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: 'aws-waf-logs-workops-dev-cloudfront',
+      RetentionInDays: 7,
+    });
+    aclTemplate.resourceCountIs('AWS::WAFv2::LoggingConfiguration', 1);
   });
 
   test('creates the P2-5 IdentityStack Cognito Hosted UI resources', () => {
@@ -1378,18 +1473,34 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-logs`,
     });
-    const edgeStack = new EdgeStack(app, 'EdgeStack', {
+    const webAclStack = new WebAclStack(app, 'WebAclStack', {
+      crossRegionReferences: true,
+      env: {
+        account: testEnv.account,
+        region: 'us-east-1',
+      },
+      stage,
+      stackName: `workops-${stage}-web-acl`,
+    });
+    const webIngressStack = new WebIngressStack(app, 'WebIngressStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
+      env: testEnv,
+      stage,
+      stackName: `workops-${stage}-web-ingress`,
+      vpc: foundationStack.vpc,
+    });
+    const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
       cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
       cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
       cognitoUserPoolId: identityStack.userPoolId,
       cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
       cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
+      crossRegionReferences: true,
       env: testEnv,
       stage,
-      stackName: `workops-${stage}-edge`,
-      vpc: foundationStack.vpc,
+      stackName: `workops-${stage}-web-delivery`,
+      webAclArn: webAclStack.webAclArn,
     });
     const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
       env: testEnv,
@@ -1397,14 +1508,14 @@ describe('WorkOps CDK app', () => {
         albSecurityGroup: foundationStack.albSecurityGroup,
         appSecurityGroup: foundationStack.appSecurityGroup,
         appSubnets: foundationStack.appSubnets,
-        cloudFrontHttpsUrl: edgeStack.cloudFrontHttpsUrl,
+        cloudFrontHttpsUrl: webDeliveryStack.cloudFrontHttpsUrl,
         cluster: foundationStack.ecsCluster,
         cognitoHostedUiDomainBaseUrl: identityStack.hostedUiDomainBaseUrl,
         cognitoPlatformUserPoolClientId: identityStack.platformUserPoolClientId,
         cognitoTenantUserPoolClientId: identityStack.tenantUserPoolClientId,
         cognitoUserPoolId: identityStack.userPoolId,
-        listener: edgeStack.listener,
-        loadBalancerFullName: edgeStack.loadBalancer.loadBalancerFullName,
+        listener: webIngressStack.listener,
+        loadBalancerFullName: webIngressStack.loadBalancer.loadBalancerFullName,
         repository: registryStack.webRepository,
         vpc: foundationStack.vpc,
         webLogGroup: logsStack.webLogGroup,

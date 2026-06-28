@@ -27,9 +27,9 @@ export class LogsStack extends Stack {
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });
-    // Custom resource logs are owned outside runtime stacks to avoid Lambda recreation races during EdgeStack replacement.
+    // Lambda logs are owned outside runtime stacks to avoid recreation races during WebDeliveryStack replacement.
     this.cognitoClientUrlUpdaterLogGroup = new LogGroup(this, 'CognitoClientUrlUpdaterLogGroup', {
-      logGroupName: `/workops/${props.stage}/custom-resources/cognito-client-url-updater`,
+      logGroupName: `/workops/${props.stage}/lambda/cognito-client-url-updater`,
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -37,7 +37,7 @@ export class LogsStack extends Stack {
       this,
       'CognitoClientUrlUpdaterProviderLogGroup',
       {
-        logGroupName: `/workops/${props.stage}/custom-resources/cognito-client-url-updater-provider`,
+        logGroupName: `/workops/${props.stage}/lambda/cognito-client-url-updater-provider`,
         retention: RetentionDays.ONE_WEEK,
         removalPolicy: RemovalPolicy.DESTROY,
       },

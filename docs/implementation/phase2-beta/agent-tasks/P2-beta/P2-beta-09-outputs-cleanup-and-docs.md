@@ -52,7 +52,7 @@ Pipeline完走後の仕上げとして、CloudFormation Outputsを全Stackで棚
 - `EdgeCloudFrontStack` / `EdgeAlbStack` が正本として残っていないことを確認。
 - `DataPauseStack` に CloudTrail `LookupEvents` 方針が正本として残っていないことを確認。
 - `db/seed/dev` と新SSM pathが文書に残っていることを確認。
-- `WebAclStack`、AWS Managed Rules Common Rule Set、Count mode、WAF logging既定無効の方針が文書に残っていることを確認。
+- `WebAclStack`、AWS Managed Rules Common Rule Set、Count mode、WAF logging作成、stage 別 WAF log 方針 TODO が文書に残っていることを確認。
 - ECS Blue/Green alarm が `HealthyHostCount` / `UnHealthyHostCount` 中心の2本として文書に残っていることを確認。
 - 認証・認可イベント metric filter が Alarm / Dashboard なしの方針として文書に残っていることを確認。
 
