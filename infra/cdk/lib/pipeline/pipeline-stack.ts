@@ -28,7 +28,11 @@ import {
   createCodeArtifactParameterStoreEnvironment,
   createCodeArtifactPolicyStatements,
 } from './pipeline-build-steps';
-import { AppRuntimeStage, PermanentStage, RuntimePrereqStage } from './pipeline-deploy-stages';
+import {
+  AppRuntimeStage,
+  FoundationStage,
+  RuntimeInfrastructureStage,
+} from './pipeline-deploy-stages';
 import { MigrationActionStep } from './pipeline-migration-action-step';
 
 export interface PipelineStackProps extends StackProps {
@@ -223,8 +227,8 @@ export class PipelineStack extends Stack {
       notificationTopic,
     });
 
-    const permanentStage = new PermanentStage(this, 'DeployPermanent');
-    pipeline.addStage(permanentStage, {
+    const foundationStage = new FoundationStage(this, 'DeployFoundation');
+    pipeline.addStage(foundationStage, {
       pre: [buildAndTestStep],
     });
     pipeline.addWave('BuildWebImage', {
@@ -241,8 +245,11 @@ export class PipelineStack extends Stack {
         }),
       ],
     });
-    const runtimePrereqStage = new RuntimePrereqStage(this, 'DeployRuntimePrereq');
-    pipeline.addStage(runtimePrereqStage, {
+    const runtimeInfrastructureStage = new RuntimeInfrastructureStage(
+      this,
+      'DeployRuntimeInfrastructure',
+    );
+    pipeline.addStage(runtimeInfrastructureStage, {
       pre: [manualApprovalStep],
     });
     const appRuntimeStage = new AppRuntimeStage(this, 'DeployAppRuntime', {

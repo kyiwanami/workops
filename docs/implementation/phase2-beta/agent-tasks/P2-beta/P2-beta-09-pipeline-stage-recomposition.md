@@ -25,10 +25,10 @@ Pipeline stage順序は次に固定する。
 1. Source
 2. Synth
 3. Build & Test
-4. Deploy Permanent
+4. Deploy Foundation
 5. Build Web Image
 6. ManualApproval
-7. Deploy Runtime Prereq
+7. Deploy Runtime Infrastructure
 8. RunMigration
 9. Deploy AppRuntime
 ```
@@ -37,11 +37,11 @@ Pipeline stage順序は次に固定する。
 flowchart LR
   Source["Source"] --> Synth["Synth"]
   Synth --> BuildTest["Build & Test"]
-  BuildTest --> Permanent["Deploy Permanent"]
-  Permanent --> BuildWeb["Build Web Image"]
+  BuildTest --> Foundation["Deploy Foundation"]
+  Foundation --> BuildWeb["Build Web Image"]
   BuildWeb --> Approval["ManualApproval"]
-  Approval --> RuntimePrereq["Deploy Runtime Prereq"]
-  RuntimePrereq --> Migration["RunMigration"]
+  Approval --> RuntimeInfrastructure["Deploy Runtime Infrastructure"]
+  RuntimeInfrastructure --> Migration["RunMigration"]
   Migration --> App["Deploy AppRuntimeStack"]
 ```
 
@@ -49,10 +49,10 @@ flowchart LR
 
 - CDK Pipelines self-mutationは維持する。
 - Source actionのbranch filterは `P2-beta-07` のsource branch方針を維持する。
-- `PermanentStage` 対象は `FoundationStack`、`LogsStack`、`IdentityStack`、`RegistryStack`、`DataPauseStack`、`WebAclStack`。
-- `RuntimePrereqStage` 対象は `DataStack`、`EgressStack`、`WebIngressStack`、`MigrationRunnerStack`、`WebDeliveryStack`。
+- `FoundationStage` 対象は `FoundationStack`、`LogsStack`、`IdentityStack`、`RegistryStack`、`DataPauseStack`。
+- `RuntimeInfrastructureStage` 対象は `DataStack`、`EgressStack`、`WebAclStack`、`WebIngressStack`、`MigrationRunnerStack`、`WebDeliveryStack`。
 - `AppRuntimeStage` 対象は `AppRuntimeStack`。
-- `WebDeliveryStack` は常設分類だが、Web ingress origin contractをSSMから読むため `RuntimePrereqStage` で `WebIngressStack` 後に置く。
+- `WebDeliveryStack` は Web ingress origin contractをSSMから読み、CloudFront Web ACL ARN は同じ `RuntimeInfrastructureStage` 内の `WebAclStack` から cross-region reference で受け取る。
 - `RunMigration` 成功後に `AppRuntimeStack` をdeployする。
 - `StringParameter.valueFromLookup` と `Vpc.fromLookup` は使わず、consumer Stack 内で `StringParameter.valueForStringParameter` を使う。
 - subnet list token は使わず、Phase 2β は 2AZ 分の subnet ID / AZ / route table ID を個別 contract として扱う。
@@ -89,11 +89,10 @@ flowchart LR
 - source branch push起点のPipeline run
 - Synth
 - Build & Test
-- Deploy Permanent
-  - `WebAclStack` を含む
+- Deploy Foundation
 - Build Web Image
 - ManualApproval
-- Deploy Runtime Prereq
+- Deploy Runtime Infrastructure
 - RunMigration
 - Deploy AppRuntime
 - CloudFront default domain経由到達
@@ -122,6 +121,7 @@ flowchart LR
 - 2026-06-29: Amazon Corretto / Amazon Linux 2023 へ変更したローカル Docker image は build できたが、Pipeline 同等の Trivy scan が `tools.jackson.core:jackson-databind` で HIGH / MEDIUM を検出して失敗した。原因は Spring Boot parent が管理する Jackson BOM が脆弱性修正版より古かったため。対応として、Trivy gate は緩めず、`apps/web/pom.xml` の `jackson-bom.version` を修正版へ上げて jar 内 dependency を更新する。
 - 2026-06-29: Pipeline 環境に合わせた `linux/arm64` のローカル Docker image を amd64 のローカルホストで起動しようとして `exec format error` で失敗した。原因は image architecture と Docker host architecture の不一致。対応として、Pipeline 事前確認は `linux/arm64` build / Trivy scan で行い、ローカル実起動確認は同じ Dockerfile から `linux/amd64` image を別 tag で build して行う。
 - 2026-06-29: Amazon Corretto / Amazon Linux 2023 へ変更後の push 起点 Pipeline 実行は `DeployPermanent` の `BuildAndTest` で失敗した。原因は Maven integration test の Testcontainers が `mysql:8.4` を Docker Hub から匿名 pull し、Docker Hub の pull rate limit に当たったため。対応として、Testcontainers の MySQL image は ECR Public mirror を `mysql` compatible substitute として使い、CodeBuild の使い捨て build host では Ryuk を無効化して Docker Hub 直 pull を避ける。
+- 2026-06-29: ManualApproval 承認後の Pipeline 実行は `DeployRuntimePrereq` の `workops-dev-web-delivery.Prepare` で失敗した。原因は `WebAclStack` が CloudFront 用 Web ACL ARN contract を `us-east-1` の SSM Parameter Store に作成し、`ap-northeast-1` の `WebDeliveryStack` が同名 parameter を読もうとして region 境界で見つからなかったため。対応として、Pipeline stage 名を `DeployFoundation` / `DeployRuntimeInfrastructure` に改め、`WebAclStack` と `WebDeliveryStack` を同じ `RuntimeInfrastructureStage` に置き、CloudFront Web ACL ARN は SSM ではなく CDK cross-region reference で渡す。
 
 ## Deployment records
 

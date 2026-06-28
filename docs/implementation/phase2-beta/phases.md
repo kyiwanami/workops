@@ -125,24 +125,25 @@ flowchart TB
 flowchart LR
   Source["Source<br/>source branch filter"] --> Synth["Synth<br/>CodeArtifact npm"]
   Synth --> BuildTest["Build & Test<br/>npm + Maven via CodeArtifact"]
-  BuildTest --> Permanent["Deploy Permanent"]
-  Permanent --> BuildWeb["Build Web Image<br/>BuildKit secret + CodeArtifact Maven"]
+  BuildTest --> FoundationDeploy["Deploy Foundation"]
+  FoundationDeploy --> BuildWeb["Build Web Image<br/>BuildKit secret + CodeArtifact Maven"]
   BuildWeb --> Approval["ManualApproval"]
-  Approval --> Runtime["Deploy Runtime Prereq"]
+  Approval --> Runtime["Deploy Runtime Infrastructure"]
   Runtime --> Migration["RunMigration<br/>CodeBuild: cd db; mvn -Pdev flyway:migrate"]
   Migration --> App["Deploy AppRuntimeStack"]
 
-  Permanent --> Foundation["FoundationStack"]
-  Permanent --> Logs["LogsStack"]
-  Permanent --> Identity["IdentityStack"]
-  Permanent --> Registry["RegistryStack"]
-  Permanent --> DataPause["DataPauseStack"]
-  Permanent --> WebAcl["WebAclStack<br/>us-east-1"]
+  FoundationDeploy --> Foundation["FoundationStack"]
+  FoundationDeploy --> Logs["LogsStack"]
+  FoundationDeploy --> Identity["IdentityStack"]
+  FoundationDeploy --> Registry["RegistryStack"]
+  FoundationDeploy --> DataPause["DataPauseStack"]
 
   Runtime --> Data["DataStack"]
   Runtime --> Egress["EgressStack"]
+  Runtime --> WebAcl["WebAclStack<br/>us-east-1"]
   Runtime --> WebIngress["WebIngressStack"]
   WebIngress --> WebDelivery["WebDeliveryStack<br/>uses WebACL ARN"]
+  WebAcl --> WebDelivery
   Runtime --> MigrationRunner["MigrationRunnerStack"]
 ```
 

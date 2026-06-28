@@ -66,6 +66,7 @@ describe('WorkOps CDK foundation stacks', () => {
       env: testEnv,
     });
     const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
+      cloudFrontWebAclArn: webAclStack.webAclArn,
       crossRegionReferences: true,
       env: testEnv,
     });

@@ -21,12 +21,16 @@ import { contractValue, logsGroup } from '../shared/contract-imports';
 import { readStage, stackName } from '../shared/environment';
 import { createParameter } from '../shared/ssm-parameters';
 
+export interface WebDeliveryStackProps extends StackProps {
+  cloudFrontWebAclArn: string;
+}
+
 export class WebDeliveryStack extends Stack {
   public readonly distribution: Distribution;
   public readonly cloudFrontDomainName: string;
   public readonly cloudFrontHttpsUrl: string;
 
-  constructor(scope: Construct, id: string, props: StackProps) {
+  constructor(scope: Construct, id: string, props: WebDeliveryStackProps) {
     const stage = readStage(scope);
     super(scope, id, {
       ...props,
@@ -70,7 +74,7 @@ export class WebDeliveryStack extends Stack {
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       priceClass: PriceClass.PRICE_CLASS_200,
-      webAclId: contractValue(this, 'web-acl/cloudfront-web-acl-arn'),
+      webAclId: props.cloudFrontWebAclArn,
     });
 
     this.cloudFrontDomainName = this.distribution.distributionDomainName;

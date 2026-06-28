@@ -21,6 +21,7 @@ describe('WorkOps CDK web delivery', () => {
       env: testEnv,
     });
     const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
+      cloudFrontWebAclArn: webAclStack.webAclArn,
       crossRegionReferences: true,
       env: testEnv,
     });
@@ -142,7 +143,9 @@ describe('WorkOps CDK web delivery', () => {
     expect(deliveryTemplateText).toContain('/workops/dev/web-ingress/origin/alb-arn');
     expect(deliveryTemplateText).toContain('/workops/dev/web-ingress/origin/alb-dns-name');
     expect(deliveryTemplateText).toContain('/workops/dev/web-ingress/origin/alb-security-group-id');
-    expect(deliveryTemplateText).toContain('/workops/dev/web-acl/cloudfront-web-acl-arn');
+    expect(deliveryTemplateText).not.toContain('/workops/dev/web-acl/cloudfront-web-acl-arn');
+    expect(deliveryTemplateText).toContain('Custom::CrossRegionExportReader');
+    expect(deliveryTemplateText).toContain('/cdk/exports/workops-dev-web-delivery/');
     expect(deliveryTemplateText).toContain('/workops/dev/identity/user-pool-id');
     expect(deliveryTemplateText).toContain('/workops/dev/identity/platform-client-id');
     expect(deliveryTemplateText).toContain('/workops/dev/identity/tenant-client-id');

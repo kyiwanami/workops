@@ -13,7 +13,7 @@ import { WebAclStack } from '../web/web-acl-stack';
 import { WebDeliveryStack } from '../web/web-delivery-stack';
 import { WebIngressStack } from '../web/web-ingress-stack';
 
-export class PermanentStage extends Stage {
+export class FoundationStage extends Stage {
   constructor(scope: Construct, id: string) {
     super(scope, id, {
       env: {
@@ -30,20 +30,12 @@ export class PermanentStage extends Stage {
       markAutoRestartLogGroup: logsStack.dataPauseMarkAutoRestartLogGroup,
       stopMarkedDbLogGroup: logsStack.dataPauseStopMarkedDbLogGroup,
     });
-    new WebAclStack(this, 'WebAclStack', {
-      crossRegionReferences: true,
-      env: {
-        account: Stack.of(scope).account,
-        region: 'us-east-1',
-      },
-    });
-
     dataPauseStack.addDependency(logsStack);
     dataPauseStack.addDependency(foundationStack);
   }
 }
 
-export class RuntimePrereqStage extends Stage {
+export class RuntimeInfrastructureStage extends Stage {
   public readonly migrationRunnerStack: MigrationRunnerStack;
 
   constructor(scope: Construct, id: string) {
@@ -56,13 +48,22 @@ export class RuntimePrereqStage extends Stage {
 
     const dataStack = new DataStack(this, 'DataStack', {});
     const egressStack = new EgressStack(this, 'EgressStack', {});
+    const webAclStack = new WebAclStack(this, 'WebAclStack', {
+      crossRegionReferences: true,
+      env: {
+        account: Stack.of(scope).account,
+        region: 'us-east-1',
+      },
+    });
     const webIngressStack = new WebIngressStack(this, 'WebIngressStack', {});
     this.migrationRunnerStack = new MigrationRunnerStack(this, 'MigrationRunnerStack', {});
     const webDeliveryStack = new WebDeliveryStack(this, 'WebDeliveryStack', {
+      cloudFrontWebAclArn: webAclStack.webAclArn,
       crossRegionReferences: true,
     });
 
     webIngressStack.addDependency(egressStack);
+    webDeliveryStack.addDependency(webAclStack);
     webDeliveryStack.addDependency(webIngressStack);
     this.migrationRunnerStack.addDependency(dataStack);
     this.migrationRunnerStack.addDependency(egressStack);
