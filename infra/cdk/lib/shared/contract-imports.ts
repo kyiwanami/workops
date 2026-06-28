@@ -1,11 +1,4 @@
-import {
-  ISecurityGroup,
-  ISubnet,
-  IVpc,
-  SecurityGroup,
-  Subnet,
-  Vpc,
-} from 'aws-cdk-lib/aws-ec2';
+import { ISecurityGroup, ISubnet, IVpc, SecurityGroup, Subnet, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { ILogGroup, LogGroup } from 'aws-cdk-lib/aws-logs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
@@ -101,20 +94,10 @@ export function logsGroup(scope: Construct, id: string, suffix: string): ILogGro
   return LogGroup.fromLogGroupName(scope, id, stagePath(scope, suffix));
 }
 
-function foundationSubnet(
-  scope: Construct,
-  idPrefix: string,
-  contractName: string,
-): ISubnet {
+function foundationSubnet(scope: Construct, idPrefix: string, contractName: string): ISubnet {
   return Subnet.fromSubnetAttributes(scope, `Foundation${idPrefix}`, {
-    availabilityZone: contractValue(
-      scope,
-      `foundation/subnets/${contractName}/availability-zone`,
-    ),
-    routeTableId: contractValue(
-      scope,
-      `foundation/subnets/${contractName}/route-table-id`,
-    ),
+    availabilityZone: contractValue(scope, `foundation/subnets/${contractName}/availability-zone`),
+    routeTableId: contractValue(scope, `foundation/subnets/${contractName}/route-table-id`),
     subnetId: contractValue(scope, `foundation/subnets/${contractName}/id`),
   });
 }

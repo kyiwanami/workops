@@ -1,9 +1,4 @@
-import {
-  Duration,
-  RemovalPolicy,
-  Stack,
-  StackProps,
-} from 'aws-cdk-lib';
+import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { BuildSpec, Project as CodeBuildProject } from 'aws-cdk-lib/aws-codebuild';
 import { DetailType } from 'aws-cdk-lib/aws-codestarnotifications';
 import { CfnConnection } from 'aws-cdk-lib/aws-codestarconnections';
@@ -33,11 +28,7 @@ import {
   createCodeArtifactParameterStoreEnvironment,
   createCodeArtifactPolicyStatements,
 } from './pipeline-build-steps';
-import {
-  AppRuntimeStage,
-  PermanentStage,
-  RuntimePrereqStage,
-} from './pipeline-deploy-stages';
+import { AppRuntimeStage, PermanentStage, RuntimePrereqStage } from './pipeline-deploy-stages';
 import { MigrationActionStep } from './pipeline-migration-action-step';
 
 export interface PipelineStackProps extends StackProps {

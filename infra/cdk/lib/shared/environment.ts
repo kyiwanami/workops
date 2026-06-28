@@ -17,7 +17,9 @@ export function setStage(scope: Construct, stage: string): void {
 }
 
 export function readStage(scope: Construct): string {
-  const value = scope.node.getContext(WORKOPS_STAGE_CONTEXT_KEY);
+  // CDK context values are untyped; this function is the typed boundary for WorkOps stage.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const value = scope.node.tryGetContext(WORKOPS_STAGE_CONTEXT_KEY);
   if (typeof value !== 'string' || !value) {
     throw new Error(`${WORKOPS_STAGE_CONTEXT_KEY} context is required`);
   }

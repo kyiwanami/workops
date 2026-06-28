@@ -122,10 +122,7 @@ export function createCodeArtifactParameterStoreEnvironment(
   };
 }
 
-export function createCodeArtifactPolicyStatements(
-  stack: Stack,
-  stage: string,
-): PolicyStatement[] {
+export function createCodeArtifactPolicyStatements(stack: Stack, stage: string): PolicyStatement[] {
   const domainName = `workops-${stage}`;
   const npmRepositoryName = `workops-${stage}-npm`;
   const mavenRepositoryName = `workops-${stage}-maven`;

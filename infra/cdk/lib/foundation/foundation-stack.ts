@@ -202,10 +202,9 @@ export class FoundationStack extends Stack {
   }
 
   private requiredSubnet(subnets: ISubnet[], index: number, description: string): ISubnet {
-    const subnet = subnets[index];
-    if (!subnet) {
+    if (subnets.length <= index) {
       throw new Error(`FoundationStack requires ${description}`);
     }
-    return subnet;
+    return subnets[index];
   }
 }

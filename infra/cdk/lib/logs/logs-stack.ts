@@ -1,7 +1,7 @@
 import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { FilterPattern, LogGroup, MetricFilter, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
-import { readStage, stackName, stagePath } from '../shared/environment';
+import { stackName, stagePath } from '../shared/environment';
 
 interface SecurityMetric {
   id: string;
@@ -52,7 +52,6 @@ export class LogsStack extends Stack {
   public readonly dataPauseStopMarkedDbLogGroup: LogGroup;
 
   constructor(scope: Construct, id: string, props: StackProps) {
-    const stage = readStage(scope);
     super(scope, id, {
       ...props,
       stackName: stackName(scope, 'logs'),

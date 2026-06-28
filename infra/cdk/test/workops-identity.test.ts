@@ -6,8 +6,7 @@ describe('WorkOps CDK identity', () => {
   test('creates the P2-5 IdentityStack Cognito Hosted UI resources', () => {
     const stage = 'dev';
     const app = createTestApp(stage);
-    const identityStack = new IdentityStack(app, 'IdentityStack', {
-    });
+    const identityStack = new IdentityStack(app, 'IdentityStack', {});
     const template = Template.fromStack(identityStack);
     const templateText = JSON.stringify(template.toJSON());
 

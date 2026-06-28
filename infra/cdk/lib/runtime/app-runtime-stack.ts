@@ -79,7 +79,7 @@ export class AppRuntimeStack extends Stack {
       stackName: stackName(scope, 'app-runtime'),
     });
 
-    const resources = this.runtimeResources(stage);
+    const resources = this.runtimeResources();
 
     // The ALB reaches only the Spring Boot container port exposed by the P2-3 image.
     new CfnSecurityGroupIngress(this, 'AppHttpIngressFromAlb', {
@@ -167,12 +167,7 @@ export class AppRuntimeStack extends Stack {
       ],
     });
 
-    const blueTargetGroup = this.createTargetGroup(
-      'WebBlueTargetGroup',
-      stage,
-      resources,
-      'blue',
-    );
+    const blueTargetGroup = this.createTargetGroup('WebBlueTargetGroup', stage, resources, 'blue');
     const greenTargetGroup = this.createTargetGroup(
       'WebGreenTargetGroup',
       stage,
@@ -235,7 +230,7 @@ export class AppRuntimeStack extends Stack {
     this.service.node.addDependency(listenerRule);
   }
 
-  private runtimeResources(stage: string): RuntimeResources {
+  private runtimeResources(): RuntimeResources {
     // AppRuntime imports only SSM contracts and explicit names produced before this deploy action.
     const network = foundationNetwork(this);
     const securityGroups = foundationSecurityGroups(this);
@@ -258,24 +253,17 @@ export class AppRuntimeStack extends Stack {
         contractValue(this, 'registry/web-repository-name'),
       ),
       webLogGroup: logsGroup(this, 'WebLogGroup', 'web'),
-      listener: ApplicationListener.fromApplicationListenerAttributes(
-        this,
-        'WebHttpListener',
-        {
-          defaultPort: 80,
-          listenerArn: contractValue(this, 'web-ingress/listener/http-listener-arn'),
-          securityGroup: securityGroups.albSecurityGroup,
-        },
-      ),
+      listener: ApplicationListener.fromApplicationListenerAttributes(this, 'WebHttpListener', {
+        defaultPort: 80,
+        listenerArn: contractValue(this, 'web-ingress/listener/http-listener-arn'),
+        securityGroup: securityGroups.albSecurityGroup,
+      }),
       loadBalancerFullName: contractValue(this, 'web-ingress/alb-full-name'),
       cognitoUserPoolId: identity.userPoolId,
       cognitoPlatformUserPoolClientId: identity.platformClientId,
       cognitoTenantUserPoolClientId: identity.tenantClientId,
       cognitoHostedUiDomainBaseUrl: identity.hostedUiDomainBaseUrl,
-      cloudFrontHttpsUrl: contractValue(
-        this,
-        'web-delivery/cloudfront-https-url',
-      ),
+      cloudFrontHttpsUrl: contractValue(this, 'web-delivery/cloudfront-https-url'),
     };
   }
 

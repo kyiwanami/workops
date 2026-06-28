@@ -49,12 +49,7 @@ export class DependencyStack extends Stack {
     });
     opsTopic.addSubscription(new EmailSubscription(props.notificationEmail));
 
-    createParameter(
-      this,
-      'SpringProfileParameter',
-      'dependencies/runtime/spring-profile',
-      'dev',
-    );
+    createParameter(this, 'SpringProfileParameter', 'dependencies/runtime/spring-profile', 'dev');
     createParameter(
       this,
       'CodeArtifactDomainNameParameter',

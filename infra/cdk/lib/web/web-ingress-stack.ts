@@ -120,9 +120,7 @@ export class WebIngressStack extends Stack {
           },
         ],
       },
-      physicalResourceId: PhysicalResourceId.of(
-        `workops-${stage}-cloudfront-origin-prefix-list`,
-      ),
+      physicalResourceId: PhysicalResourceId.of(`workops-${stage}-cloudfront-origin-prefix-list`),
       outputPaths: ['PrefixLists.0.PrefixListId'],
     };
 

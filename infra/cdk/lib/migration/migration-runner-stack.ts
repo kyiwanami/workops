@@ -10,11 +10,7 @@ import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import {
-  foundationNetwork,
-  foundationSecurityGroups,
-  logsGroup,
-} from '../shared/contract-imports';
+import { foundationNetwork, foundationSecurityGroups, logsGroup } from '../shared/contract-imports';
 import { readStage, stackName, stagePath } from '../shared/environment';
 
 export class MigrationRunnerStack extends Stack {

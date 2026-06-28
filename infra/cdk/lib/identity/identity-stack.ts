@@ -181,12 +181,7 @@ export class IdentityStack extends Stack {
       Domain: this.userPoolDomain.domainName,
     });
 
-    createParameter(
-      this,
-      'UserPoolIdParameter',
-      'identity/user-pool-id',
-      this.userPoolId,
-    );
+    createParameter(this, 'UserPoolIdParameter', 'identity/user-pool-id', this.userPoolId);
     createParameter(
       this,
       'PlatformClientIdParameter',

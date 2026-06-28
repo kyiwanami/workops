@@ -1,12 +1,4 @@
-import {
-  ArnFormat,
-  CfnOutput,
-  CustomResource,
-  Duration,
-  RemovalPolicy,
-  Stack,
-  StackProps,
-} from 'aws-cdk-lib';
+import { ArnFormat, CfnOutput, CustomResource, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import {
   AllowedMethods,
   CachePolicy,
@@ -59,14 +51,8 @@ export class WebDeliveryStack extends Stack {
       'WebIngressAlb',
       {
         loadBalancerArn: contractValue(this, 'web-ingress/origin/alb-arn'),
-        loadBalancerDnsName: contractValue(
-          this,
-          'web-ingress/origin/alb-dns-name',
-        ),
-        securityGroupId: contractValue(
-          this,
-          'web-ingress/origin/alb-security-group-id',
-        ),
+        loadBalancerDnsName: contractValue(this, 'web-ingress/origin/alb-dns-name'),
+        securityGroupId: contractValue(this, 'web-ingress/origin/alb-security-group-id'),
       },
     );
 
@@ -140,5 +126,4 @@ export class WebDeliveryStack extends Stack {
       value: this.cloudFrontHttpsUrl,
     });
   }
-
 }

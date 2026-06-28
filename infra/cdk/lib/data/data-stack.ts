@@ -106,10 +106,7 @@ export class DataStack extends Stack {
       multiAz: false,
       publiclyAccessible: false,
       removalPolicy: RemovalPolicy.DESTROY,
-      securityGroups: [
-        securityGroups.dbSecurityGroup,
-        this.rdsConsoleCloudShellSecurityGroup,
-      ],
+      securityGroups: [securityGroups.dbSecurityGroup, this.rdsConsoleCloudShellSecurityGroup],
       storageEncrypted: true,
       storageType: StorageType.GP2,
       subnetGroup: this.subnetGroup,
