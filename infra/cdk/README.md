@@ -34,11 +34,13 @@ $env:AWS_REGION = "ap-northeast-1"
 $env:AWS_DEFAULT_REGION = "ap-northeast-1"
 $env:CDK_DEFAULT_ACCOUNT = (aws sts get-caller-identity --region $env:AWS_REGION --query Account --output text)
 $env:CDK_DEFAULT_REGION = "ap-northeast-1"
+$env:WORKOPS_OPS_NOTIFICATION_EMAIL = "ops@example.com"
 ```
 
 - `WORKOPS_STAGE` は CloudFormation stackName、resource name、tag の `Environment` に使います。
 - `AWS_PROFILE` と `AWS_REGION` は AWS CLI / CDK CLI の接続先指定です。
 - `CDK_DEFAULT_ACCOUNT` と `CDK_DEFAULT_REGION` は CDK stack の `env` と context lookup に使います。
+- `WORKOPS_OPS_NOTIFICATION_EMAIL` は ops notification topic の EmailSubscription に使います。
 - CDK app は AWS account、profile、region を固定しません。
 - CDK app は環境変数ファイルを読みません。
 - `stage` は CDK context ではなく `WORKOPS_STAGE` から渡します。
@@ -70,12 +72,11 @@ $env:CDK_DEFAULT_ACCOUNT = (aws sts get-caller-identity --region $env:AWS_REGION
 $env:CDK_DEFAULT_REGION = "ap-northeast-1"
 $env:WORKOPS_IMAGE_TAG = "test-sha"
 $env:GITHUB_REPOSITORY = "owner/repo"
-$env:WORKOPS_PIPELINE_NOTIFICATION_EMAIL = "pipeline@example.com"
-npm run cdk:pipeline -- synth --quiet --profile $env:AWS_PROFILE
+$env:WORKOPS_OPS_NOTIFICATION_EMAIL = "ops@example.com"
+npx cdk synth --quiet --profile $env:AWS_PROFILE
 ```
 
-`EdgeStack` は CloudFront origin-facing managed prefix list を `PrefixList.fromLookup` で参照します。
-未キャッシュの lookup がある場合、`synth` でも AWS 認証情報が必要です。
+未キャッシュの CDK context lookup がある場合、`synth` でも AWS 認証情報が必要です。
 
 ## Stacks
 
@@ -83,7 +84,7 @@ CDK app は次の Stack を管理します。
 
 - `workops-{stage}-foundation`
 - `workops-{stage}-data`
-- `workops-{stage}-config`
+- `workops-{stage}-dependency`
 - `workops-{stage}-identity`
 - `workops-{stage}-registry`
 - `workops-{stage}-logs`
@@ -92,9 +93,11 @@ CDK app は次の Stack を管理します。
 
 `stage` は `WORKOPS_STAGE` の値です。
 
+`workops-{stage}-dependency` は CodeArtifact domain / npm repository / Maven repository、ops notification topic、非 secret SSM parameters を所有する Top-level / Pipeline 基盤 Stack です。
+
 `workops-{stage}-identity` は Cognito User Pool、Hosted UI domain、App Client を所有する維持対象 Stack です。CloudFront / ALB / ECS / NAT Gateway の実行確認セッション Stack とは lifecycle を分けます。
 
-`workops-{stage}-pipeline` は CodePipeline V2、CodeBuild、CodeConnection、SNS 通知、Artifact bucket を所有します。GitHub Actions OIDC deploy 経路は使いません。
+`workops-{stage}-pipeline` は CodePipeline V2、CodeBuild、CodeConnection、Artifact bucket を所有し、通知先は `DependencyStack` の ops notification topic を参照します。GitHub Actions OIDC deploy 経路は使いません。
 
 ## Bootstrap
 
@@ -112,7 +115,7 @@ WorkOps の `stage` resource name を生成しないため、`WORKOPS_STAGE` は
 
 ## Deploy
 
-PipelineStack を初回 deploy します。
+通常の diff / deploy は全 Stack 対象にします。
 
 ```powershell
 cd C:\git\workops\infra\cdk
@@ -120,10 +123,24 @@ $env:WORKOPS_STAGE = "dev"
 $env:AWS_PROFILE = "your-profile"
 $env:AWS_REGION = "ap-northeast-1"
 $env:GITHUB_REPOSITORY = "owner/repo"
-$env:WORKOPS_PIPELINE_NOTIFICATION_EMAIL = "pipeline@example.com"
+$env:WORKOPS_OPS_NOTIFICATION_EMAIL = "ops@example.com"
 $env:WORKOPS_IMAGE_TAG = "test-sha"
-npm run cdk:pipeline -- diff PipelineStack
-npm run cdk:pipeline -- deploy PipelineStack
+npx cdk diff --all --profile $env:AWS_PROFILE
+npx cdk deploy --all --profile $env:AWS_PROFILE
+```
+
+初回 bootstrap 直後だけ、依存基盤と Pipeline を先行 deploy する例外を認めます。
+
+```powershell
+cd C:\git\workops\infra\cdk
+$env:WORKOPS_STAGE = "dev"
+$env:AWS_PROFILE = "your-profile"
+$env:AWS_REGION = "ap-northeast-1"
+$env:GITHUB_REPOSITORY = "owner/repo"
+$env:WORKOPS_OPS_NOTIFICATION_EMAIL = "ops@example.com"
+$env:WORKOPS_IMAGE_TAG = "test-sha"
+npx cdk diff DependencyStack PipelineStack --profile $env:AWS_PROFILE
+npx cdk deploy DependencyStack PipelineStack --profile $env:AWS_PROFILE
 ```
 
 ## Destroy
@@ -131,7 +148,7 @@ npm run cdk:pipeline -- deploy PipelineStack
 P2-alpha-3 以降、runtime resource の作成・更新・削除は Pipeline 管理に寄せます。
 個別 runtime CDK entrypoint は使いません。
 
-PipelineStack、MigrationStack、FoundationStack、ConfigStack、IdentityStack、RegistryStack、LogsStack、Artifact bucket、ECR repository、CodeConnection は維持対象です。
+PipelineStack、DependencyStack、MigrationStack、FoundationStack、IdentityStack、RegistryStack、LogsStack、Artifact bucket、ECR repository、CodeConnection は維持対象です。
 
 ## Conventions
 
@@ -140,7 +157,7 @@ PipelineStack、MigrationStack、FoundationStack、ConfigStack、IdentityStack�
 - 秘匿値は SSM Parameter Store に保存しません。
 - DB username と DB password は SSM Parameter Store に保存しません。
 - DB endpoint から派生する SSM Parameter は、RDS を所有する Stack に置きます。
-- DB に依存しない runtime config は `ConfigStack` に置きます。
+- DB に依存しない runtime config は `DependencyStack` の `/workops/{stage}/dependencies/...` に置きます。
 - Cognito User Pool、Hosted UI domain、App Client は `IdentityStack` に置きます。
 - `IdentityStack` は `EdgeStack` を参照しません。
 - Stack 間参照は同一 CDK app 内の props 参照で渡し、cross-stack reference は `weak` に固定します。

@@ -33,7 +33,7 @@ import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { CfnServiceLinkedRole, Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
 import { Topic } from 'aws-cdk-lib/aws-sns';
-import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import {
   CodeBuildStep,
   CodePipeline,
@@ -47,7 +47,6 @@ import {
 import { Construct } from 'constructs';
 import { AppRuntimeStack } from './app-runtime-stack';
 import { RuntimeResources } from './app-runtime-stack';
-import { ConfigStack } from './config-stack';
 import { DataStack } from './data-stack';
 import { EdgeStack } from './edge-stack';
 import { EgressStack } from './egress-stack';
@@ -229,12 +228,6 @@ class DataNetworkMigrationDeployStage extends Stage {
     this.migrationStack.addDependency(egressStack);
     this.migrationStack.addDependency(logsStack);
 
-    const configStack = new ConfigStack(this, 'ConfigStack', {
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-config`,
-    });
-
     const runtimeResources: RuntimeResources = {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSecurityGroup: foundationStack.appSecurityGroup,
@@ -261,7 +254,6 @@ class DataNetworkMigrationDeployStage extends Stage {
       webImageTag: props.webImageTag,
     });
 
-    this.appRuntimeStack.addDependency(configStack);
     this.appRuntimeStack.addDependency(this.migrationStack);
   }
 }
@@ -290,10 +282,15 @@ export class PipelineStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       versioned: true,
     });
-    const notificationTopic = new Topic(this, 'NotificationTopic', {
-      topicName: `workops-${props.stage}-pipeline-notifications`,
-    });
-    notificationTopic.addSubscription(new EmailSubscription(props.notificationEmail));
+    const notificationTopicArn = StringParameter.valueForStringParameter(
+      this,
+      `/workops/${props.stage}/dependencies/notifications/ops-topic-arn`,
+    );
+    const notificationTopic = Topic.fromTopicArn(
+      this,
+      'OpsNotificationTopic',
+      notificationTopicArn,
+    );
 
     const githubConnection = new CfnConnection(this, 'GitHubConnection', {
       connectionName: `workops-${props.stage}-github`,
@@ -337,11 +334,11 @@ export class PipelineStack extends Stack {
       selfMutation: true,
       synth: new CodeBuildStep('Synth', {
         buildEnvironment,
-        commands: ['cd infra/cdk', 'npm ci', 'npm run build', 'npm run cdk:pipeline -- synth'],
+        commands: ['cd infra/cdk', 'npm ci', 'npm run build', 'npx cdk synth'],
         env: {
           GITHUB_REPOSITORY: props.githubRepository,
           WORKOPS_IMAGE_TAG: commitSha,
-          WORKOPS_PIPELINE_NOTIFICATION_EMAIL: props.notificationEmail,
+          WORKOPS_OPS_NOTIFICATION_EMAIL: props.notificationEmail,
           WORKOPS_STAGE: props.stage,
         },
         input: source,
@@ -470,9 +467,6 @@ export class PipelineStack extends Stack {
     });
     new CfnOutput(this, 'githubConnectionName', {
       value: githubConnection.connectionName,
-    });
-    new CfnOutput(this, 'notificationTopicName', {
-      value: notificationTopic.topicName,
     });
   }
 

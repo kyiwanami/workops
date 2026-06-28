@@ -209,21 +209,22 @@ cd C:\git\workops\apps\web
 
 ## Phase 2 AWS dev
 
-Phase 2α では、AWS dev への CI/CD を CodePipeline V2 + CodeBuild + CDK Pipelines に移行します。
+Phase 2β では、AWS dev への CI/CD を CodePipeline V2 + CodeBuild + CDK Pipelines で改善します。
 GitHub Actions OIDC deploy は撤去済みで、PR チェック用途にも workflow を残しません。
 
 Phase 2 AWS dev の deploy 単位は次の通りです。
 
 | 区分 | 実行入口 | 対象 |
 | --- | --- | --- |
-| Pipeline 初回 deploy | ローカル `npm run cdk:pipeline` | `PipelineStack`, CodeConnection, SNS 通知, Artifact bucket |
+| 通常 CDK deploy | ローカル `npx cdk deploy --all` | `DependencyStack`, `PipelineStack`, Pipeline 管理対象 Stack |
+| 初回先行 deploy 例外 | ローカル `npx cdk deploy DependencyStack PipelineStack` | `DependencyStack`, `PipelineStack`, CodeConnection, Artifact bucket |
 | Pipeline 自走 | CodePipeline | Source, Synth, Build & Test, ManualApproval, Registry, Images, Migration, AppRuntime |
 | 実行確認 session | Pipeline の runtime stages | `DataStack`, `EgressStack`, `EdgeStack`, `AppRuntimeStack` |
 
 AWS 実環境の deploy、Cognito Hosted UI のブラウザ操作、CloudFront 経由の画面操作、CloudWatch Logs 確認はユーザー確認として扱います。
 実 account ID、role ARN、SSO role ARN、SSO user、credential、CloudFront domain、public IP、実 Cognito `sub` は README や git 管理文書へ記録しません。
 
-### Phase 2α 前提ツール
+### Phase 2β 前提ツール
 
 - AWS CLI
 - AWS profile
@@ -249,27 +250,39 @@ $env:CDK_DEFAULT_REGION = $env:AWS_REGION
 aws sts get-caller-identity --region $env:AWS_REGION
 ```
 
-### PipelineStack 初回 deploy
+### CDK deploy
 
-P2-alpha-3 で、ローカルの AWS profile から `cdk:pipeline` entrypoint で `PipelineStack` を初回 deploy します。
+通常はローカルの AWS profile から単一 CDK entrypoint で全 Stack を diff / deploy します。
 CodeConnection の GitHub OAuth 認可と ManualApproval はユーザー操作です。
 `cdk deploy` は課金対象や外部連携を作成するため、実行前に AWS account、region、既存 stack 状態、`cdk diff` を確認します。
 
 ```powershell
 cd C:\git\workops\infra\cdk
 $env:GITHUB_REPOSITORY = "<owner>/<repo>"
-$env:WORKOPS_PIPELINE_NOTIFICATION_EMAIL = "<notification-email>"
+$env:WORKOPS_OPS_NOTIFICATION_EMAIL = "<notification-email>"
 $env:WORKOPS_IMAGE_TAG = "test-sha"
 
-npm run cdk:pipeline -- diff PipelineStack
-npm run cdk:pipeline -- deploy PipelineStack
+npx cdk diff --all --profile $env:AWS_PROFILE
+npx cdk deploy --all --profile $env:AWS_PROFILE
+```
+
+初回 bootstrap 直後だけ `DependencyStack` と `PipelineStack` の先行 deploy を例外として認めます。
+
+```powershell
+cd C:\git\workops\infra\cdk
+$env:GITHUB_REPOSITORY = "<owner>/<repo>"
+$env:WORKOPS_OPS_NOTIFICATION_EMAIL = "<notification-email>"
+$env:WORKOPS_IMAGE_TAG = "test-sha"
+
+npx cdk diff DependencyStack PipelineStack --profile $env:AWS_PROFILE
+npx cdk deploy DependencyStack PipelineStack --profile $env:AWS_PROFILE
 ```
 
 CloudFormation Output の実値、CodeConnection ARN、実 account ID は git 管理文書へ記録しません。
 
 ### CodePipeline
 
-Phase 2α の Pipeline は次の順序で実行します。
+Phase 2β の Pipeline は次の順序で実行します。
 
 | stage | 内容 |
 | --- | --- |
@@ -277,10 +290,10 @@ Phase 2α の Pipeline は次の順序で実行します。
 | Synth | CDK Pipelines synth |
 | Build & Test | Java / CDK TypeScript 品質ゲート |
 | ManualApproval | Build Images 前の手動承認 |
-| Deploy Registry | ECR repository 4 本を作成・更新 |
-| Build Images | Web / migration image を commit SHA tag で build / scan / push |
-| Deploy Data / Network / Migration | DB、egress、edge、migration task definition を deploy |
-| Migration RunTask | Flyway 専用 image を ECS RunTask で実行 |
+| Deploy Registry | Web / Web cache ECR repository を作成・更新 |
+| Build Images | Web image を commit SHA tag で build / scan / push |
+| Deploy Data / Network / Migration | DB、egress、edge、migration CodeBuild を deploy |
+| RunMigration | Migration CodeBuild project で Flyway を実行 |
 | Deploy AppRuntime | ECS native Blue/Green で Web runtime を deploy |
 
 ローカルで CDK synth だけ確認する場合は次を使います。
@@ -289,14 +302,12 @@ Phase 2α の Pipeline は次の順序で実行します。
 cd C:\git\workops\infra\cdk
 $env:WORKOPS_STAGE = "dev"
 $env:GITHUB_REPOSITORY = "<owner>/<repo>"
-$env:WORKOPS_PIPELINE_NOTIFICATION_EMAIL = "<notification-email>"
+$env:WORKOPS_OPS_NOTIFICATION_EMAIL = "<notification-email>"
 $env:WORKOPS_IMAGE_TAG = "test-sha"
-npm run cdk:infra -- synth --quiet --profile $env:AWS_PROFILE
-npm run cdk:runtime -- synth --quiet --profile $env:AWS_PROFILE
-npm run cdk:pipeline -- synth --quiet --profile $env:AWS_PROFILE
+npx cdk synth --quiet --profile $env:AWS_PROFILE
 ```
 
-実 Pipeline 実走、ECR push、ECS RunTask、CloudFront 経由の画面確認は P2-alpha-3 の動作確認 checklist で扱います。
+実 Pipeline 実走、ECR push、RunMigration CodeBuild、CloudFront 経由の画面確認は Phase 2β の動作確認 checklist で扱います。
 
 実 account ID、role ARN、SSO role ARN、SSO user、credential、CloudFront domain、public IP、実 Cognito `sub` は git 管理文書へ記録しません。
 

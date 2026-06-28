@@ -8,8 +8,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
-    "format:write": "prettier --write .",
-    "cdk:pipeline": "cdk --app \"npx ts-node --prefer-ts-exts bin/cdk-pipeline.ts\""
+    "format:write": "prettier --write ."
   },
   "devDependencies": {
     "@types/jest": "^30",

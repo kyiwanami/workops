@@ -87,7 +87,7 @@ export class AppRuntimeStack extends Stack {
     const springProfileParameter = StringParameter.fromStringParameterName(
       this,
       'SpringProfileParameter',
-      `/workops/${props.stage}/spring/profile`,
+      `/workops/${props.stage}/dependencies/runtime/spring-profile`,
     );
     const dbMasterSecret = SecretsManagerSecret.fromSecretNameV2(
       this,

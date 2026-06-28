@@ -5,8 +5,8 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { Construct } from 'constructs';
 import { AppRuntimeStack } from '../lib/app-runtime-stack';
-import { ConfigStack } from '../lib/config-stack';
 import { DataStack } from '../lib/data-stack';
+import { DependencyStack } from '../lib/dependency-stack';
 import { EdgeStack } from '../lib/edge-stack';
 import { EgressStack } from '../lib/egress-stack';
 import { FoundationStack } from '../lib/foundation-stack';
@@ -15,7 +15,6 @@ import { LogsStack } from '../lib/logs-stack';
 import { MigrationStack } from '../lib/migration-stack';
 import { PipelineStack } from '../lib/pipeline-stack';
 import { RegistryStack } from '../lib/registry-stack';
-import { SecretStack } from '../lib/secret-stack';
 
 class TaggedResourceStack extends Stack {
   constructor(scope: Construct, id: string) {
@@ -30,7 +29,7 @@ const testCognitoUserPoolId = 'ap-northeast-1_test';
 const testCognitoPlatformUserPoolClientId = 'platformclientid';
 const testCognitoTenantUserPoolClientId = 'tenantclientid';
 const testGitHubRepository = 'owner/repo';
-const testPipelineNotificationEmail = 'pipeline@example.com';
+const testOpsNotificationEmail = 'ops@example.com';
 const testWebImageTag = 'test-sha';
 const testEnv = {
   account: '123456789012',
@@ -46,9 +45,11 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-foundation`,
     });
-    const secretStack = new SecretStack(app, 'SecretStack', {
+    const dependencyStack = new DependencyStack(app, 'DependencyStack', {
       env: testEnv,
-      stackName: `workops-${stage}-secret`,
+      notificationEmail: testOpsNotificationEmail,
+      stage,
+      stackName: `workops-${stage}-dependency`,
     });
     const dataStack = new DataStack(app, 'DataStack', {
       appSecurityGroup: foundationStack.appSecurityGroup,
@@ -59,11 +60,6 @@ describe('WorkOps CDK app', () => {
       stage,
       stackName: `workops-${stage}-data`,
       vpc: foundationStack.vpc,
-    });
-    const configStack = new ConfigStack(app, 'ConfigStack', {
-      env: testEnv,
-      stage,
-      stackName: `workops-${stage}-config`,
     });
     const identityStack = new IdentityStack(app, 'IdentityStack', {
       env: testEnv,
@@ -133,10 +129,9 @@ describe('WorkOps CDK app', () => {
       webImageTag: testWebImageTag,
     });
 
+    expect(dependencyStack.stackName).toBe('workops-dev-dependency');
     expect(foundationStack.stackName).toBe('workops-dev-foundation');
-    expect(secretStack.stackName).toBe('workops-dev-secret');
     expect(dataStack.stackName).toBe('workops-dev-data');
-    expect(configStack.stackName).toBe('workops-dev-config');
     expect(identityStack.stackName).toBe('workops-dev-identity');
     expect(registryStack.stackName).toBe('workops-dev-registry');
     expect(logsStack.stackName).toBe('workops-dev-logs');
@@ -359,13 +354,80 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('workops-dev-migration');
   });
 
+  test('creates the DependencyStack CodeArtifact, ops topic, and non-secret parameters', () => {
+    const app = new App();
+    const stage = 'dev';
+    const dependencyStack = new DependencyStack(app, 'DependencyStack', {
+      env: testEnv,
+      notificationEmail: testOpsNotificationEmail,
+      stage,
+      stackName: `workops-${stage}-dependency`,
+    });
+    const template = Template.fromStack(dependencyStack);
+    const templateText = JSON.stringify(template.toJSON());
+
+    template.hasResourceProperties('AWS::CodeArtifact::Domain', {
+      DomainName: 'workops-dev',
+    });
+    template.hasResource('AWS::CodeArtifact::Domain', {
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete',
+    });
+    template.hasResourceProperties('AWS::CodeArtifact::Repository', {
+      DomainName: 'workops-dev',
+      ExternalConnections: ['public:npmjs'],
+      RepositoryName: 'workops-dev-npm',
+    });
+    template.hasResourceProperties('AWS::CodeArtifact::Repository', {
+      DomainName: 'workops-dev',
+      ExternalConnections: ['public:maven-central'],
+      RepositoryName: 'workops-dev-maven',
+    });
+    template.resourceCountIs('AWS::CodeArtifact::Repository', 2);
+    template.hasResourceProperties('AWS::SNS::Topic', {
+      TopicName: 'workops-dev-ops-notifications',
+    });
+    template.hasResourceProperties('AWS::SNS::Subscription', {
+      Endpoint: testOpsNotificationEmail,
+      Protocol: 'email',
+    });
+    template.resourceCountIs('AWS::SSM::Parameter', 5);
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/dependencies/runtime/spring-profile',
+      Type: 'String',
+      Value: 'dev',
+    });
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/dependencies/codeartifact/domain-name',
+      Type: 'String',
+      Value: 'workops-dev',
+    });
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/dependencies/codeartifact/npm-repository-name',
+      Type: 'String',
+      Value: 'workops-dev-npm',
+    });
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/dependencies/codeartifact/maven-repository-name',
+      Type: 'String',
+      Value: 'workops-dev-maven',
+    });
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/workops/dev/dependencies/notifications/ops-topic-arn',
+      Type: 'String',
+    });
+    expect(templateText).not.toContain('/workops/dev/spring/profile');
+    expect(templateText).not.toContain('authorization token');
+    expect(templateText).not.toContain('repositoryEndpoint');
+  });
+
   test('creates the PipelineStack source, quality gate, image builds, migration run, and app runtime deploy', () => {
     const app = new App();
     const stage = 'dev';
     const pipelineStack = new PipelineStack(app, 'PipelineStack', {
       env: testEnv,
       githubRepository: testGitHubRepository,
-      notificationEmail: testPipelineNotificationEmail,
+      notificationEmail: testOpsNotificationEmail,
       stage,
       stackName: `workops-${stage}-pipeline`,
       webImageTag: testWebImageTag,
@@ -413,13 +475,6 @@ describe('WorkOps CDK app', () => {
     template.hasResource('AWS::S3::Bucket', {
       DeletionPolicy: 'Delete',
       UpdateReplacePolicy: 'Delete',
-    });
-    template.hasResourceProperties('AWS::SNS::Topic', {
-      TopicName: 'workops-dev-pipeline-notifications',
-    });
-    template.hasResourceProperties('AWS::SNS::Subscription', {
-      Endpoint: testPipelineNotificationEmail,
-      Protocol: 'email',
     });
     template.hasResourceProperties('AWS::CodeStarNotifications::NotificationRule', {
       DetailType: 'BASIC',
@@ -476,9 +531,6 @@ describe('WorkOps CDK app', () => {
       Stages: Match.arrayWith([
         Match.objectLike({
           Actions: Match.arrayWith([
-            Match.objectLike({
-              Name: Match.stringLikeRegexp('workops-dev-config.Prepare'),
-            }),
             Match.objectLike({
               Name: Match.stringLikeRegexp('workops-dev-data.Prepare'),
             }),
@@ -677,19 +729,22 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('MIGRATION_CLUSTER_NAME');
     expect(templateText).not.toContain('MIGRATION_TASK_DEFINITION_ARN');
     expect(templateText).not.toContain('MIGRATION_SOURCE_BUCKET');
-    expect(templateText).toContain('npm run cdk:pipeline -- synth');
+    expect(templateText).toContain('npx cdk synth');
+    expect(templateText).toContain('WORKOPS_OPS_NOTIFICATION_EMAIL');
     expect(templateText).not.toContain('AWS::StepFunctions::StateMachine');
     expect(templateText).not.toContain('AWS::Lambda::Function');
     expect(templateText).not.toContain('AWS::CodeDeploy');
     expect(templateText).not.toContain('Custom::RunTask');
     expect(templateText).not.toContain('WORKOPS_WEB_IMAGE_TAG');
+    expect(templateText).not.toContain('WORKOPS_PIPELINE_NOTIFICATION_EMAIL');
+    expect(templateText).not.toContain('workops-dev-pipeline-notifications');
+    expect(templateText).toContain('/workops/dev/dependencies/notifications/ops-topic-arn');
     expect(templateText).not.toContain(':latest');
     expect(templateText).not.toContain(':dev');
     expect(templateText).not.toContain('workflow_dispatch');
     template.hasOutput('pipelineName', {});
     template.hasOutput('artifactBucketName', {});
     template.hasOutput('githubConnectionName', {});
-    template.hasOutput('notificationTopicName', {});
   });
 
   test('creates the MigrationStack VPC CodeBuild project without an ECS task', () => {
@@ -1386,6 +1441,8 @@ describe('WorkOps CDK app', () => {
       ]),
     });
     expect(templateText).not.toContain('"Name":"SPRING_PROFILES_ACTIVE","Value":"local"');
+    expect(templateText).toContain('/workops/dev/dependencies/runtime/spring-profile');
+    expect(templateText).not.toContain('/workops/dev/spring/profile');
     expect(templateText).toContain(testWebImageTag);
     expect(templateText).not.toContain('p2-3-manual');
     expect(templateText).toContain('WORKOPS_COGNITO_HOSTED_UI_DOMAIN_BASE_URL');
@@ -1556,17 +1613,6 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('AWS::CodeDeploy');
   });
 
-  test('creates the SecretStack without secret resources in P2-2-01', () => {
-    const app = new App();
-    const stage = 'dev';
-    const secretStack = new SecretStack(app, 'SecretStack', {
-      stackName: `workops-${stage}-secret`,
-    });
-    const template = Template.fromStack(secretStack);
-
-    template.resourceCountIs('AWS::SecretsManager::Secret', 0);
-  });
-
   test('creates the DataStack database resources', () => {
     const app = new App();
     const stage = 'dev';
@@ -1708,35 +1754,13 @@ describe('WorkOps CDK app', () => {
     expect(JSON.stringify(dataTemplate.toJSON().Outputs)).not.toContain('dbAccessHostInstanceId');
   });
 
-  test('creates the ConfigStack non-secret parameters in P2-2-01', () => {
-    const app = new App();
-    const stage = 'dev';
-    const configStack = new ConfigStack(app, 'ConfigStack', {
-      stage,
-      stackName: `workops-${stage}-config`,
-    });
-    const template = Template.fromStack(configStack);
-
-    template.resourceCountIs('AWS::SSM::Parameter', 1);
-    template.hasResourceProperties('AWS::SSM::Parameter', {
-      Name: '/workops/dev/spring/profile',
-      Type: 'String',
-      Value: 'dev',
-    });
-    const templateText = JSON.stringify(template.toJSON());
-    expect(templateText).not.toContain('/workops/dev/db/name');
-    expect(templateText).not.toContain('/workops/dev/db/port');
-    expect(templateText).not.toContain('/workops/dev/db/url');
-    expect(templateText).not.toContain('Fn::GetStackOutput');
-  });
-
   test('keeps CDK entrypoints scoped and independent from dotenv', () => {
     const packageJsonPath = join(__dirname, '..', 'package.json');
     const cdkJsonPath = join(__dirname, '..', 'cdk.json');
-    const pipelineEntrypointPath = join(__dirname, '..', 'bin', 'cdk-pipeline.ts');
+    const cdkEntrypointPath = join(__dirname, '..', 'bin', 'cdk.ts');
     const packageJsonText = readFileSync(packageJsonPath, 'utf8');
     const cdkJsonText = readFileSync(cdkJsonPath, 'utf8');
-    const pipelineEntrypointText = readFileSync(pipelineEntrypointPath, 'utf8');
+    const cdkEntrypointText = readFileSync(cdkEntrypointPath, 'utf8');
 
     expect(packageJsonText).toContain('"build": "tsc"');
     expect(packageJsonText).toContain('"watch": "tsc -w"');
@@ -1744,28 +1768,33 @@ describe('WorkOps CDK app', () => {
     expect(packageJsonText).not.toContain('"cdk:deploy-app"');
     expect(packageJsonText).not.toContain('"cdk' + ':infra"');
     expect(packageJsonText).not.toContain('"cdk' + ':runtime"');
-    expect(packageJsonText).toContain('"cdk:pipeline": "cdk --app');
-    expect(packageJsonText).not.toContain('"bin"');
     expect(packageJsonText).not.toContain('"cdk": "cdk"');
-    expect(cdkJsonText).not.toContain('"app"');
+    expect(packageJsonText).not.toContain('"bin"');
+    expect(packageJsonText).not.toContain('"cdk:pipeline"');
+    expect(cdkJsonText).toContain('"app": "npx ts-node --prefer-ts-exts bin/cdk.ts"');
+    expect(existsSync(join(__dirname, '..', 'bin', 'cdk-pipeline.ts'))).toBe(false);
     expect(existsSync(join(__dirname, '..', 'bin', 'cdk-deploy.ts'))).toBe(false);
     expect(existsSync(join(__dirname, '..', 'bin', ['cdk', 'infra.ts'].join('-')))).toBe(false);
     expect(existsSync(join(__dirname, '..', 'bin', ['cdk', 'runtime.ts'].join('-')))).toBe(false);
     expect(existsSync(join(__dirname, '..', 'lib', 'deploy-stack.ts'))).toBe(false);
-    expect(pipelineEntrypointText).toContain('PipelineStack');
-    expect(pipelineEntrypointText).toContain('GITHUB_REPOSITORY');
-    expect(pipelineEntrypointText).toContain('WORKOPS_IMAGE_TAG');
-    expect(pipelineEntrypointText).toContain('WORKOPS_PIPELINE_NOTIFICATION_EMAIL');
-    expect(pipelineEntrypointText).not.toContain('WORKOPS_WEB_IMAGE_TAG');
-    expect(pipelineEntrypointText).not.toContain('AppRuntimeStack');
+    expect(existsSync(join(__dirname, '..', 'lib', 'config-stack.ts'))).toBe(false);
+    expect(existsSync(join(__dirname, '..', 'lib', 'secret-stack.ts'))).toBe(false);
+    expect(cdkEntrypointText).toContain('DependencyStack');
+    expect(cdkEntrypointText).toContain('PipelineStack');
+    expect(cdkEntrypointText).toContain('GITHUB_REPOSITORY');
+    expect(cdkEntrypointText).toContain('WORKOPS_IMAGE_TAG');
+    expect(cdkEntrypointText).toContain('WORKOPS_OPS_NOTIFICATION_EMAIL');
+    expect(cdkEntrypointText).not.toContain('WORKOPS_PIPELINE_NOTIFICATION_EMAIL');
+    expect(cdkEntrypointText).not.toContain('WORKOPS_WEB_IMAGE_TAG');
+    expect(cdkEntrypointText).not.toContain('AppRuntimeStack');
     expect(packageJsonText).not.toContain('synth:dev');
     expect(packageJsonText).not.toContain('diff:dev');
     expect(packageJsonText).not.toContain('deploy:dev');
     expect(packageJsonText).not.toContain('dotenv');
-    expect(pipelineEntrypointText).toContain('WORKOPS_STAGE');
-    expect(pipelineEntrypointText).not.toContain('tryGetContext');
-    expect(pipelineEntrypointText).not.toContain('dotenv');
-    expect(pipelineEntrypointText).not.toContain('.env.local');
+    expect(cdkEntrypointText).toContain('WORKOPS_STAGE');
+    expect(cdkEntrypointText).not.toContain('tryGetContext');
+    expect(cdkEntrypointText).not.toContain('dotenv');
+    expect(cdkEntrypointText).not.toContain('.env.local');
   });
 
   test('removes GitHub Actions workflows from Phase 2 alpha CI/CD', () => {
