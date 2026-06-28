@@ -33,6 +33,7 @@ Pipeline 遅延、承認位置、Stack 分類、Migration 実行方式、CodeArt
 - コーディングエージェントは `mvnw test`、CDK build / test / synth、template 確認、差分確認を担当する
 - AWS CLI、CDK deploy、ECR push、Pipeline 実走確認は、ユーザーの明示依頼がある場合だけ実行する
 - AWS 操作前には profile / region を明示し、credential 環境変数を削除してから `aws sts get-caller-identity --region $env:AWS_REGION` で認証先を確認する
+- CloudFront 用 WAF と CDK Pipelines cross-region support を使うため、実 deploy 前に `ap-northeast-1` と `us-east-1` の両方を CDK bootstrap 済みにする
 - 実 account ID、SSO role ARN、credential 値、RDS endpoint、secret 値、public IP、EC2 instance id は git 管理文書へ記録しない
 - UI の最終操作確認、実 Cognito ログイン、実 AWS console 上の確認はユーザー確認として扱う
 
@@ -44,7 +45,7 @@ Pipeline 遅延、承認位置、Stack 分類、Migration 実行方式、CodeArt
 - AWS resource name、SSM path、stackName、tagに使うstage keyはsource branchから決定的に生成する
 - CDK app rootで `workops:stage` をcontextに設定し、naming / SSM path / tagだけに使うstage propsは削減する
 - raw source branchは `PipelineStack` のSource action用propsとして渡し、Stack横断contextには置かない
-- 通常手順は `cdk deploy --all` / `cdk diff --all` とし、Stack 名指定は中間確認や初回 bootstrap の例外に限定する
+- 通常手順は `cdk deploy '*'` / `cdk diff '*'` とし、個別 Stack 名指定は中間確認や初回 bootstrap の例外に限定する
 - CDK Pipelines self-mutation は維持する
 - Pipeline は RDS start / stop 運用に関心を持たず、CloudFormation deploy / update と migration 実行だけを扱う
 - `ConfigStack` と空の `SecretStack` は削除する

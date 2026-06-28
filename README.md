@@ -235,7 +235,7 @@ Phase 2 AWS dev の deploy 単位は次の通りです。
 
 | 区分 | 実行入口 | 対象 |
 | --- | --- | --- |
-| 通常 CDK deploy | ローカル `npx cdk deploy --all` | `DependencyStack`, `PipelineStack`, Pipeline 管理対象 Stack |
+| 通常 CDK deploy | ローカル `npx cdk deploy '*'` | `DependencyStack`, `PipelineStack`, Pipeline 管理対象 Stack |
 | 初回先行 deploy 例外 | ローカル `npx cdk deploy DependencyStack PipelineStack` | `DependencyStack`, `PipelineStack`, CodeConnection, Artifact bucket |
 | Pipeline 自走 | CodePipeline | Source, Synth, Build & Test, ManualApproval, Registry, Images, Migration, AppRuntime |
 | 実行確認 session | Pipeline の runtime stages | `DataStack`, `EgressStack`, `WebIngressStack`, `WebDeliveryStack`, `WebAclStack`, `AppRuntimeStack` |
@@ -271,6 +271,14 @@ aws sts get-caller-identity --region $env:AWS_REGION
 
 ### CDK deploy
 
+CloudFront 用 WAF と CDK Pipelines の cross-region support を使うため、AWS dev の事前準備では `ap-northeast-1` と `us-east-1` の両方を CDK bootstrap 済みにします。
+`us-east-1` bootstrap は WorkOps app の synth を不要にするため、`cdk.json` のない directory から CDK CLI を直接呼びます。
+
+```powershell
+cd C:\tmp
+& 'C:\git\workops\infra\cdk\node_modules\.bin\cdk.cmd' bootstrap "aws://<aws-account-id>/us-east-1" --profile $env:AWS_PROFILE
+```
+
 通常はローカルの AWS profile から単一 CDK entrypoint で全 Stack を diff / deploy します。
 CodeConnection の GitHub OAuth 認可と ManualApproval はユーザー操作です。
 `cdk deploy` は課金対象や外部連携を作成するため、実行前に AWS account、region、既存 stack 状態、`cdk diff` を確認します。
@@ -281,9 +289,11 @@ $env:GITHUB_REPOSITORY = "<owner>/<repo>"
 $env:WORKOPS_OPS_NOTIFICATION_EMAIL = "<notification-email>"
 $env:WORKOPS_IMAGE_TAG = "test-sha"
 
-npx cdk diff --all --profile $env:AWS_PROFILE
-npx cdk deploy --all --profile $env:AWS_PROFILE
+npx cdk diff '*' --profile $env:AWS_PROFILE
+npx cdk deploy '*' --profile $env:AWS_PROFILE
 ```
+
+非 TTY の実行環境で security-sensitive update の承認が必要になった場合だけ、ユーザーが `--require-approval never` の使用を明示してから `npx cdk deploy '*' --profile $env:AWS_PROFILE --require-approval never` を実行します。
 
 初回 bootstrap 直後だけ `DependencyStack` と `PipelineStack` の先行 deploy を例外として認めます。
 

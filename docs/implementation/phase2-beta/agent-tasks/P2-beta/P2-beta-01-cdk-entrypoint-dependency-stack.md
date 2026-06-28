@@ -7,7 +7,7 @@ Phase 2-beta の先頭 task として、CDK entrypoint を `infra/cdk/bin/cdk.ts
 
 ## ユーザー要件
 
-- 通常手順は `cdk deploy --all` / `cdk diff --all` とし、Stack 名指定は通常手順から外す。
+- 通常手順は `cdk deploy '*'` / `cdk diff '*'` とし、個別 Stack 名指定は通常手順から外す。
 - 初回 bootstrap だけ `DependencyStack` と `PipelineStack` の先行 deploy を例外として認める。
 - `DependencyStack` は CodeArtifact と ops notification topic と非 secret SSM parameters を所有する。
 - `ConfigStack` / `SecretStack` は 2-beta で削除する。「撤去分類」と混同しない。

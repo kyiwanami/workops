@@ -14,6 +14,8 @@ Stage 境界をまたぐ construct 参照は廃止し、非 secret 値は SSM co
 - `WebDeliveryStack` は常設分類だが、Pipeline stage上は `WebIngressStack` 後に置くことを明記する。
 - Source actionは `P2-beta-07` で確定したsource branchをfilterする。
 - ECS Blue/Green alarm は target health 中心の2本にする。
+- 実デプロイに成功したら、デプロイ時間を計測して記録する。
+- 実デプロイに失敗した場合は、必ず確認できた原因をこのtask文書に記録する。
 
 ## 案
 
@@ -77,10 +79,14 @@ flowchart LR
 - AWS profile / region を明示する。
 - AWS credential環境変数を削除してprofileを使う。
 - `aws sts get-caller-identity --region $env:AWS_REGION` で認証先を確認する。
-- `cdk diff --all`
-- 初回bootstrap例外手順または `cdk deploy --all`
+- CloudFront 用 WAF と CDK Pipelines cross-region support のため、実 deploy 前に `ap-northeast-1` と `us-east-1` の両方が CDK bootstrap 済みであることを確認する。
+- `us-east-1` bootstrap は `cdk.json` のない directory から CDK CLI を直接呼び、WorkOps app の synth を走らせない。
+- `cdk diff '*'`
+- 初回bootstrap例外手順または `cdk deploy '*'`
+- 実デプロイ成功時は、開始時刻、終了時刻、所要時間、主要な長時間 stack / Pipeline stage を記録する。
+- 実デプロイ失敗時は、失敗した Stack / resource、確認できた原因、次に必要な対応を記録する。
 - Pipeline self-mutation
-- `main` push起点のPipeline run
+- source branch push起点のPipeline run
 - Synth
 - Build & Test
 - Deploy Permanent
@@ -99,3 +105,17 @@ flowchart LR
 
 - 実 account ID、SSO role ARN、credential値、public IP、RDS実endpoint、secret値は記録しない。
 - RDS停止中ならRunMigrationは失敗し得る。PipelineはRDS start / stopを行わない。
+
+## Failure records
+
+- 2026-06-29: `workops-dev-pipeline-support-us-east-1` の `AWS::S3::BucketPolicy` 作成が `Invalid principal in policy` で失敗した。原因は `us-east-1` の CDK bootstrap が未実施で、cross-region support bucket policy が参照する CDK bootstrap deploy role が存在しなかったため。対応として、CloudFront / WAF / CDK Pipelines cross-region support を使う前提準備に `us-east-1` の CDK bootstrap を追加する。
+- 2026-06-29: `npx cdk bootstrap --profile ...` を `infra/cdk` で環境指定なしに実行し、`WORKOPS_SOURCE_BRANCH environment variable is required` で失敗した。原因は `cdk.json` の app synth が走り、bootstrap に不要な WorkOps app entrypoint の必須環境変数検証に入ったため。対応として、bootstrap は `aws://<AWS account>/<region>` の環境を明示して実行する。
+- 2026-06-29: `infra/cdk` で `aws://<AWS account>/us-east-1` を指定して `npx cdk bootstrap` を実行しても、`cdk.json` の app synth が走り `WORKOPS_SOURCE_BRANCH environment variable is required` で失敗した。原因は working directory の `cdk.json` が bootstrap 時にも読まれたため。対応として、bootstrap は `cdk.json` のない directory から CDK CLI 実体を直接呼ぶ。
+- 2026-06-29: failed cross-region support stack の `ROLLBACK_COMPLETE` 記録と、失敗時に残った replication bucket の version / delete marker が再 deploy の妨げになり得る状態だった。対応として、対象を failed support stack に限定して stack 記録と残存 bucket を削除した。
+- 2026-06-29: `PipelineStack` の更新が `DELETE_FAILED state and can not be updated` で止まった。原因は過去の `workops-dev-pipeline` 削除が artifact bucket を削除できず `DELETE_FAILED` のまま残っていたため。対応として、削除済み PipelineStack に残った artifact bucket を空にして stack 削除を完了させてから再 deploy する。
+- 2026-06-29: `PipelineStack` 作成直後の Pipeline 実行が Source stage で失敗した。原因は `workops-dev-github` CodeConnection が `PENDING` で、GitHub 認可が未完了だったため。対応として、ユーザーが AWS Console で CodeConnection を認可してから source branch push 起点または手動 start で Pipeline を再実行する。
+- 2026-06-29: CodeConnection 認可後の Pipeline 実行が Synth stage で失敗した。原因は `npm ci` が `package.json` と `package-lock.json` の不整合を検出し、lock file に `@emnapi/core` / `@emnapi/runtime` が不足していたため。あわせて CodeBuild 実行 Node.js が 18 系で、依存 package が Node 20 以上を要求している警告も出ていた。対応として、lock file 同期と CodeBuild Node.js runtime を確認・修正してから Pipeline を再実行する。
+
+## Deployment records
+
+- 2026-06-29: `npx cdk deploy '*' --profile $env:AWS_PROFILE --require-approval never` は 01:04:18 +09:00 に開始し、01:06:00 +09:00 に完了した。所要時間は 00:01:41。`DependencyStack` と `workops-dev-pipeline-support-us-east-1` は no changes、`PipelineStack` の実 deploy は 71.71 秒だった。

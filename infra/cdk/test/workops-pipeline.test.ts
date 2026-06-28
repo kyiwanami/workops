@@ -87,6 +87,7 @@ describe('WorkOps CDK pipeline', () => {
     expect(templateText).toContain('cloudformation:ListResources');
     expect(templateText).toContain('runtime-versions');
     expect(templateText).toContain('corretto25');
+    expect(templateText).toContain('\\"nodejs\\": 24');
     template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
       Stages: Match.arrayWith([
         Match.objectLike({

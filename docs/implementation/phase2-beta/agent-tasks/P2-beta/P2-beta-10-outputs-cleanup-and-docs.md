@@ -55,7 +55,7 @@ Pipeline完走後の仕上げとして、CloudFormation Outputsを全Stackで棚
 ## Verification
 
 - `cdk synth`
-- `cdk diff --all`
+- `cdk diff '*'`
 - `git diff --check`
 - `rg` で旧方式/旧名の残存確認。
 - `rg "new CfnOutput|CfnOutput" infra/cdk/lib` で `DataStack` と `WebDeliveryStack` 以外に残っていないことを確認。

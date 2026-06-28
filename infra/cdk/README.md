@@ -135,6 +135,15 @@ WorkOps の `stage` resource name を生成しないため、`WORKOPS_SOURCE_BRA
 
 ## Deploy
 
+AWS dev の事前準備では `ap-northeast-1` と `us-east-1` の両方を CDK bootstrap 済みにします。
+`us-east-1` は CloudFront 用 WAF と CDK Pipelines の cross-region support に必要です。
+bootstrap は WorkOps app の synth を不要にするため、`cdk.json` のない directory から CDK CLI を直接呼びます。
+
+```powershell
+cd C:\tmp
+& 'C:\git\workops\infra\cdk\node_modules\.bin\cdk.cmd' bootstrap "aws://<aws-account-id>/us-east-1" --profile $env:AWS_PROFILE
+```
+
 通常の diff / deploy は全 Stack 対象にします。
 
 ```powershell
@@ -145,9 +154,11 @@ $env:AWS_REGION = "ap-northeast-1"
 $env:GITHUB_REPOSITORY = "owner/repo"
 $env:WORKOPS_OPS_NOTIFICATION_EMAIL = "ops@example.com"
 $env:WORKOPS_IMAGE_TAG = "test-sha"
-npx cdk diff --all --profile $env:AWS_PROFILE
-npx cdk deploy --all --profile $env:AWS_PROFILE
+npx cdk diff '*' --profile $env:AWS_PROFILE
+npx cdk deploy '*' --profile $env:AWS_PROFILE
 ```
+
+非 TTY の実行環境で security-sensitive update の承認が必要な場合は、ユーザーが明示承認した後だけ `npx cdk deploy '*' --profile $env:AWS_PROFILE --require-approval never` を使います。
 
 初回 bootstrap 直後だけ、依存基盤と Pipeline を先行 deploy する例外を認めます。
 

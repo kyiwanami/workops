@@ -153,6 +153,13 @@ export class PipelineStack extends Stack {
               codeArtifactParameterNames,
             ),
           },
+          phases: {
+            install: {
+              'runtime-versions': {
+                nodejs: 24,
+              },
+            },
+          },
           version: '0.2',
         }),
         primaryOutputDirectory: 'infra/cdk/cdk.out',
@@ -188,6 +195,7 @@ export class PipelineStack extends Stack {
           install: {
             'runtime-versions': {
               java: 'corretto25',
+              nodejs: 24,
             },
           },
           build: {

@@ -33,7 +33,7 @@ WebAclStack
 ## ADR
 
 - このtaskだけStack名指定deployを中間確認例外として使う。
-- 通常運用は `cdk deploy --all` / `cdk diff --all` のまま。
+- 通常運用は `cdk deploy '*'` / `cdk diff '*'` のまま。
 - `--exclusively` は使わない。
 - CodeArtifactの実 npm/Maven依存取得はこのtaskで確認せず、最終Pipeline確認で確認する。
 - DataPauseの実 `RDS-EVENT-0154` 再現はこのtaskで確認しない。
