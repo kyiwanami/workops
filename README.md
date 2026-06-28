@@ -258,7 +258,7 @@ Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
 Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
 Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
 
-$env:WORKOPS_STAGE = "dev"
+$env:WORKOPS_SOURCE_BRANCH = "dev"
 $env:AWS_PROFILE = "<aws-profile>"
 $env:AWS_SDK_LOAD_CONFIG = "1"
 $env:AWS_REGION = "<aws-region>"
@@ -305,7 +305,7 @@ Phase 2β の Pipeline は次の順序で実行します。
 
 | stage | 内容 |
 | --- | --- |
-| Source | CodeConnections で GitHub `main` を取得 |
+| Source | CodeConnections で `WORKOPS_SOURCE_BRANCH` と同じ Git branch を取得 |
 | Synth | CDK Pipelines synth |
 | Build & Test | Java / CDK TypeScript 品質ゲート |
 | ManualApproval | Build Images 前の手動承認 |
@@ -323,7 +323,7 @@ CloudFront / VPC Origin / Cognito URL updater は `WebDeliveryStack` に分離�
 
 ```powershell
 cd C:\git\workops\infra\cdk
-$env:WORKOPS_STAGE = "dev"
+$env:WORKOPS_SOURCE_BRANCH = "dev"
 $env:GITHUB_REPOSITORY = "<owner>/<repo>"
 $env:WORKOPS_OPS_NOTIFICATION_EMAIL = "<notification-email>"
 $env:WORKOPS_IMAGE_TAG = "test-sha"

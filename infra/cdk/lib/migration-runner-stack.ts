@@ -12,9 +12,9 @@ import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { readWorkopsStage, workopsStackName } from './environment';
 
 export interface MigrationRunnerStackProps extends StackProps {
-  stage: string;
   appSubnets: ISubnet[];
   migrationSecurityGroup: SecurityGroup;
   migrationLogGroup: ILogGroup;
@@ -26,21 +26,25 @@ export class MigrationRunnerStack extends Stack {
   public readonly migrationProjectNameOutput: CfnOutput;
 
   constructor(scope: Construct, id: string, props: MigrationRunnerStackProps) {
-    super(scope, id, props);
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'migration-runner'),
+    });
 
     const dbUrlParameter = StringParameter.fromStringParameterName(
       this,
       'DbUrlParameter',
-      `/workops/${props.stage}/db/url`,
+      `/workops/${stage}/db/url`,
     );
     const dbMasterSecret = SecretsManagerSecret.fromSecretNameV2(
       this,
       'DbMasterSecret',
-      `/workops/${props.stage}/db/master`,
+      `/workops/${stage}/db/master`,
     );
     // MigrationRunner executes the db Maven project from the CodePipeline source artifact inside the RDS VPC.
     this.migrationProject = new PipelineProject(this, 'MigrationCodeBuildProject', {
-      projectName: `workops-${props.stage}-migration-runner`,
+      projectName: `workops-${stage}-migration-runner`,
       buildSpec: BuildSpec.fromObject({
         phases: {
           install: {
@@ -82,11 +86,11 @@ export class MigrationRunnerStack extends Stack {
           },
           WORKOPS_CODEARTIFACT_DOMAIN_NAME: {
             type: BuildEnvironmentVariableType.PARAMETER_STORE,
-            value: `/workops/${props.stage}/dependencies/codeartifact/domain-name`,
+            value: `/workops/${stage}/dependencies/codeartifact/domain-name`,
           },
           WORKOPS_CODEARTIFACT_MAVEN_REPOSITORY_NAME: {
             type: BuildEnvironmentVariableType.PARAMETER_STORE,
-            value: `/workops/${props.stage}/dependencies/codeartifact/maven-repository-name`,
+            value: `/workops/${stage}/dependencies/codeartifact/maven-repository-name`,
           },
         },
       },
@@ -106,7 +110,7 @@ export class MigrationRunnerStack extends Stack {
     props.migrationLogGroup.grantWrite(this.migrationProject);
     dbUrlParameter.grantRead(this.migrationProject);
     dbMasterSecret.grantRead(this.migrationProject);
-    for (const statement of this.createCodeArtifactPolicyStatements(props.stage)) {
+    for (const statement of this.createCodeArtifactPolicyStatements(stage)) {
       this.migrationProject.addToRolePolicy(statement);
     }
     this.migrationProject.addToRolePolicy(
@@ -114,8 +118,8 @@ export class MigrationRunnerStack extends Stack {
         actions: ['s3:GetBucket*', 's3:GetObject*', 's3:List*'],
         effect: Effect.ALLOW,
         resources: [
-          `arn:${Aws.PARTITION}:s3:::workops-${props.stage}-pipeline-artifacts`,
-          `arn:${Aws.PARTITION}:s3:::workops-${props.stage}-pipeline-artifacts/*`,
+          `arn:${Aws.PARTITION}:s3:::workops-${stage}-pipeline-artifacts`,
+          `arn:${Aws.PARTITION}:s3:::workops-${stage}-pipeline-artifacts/*`,
         ],
       }),
     );

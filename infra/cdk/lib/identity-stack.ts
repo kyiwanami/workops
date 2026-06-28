@@ -11,11 +11,8 @@ import {
   UserPoolDomain,
 } from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
+import { readWorkopsStage, workopsStackName } from './environment';
 import { exportName } from './stack-exports';
-
-export interface IdentityStackProps extends StackProps {
-  stage: string;
-}
 
 function managedLoginSettings(
   primaryColor: string,
@@ -73,12 +70,16 @@ export class IdentityStack extends Stack {
   public readonly tenantUserPoolClientId: string;
   public readonly hostedUiDomainBaseUrl: string;
 
-  constructor(scope: Construct, id: string, props: IdentityStackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string, props: StackProps) {
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'identity'),
+    });
 
     // IdentityStack owns Cognito resources independently from recreated runtime stacks.
     this.userPool = new UserPool(this, 'UserPool', {
-      userPoolName: `workops-${props.stage}-user-pool`,
+      userPoolName: `workops-${stage}-user-pool`,
       selfSignUpEnabled: false,
       // AdminCreateUser sends this WorkOps invitation while Cognito owns the temporary password flow.
       userInvitation: {
@@ -118,17 +119,17 @@ export class IdentityStack extends Stack {
 
     this.userPoolDomain = this.userPool.addDomain('UserPoolDomain', {
       cognitoDomain: {
-        domainPrefix: `workops-${props.stage}-${Aws.ACCOUNT_ID}`,
+        domainPrefix: `workops-${stage}-${Aws.ACCOUNT_ID}`,
       },
       managedLoginVersion: ManagedLoginVersion.NEWER_MANAGED_LOGIN,
     });
 
-    const platformPlaceholderCallbackUrl = `https://workops-${props.stage}-placeholder.invalid/login/oauth2/code/platform`;
-    const tenantPlaceholderCallbackUrl = `https://workops-${props.stage}-placeholder.invalid/login/oauth2/code/tenant`;
-    const placeholderLogoutUrl = `https://workops-${props.stage}-placeholder.invalid/login`;
+    const platformPlaceholderCallbackUrl = `https://workops-${stage}-placeholder.invalid/login/oauth2/code/platform`;
+    const tenantPlaceholderCallbackUrl = `https://workops-${stage}-placeholder.invalid/login/oauth2/code/tenant`;
+    const placeholderLogoutUrl = `https://workops-${stage}-placeholder.invalid/login`;
 
     this.platformUserPoolClient = this.userPool.addClient('PlatformClient', {
-      userPoolClientName: `workops-${props.stage}-platform-client`,
+      userPoolClientName: `workops-${stage}-platform-client`,
       generateSecret: false,
       oAuth: {
         flows: {
@@ -143,7 +144,7 @@ export class IdentityStack extends Stack {
     });
 
     this.tenantUserPoolClient = this.userPool.addClient('TenantClient', {
-      userPoolClientName: `workops-${props.stage}-tenant-client`,
+      userPoolClientName: `workops-${stage}-tenant-client`,
       generateSecret: false,
       oAuth: {
         flows: {
@@ -181,19 +182,19 @@ export class IdentityStack extends Stack {
     });
 
     new CfnOutput(this, 'userPoolId', {
-      exportName: exportName(props.stage, 'identity-user-pool-id'),
+      exportName: exportName(stage, 'identity-user-pool-id'),
       value: this.userPoolId,
     });
     new CfnOutput(this, 'platformUserPoolClientId', {
-      exportName: exportName(props.stage, 'identity-platform-user-pool-client-id'),
+      exportName: exportName(stage, 'identity-platform-user-pool-client-id'),
       value: this.platformUserPoolClientId,
     });
     new CfnOutput(this, 'tenantUserPoolClientId', {
-      exportName: exportName(props.stage, 'identity-tenant-user-pool-client-id'),
+      exportName: exportName(stage, 'identity-tenant-user-pool-client-id'),
       value: this.tenantUserPoolClientId,
     });
     new CfnOutput(this, 'hostedUiDomainBaseUrl', {
-      exportName: exportName(props.stage, 'identity-hosted-ui-domain-base-url'),
+      exportName: exportName(stage, 'identity-hosted-ui-domain-base-url'),
       value: this.hostedUiDomainBaseUrl,
     });
   }

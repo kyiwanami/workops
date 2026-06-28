@@ -1,25 +1,26 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Repository, TagMutability, TagStatus } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
-
-export interface RegistryStackProps extends StackProps {
-  stage: string;
-}
+import { readWorkopsStage, workopsStackName } from './environment';
 
 export class RegistryStack extends Stack {
   public readonly webRepository: Repository;
   public readonly webCacheRepository: Repository;
 
-  constructor(scope: Construct, id: string, props: RegistryStackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string, props: StackProps) {
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'registry'),
+    });
 
     // Application image repositories keep immutable commit SHA tags for Pipeline traceability.
-    this.webRepository = this.createImageRepository('WebRepository', `workops-${props.stage}-web`);
+    this.webRepository = this.createImageRepository('WebRepository', `workops-${stage}-web`);
 
     // Build cache repositories keep mutable buildcache tags for docker buildx cache reuse.
     this.webCacheRepository = this.createCacheRepository(
       'WebCacheRepository',
-      `workops-${props.stage}-web-cache`,
+      `workops-${stage}-web-cache`,
     );
 
     this.outputRepository('webRepository', this.webRepository);

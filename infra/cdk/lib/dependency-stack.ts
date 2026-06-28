@@ -4,19 +4,23 @@ import { Topic } from 'aws-cdk-lib/aws-sns';
 import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { readWorkopsStage, workopsStackName } from './environment';
 
 export interface DependencyStackProps extends StackProps {
-  stage: string;
   notificationEmail: string;
 }
 
 export class DependencyStack extends Stack {
   constructor(scope: Construct, id: string, props: DependencyStackProps) {
-    super(scope, id, props);
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'dependency'),
+    });
 
-    const domainName = `workops-${props.stage}`;
-    const npmRepositoryName = `workops-${props.stage}-npm`;
-    const mavenRepositoryName = `workops-${props.stage}-maven`;
+    const domainName = `workops-${stage}`;
+    const npmRepositoryName = `workops-${stage}-npm`;
+    const mavenRepositoryName = `workops-${stage}-maven`;
 
     // DependencyStack owns shared dependency services used before runtime stacks are recreated.
     const domain = new CfnDomain(this, 'CodeArtifactDomain', {
@@ -41,33 +45,33 @@ export class DependencyStack extends Stack {
     mavenRepository.node.addDependency(domain);
 
     const opsTopic = new Topic(this, 'OpsNotificationTopic', {
-      topicName: `workops-${props.stage}-ops-notifications`,
+      topicName: `workops-${stage}-ops-notifications`,
     });
     opsTopic.addSubscription(new EmailSubscription(props.notificationEmail));
 
     this.createParameter(
       'SpringProfileParameter',
-      `/workops/${props.stage}/dependencies/runtime/spring-profile`,
+      `/workops/${stage}/dependencies/runtime/spring-profile`,
       'dev',
     );
     this.createParameter(
       'CodeArtifactDomainNameParameter',
-      `/workops/${props.stage}/dependencies/codeartifact/domain-name`,
+      `/workops/${stage}/dependencies/codeartifact/domain-name`,
       domainName,
     );
     this.createParameter(
       'CodeArtifactNpmRepositoryNameParameter',
-      `/workops/${props.stage}/dependencies/codeartifact/npm-repository-name`,
+      `/workops/${stage}/dependencies/codeartifact/npm-repository-name`,
       npmRepositoryName,
     );
     this.createParameter(
       'CodeArtifactMavenRepositoryNameParameter',
-      `/workops/${props.stage}/dependencies/codeartifact/maven-repository-name`,
+      `/workops/${stage}/dependencies/codeartifact/maven-repository-name`,
       mavenRepositoryName,
     );
     this.createParameter(
       'OpsTopicArnParameter',
-      `/workops/${props.stage}/dependencies/notifications/ops-topic-arn`,
+      `/workops/${stage}/dependencies/notifications/ops-topic-arn`,
       opsTopic.topicArn,
     );
   }

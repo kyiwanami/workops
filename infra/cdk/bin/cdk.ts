@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { App, Environment, Tags } from 'aws-cdk-lib';
 import { DependencyStack } from '../lib/dependency-stack';
-import { readRequiredEnv } from '../lib/environment';
+import { readRequiredEnv, setWorkopsStage } from '../lib/environment';
 import { PipelineStack } from '../lib/pipeline-stack';
 
 const app = new App();
-const stage = readRequiredEnv('WORKOPS_STAGE');
+const stage = readRequiredEnv('WORKOPS_SOURCE_BRANCH');
+setWorkopsStage(app, stage);
 const githubRepository = readRequiredEnv('GITHUB_REPOSITORY');
 const notificationEmail = readRequiredEnv('WORKOPS_OPS_NOTIFICATION_EMAIL');
 const imageTag = readRequiredEnv('WORKOPS_IMAGE_TAG');
@@ -22,8 +23,6 @@ Tags.of(app).add('ManagedBy', 'CDK');
 const dependencyStack = new DependencyStack(app, 'DependencyStack', {
   env,
   notificationEmail,
-  stage,
-  stackName: `workops-${stage}-dependency`,
 });
 
 const pipelineStack = new PipelineStack(app, 'PipelineStack', {
@@ -31,7 +30,6 @@ const pipelineStack = new PipelineStack(app, 'PipelineStack', {
   githubRepository,
   notificationEmail,
   stage,
-  stackName: `workops-${stage}-pipeline`,
   webImageTag: imageTag,
 });
 pipelineStack.addDependency(dependencyStack);

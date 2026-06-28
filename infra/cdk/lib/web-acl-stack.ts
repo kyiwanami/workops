@@ -2,27 +2,28 @@ import { CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { CfnLoggingConfiguration, CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
-
-export interface WebAclStackProps extends StackProps {
-  stage: string;
-}
+import { readWorkopsStage, workopsStackName } from './environment';
 
 export class WebAclStack extends Stack {
   public readonly webAclArn: string;
 
-  constructor(scope: Construct, id: string, props: WebAclStackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string, props: StackProps) {
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'web-acl'),
+    });
 
     // WebAcl starts in Count mode so Phase 2-beta observes managed rule matches without blocking traffic.
     const webAcl = new CfnWebACL(this, 'WebAcl', {
       defaultAction: {
         allow: {},
       },
-      name: `workops-${props.stage}-cloudfront-web-acl`,
+      name: `workops-${stage}-cloudfront-web-acl`,
       scope: 'CLOUDFRONT',
       visibilityConfig: {
         cloudWatchMetricsEnabled: true,
-        metricName: `workops-${props.stage}-cloudfront-web-acl`,
+        metricName: `workops-${stage}-cloudfront-web-acl`,
         sampledRequestsEnabled: true,
       },
       rules: [
@@ -40,7 +41,7 @@ export class WebAclStack extends Stack {
           },
           visibilityConfig: {
             cloudWatchMetricsEnabled: true,
-            metricName: `workops-${props.stage}-common-rule-set`,
+            metricName: `workops-${stage}-common-rule-set`,
             sampledRequestsEnabled: true,
           },
         },
@@ -50,7 +51,7 @@ export class WebAclStack extends Stack {
 
     // TODO: Split stage-specific WAF log retention and destination handling when stage policy is settled.
     const logGroup = new LogGroup(this, 'WafLogGroup', {
-      logGroupName: `aws-waf-logs-workops-${props.stage}-cloudfront`,
+      logGroupName: `aws-waf-logs-workops-${stage}-cloudfront`,
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });

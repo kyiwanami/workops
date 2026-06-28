@@ -19,9 +19,9 @@ import {
 } from 'aws-cdk-lib/aws-rds';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { readWorkopsStage, workopsStackName } from './environment';
 
 export interface DataStackProps extends StackProps {
-  stage: string;
   vpc: Vpc;
   dbSubnets: ISubnet[];
   appSecurityGroup: SecurityGroup;
@@ -38,7 +38,11 @@ export class DataStack extends Stack {
   public readonly subnetGroup: SubnetGroup;
 
   constructor(scope: Construct, id: string, props: DataStackProps) {
-    super(scope, id, props);
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'data'),
+    });
 
     this.databaseName = 'workops';
     this.databasePort = '3306';
@@ -46,7 +50,7 @@ export class DataStack extends Stack {
     // The database subnet group keeps the RDS placement fixed to isolated DB subnets.
     this.subnetGroup = new SubnetGroup(this, 'DbSubnetGroup', {
       description: 'WorkOps database isolated subnets',
-      subnetGroupName: `workops-${props.stage}-db-subnet-group`,
+      subnetGroupName: `workops-${stage}-db-subnet-group`,
       vpc: props.vpc,
       vpcSubnets: {
         subnets: props.dbSubnets,
@@ -60,7 +64,7 @@ export class DataStack extends Stack {
       {
         allowAllOutbound: false,
         description: 'WorkOps RDS Console CloudShell VPC security group',
-        securityGroupName: `workops-${props.stage}-rds-console-cloudshell-sg`,
+        securityGroupName: `workops-${stage}-rds-console-cloudshell-sg`,
         vpc: props.vpc,
       },
     );
@@ -97,14 +101,14 @@ export class DataStack extends Stack {
       allocatedStorage: 20,
       backupRetention: Duration.days(1),
       credentials: Credentials.fromGeneratedSecret('workops_admin', {
-        secretName: `/workops/${props.stage}/db/master`,
+        secretName: `/workops/${stage}/db/master`,
       }),
       databaseName: this.databaseName,
       deletionProtection: false,
       engine: DatabaseInstanceEngine.mysql({
         version: MysqlEngineVersion.VER_8_4_9,
       }),
-      instanceIdentifier: `workops-${props.stage}-db`,
+      instanceIdentifier: `workops-${stage}-db`,
       instanceType: InstanceType.of(InstanceClass.T4G, InstanceSize.MICRO),
       multiAz: false,
       publiclyAccessible: false,
@@ -127,15 +131,15 @@ export class DataStack extends Stack {
 
     // DB connection parameters are owned with the RDS lifecycle because the endpoint changes when RDS is recreated.
     new StringParameter(this, 'DbNameParameter', {
-      parameterName: `/workops/${props.stage}/db/name`,
+      parameterName: `/workops/${stage}/db/name`,
       stringValue: this.databaseName,
     });
     new StringParameter(this, 'DbPortParameter', {
-      parameterName: `/workops/${props.stage}/db/port`,
+      parameterName: `/workops/${stage}/db/port`,
       stringValue: this.databasePort,
     });
     new StringParameter(this, 'DbUrlParameter', {
-      parameterName: `/workops/${props.stage}/db/url`,
+      parameterName: `/workops/${stage}/db/url`,
       stringValue: `jdbc:mysql://${this.endpointAddress}:${this.databasePort}/${this.databaseName}?useSSL=true&serverTimezone=Asia/Tokyo`,
     });
 

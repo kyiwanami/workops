@@ -19,9 +19,9 @@ import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Provider } from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
 import { join } from 'path';
+import { readWorkopsStage, workopsStackName } from './environment';
 
 export interface WebDeliveryStackProps extends StackProps {
-  stage: string;
   webAclArn: string;
   cognitoUserPoolId: string;
   cognitoPlatformUserPoolClientId: string;
@@ -36,7 +36,11 @@ export class WebDeliveryStack extends Stack {
   public readonly cloudFrontHttpsUrl: string;
 
   constructor(scope: Construct, id: string, props: WebDeliveryStackProps) {
-    super(scope, id, props);
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'web-delivery'),
+    });
 
     const loadBalancer = ApplicationLoadBalancer.fromApplicationLoadBalancerAttributes(
       this,
@@ -44,22 +48,22 @@ export class WebDeliveryStack extends Stack {
       {
         loadBalancerArn: StringParameter.valueForStringParameter(
           this,
-          `/workops/${props.stage}/web-ingress/origin/alb-arn`,
+          `/workops/${stage}/web-ingress/origin/alb-arn`,
         ),
         loadBalancerDnsName: StringParameter.valueForStringParameter(
           this,
-          `/workops/${props.stage}/web-ingress/origin/alb-dns-name`,
+          `/workops/${stage}/web-ingress/origin/alb-dns-name`,
         ),
         securityGroupId: StringParameter.valueForStringParameter(
           this,
-          `/workops/${props.stage}/web-ingress/origin/alb-security-group-id`,
+          `/workops/${stage}/web-ingress/origin/alb-security-group-id`,
         ),
       },
     );
 
     // CloudFront stays isolated from ALB replacement except when the ingress origin contract changes.
     this.distribution = new Distribution(this, 'WebDistribution', {
-      comment: `workops-${props.stage}-web-delivery`,
+      comment: `workops-${stage}-web-delivery`,
       defaultBehavior: {
         allowedMethods: AllowedMethods.ALLOW_ALL,
         cachedMethods: CachedMethods.CACHE_GET_HEAD,
@@ -78,7 +82,7 @@ export class WebDeliveryStack extends Stack {
     this.cloudFrontHttpsUrl = `https://${this.cloudFrontDomainName}`;
 
     const updaterFunction = new NodejsFunction(this, 'CognitoClientUrlUpdaterFunction', {
-      functionName: `workops-${props.stage}-cognito-client-url-updater`,
+      functionName: `workops-${stage}-cognito-client-url-updater`,
       runtime: Runtime.NODEJS_24_X,
       entry: join(__dirname, '..', 'lambda', 'cognito-client-url-updater', 'index.ts'),
       handler: 'handler',

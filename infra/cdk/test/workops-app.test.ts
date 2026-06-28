@@ -18,6 +18,7 @@ import { RegistryStack } from '../lib/registry-stack';
 import { WebAclStack } from '../lib/web-acl-stack';
 import { WebDeliveryStack } from '../lib/web-delivery-stack';
 import { WebIngressStack } from '../lib/web-ingress-stack';
+import { setWorkopsStage } from '../lib/environment';
 
 class TaggedResourceStack extends Stack {
   constructor(scope: Construct, id: string) {
@@ -39,20 +40,22 @@ const testEnv = {
   region: 'ap-northeast-1',
 };
 
+function createTestApp(stage: string): App {
+  const app = new App();
+  setWorkopsStage(app, stage);
+  return app;
+}
+
 describe('WorkOps CDK app', () => {
   test('creates Phase 2 base stack shells using the requested stage', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-foundation`,
     });
     const dependencyStack = new DependencyStack(app, 'DependencyStack', {
       env: testEnv,
       notificationEmail: testOpsNotificationEmail,
-      stage,
-      stackName: `workops-${stage}-dependency`,
     });
     const dataStack = new DataStack(app, 'DataStack', {
       appSecurityGroup: foundationStack.appSecurityGroup,
@@ -60,30 +63,20 @@ describe('WorkOps CDK app', () => {
       dbSubnets: foundationStack.dbSubnets,
       env: testEnv,
       migrationSecurityGroup: foundationStack.migrationSecurityGroup,
-      stage,
-      stackName: `workops-${stage}-data`,
       vpc: foundationStack.vpc,
     });
     const identityStack = new IdentityStack(app, 'IdentityStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-identity`,
     });
     const registryStack = new RegistryStack(app, 'RegistryStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-registry`,
     });
     const logsStack = new LogsStack(app, 'LogsStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-logs`,
     });
     const dataPauseStack = new DataPauseStack(app, 'DataPauseStack', {
       env: testEnv,
       markAutoRestartLogGroup: logsStack.dataPauseMarkAutoRestartLogGroup,
-      stage,
-      stackName: `workops-${stage}-data-pause`,
       stopMarkedDbLogGroup: logsStack.dataPauseStopMarkedDbLogGroup,
     });
     const migrationRunnerStack = new MigrationRunnerStack(app, 'MigrationRunnerStack', {
@@ -91,16 +84,12 @@ describe('WorkOps CDK app', () => {
       env: testEnv,
       migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       migrationLogGroup: logsStack.migrationLogGroup,
-      stage,
-      stackName: `workops-${stage}-migration-runner`,
       vpc: foundationStack.vpc,
     });
     const egressStack = new EgressStack(app, 'EgressStack', {
       appSubnets: foundationStack.appSubnets,
       env: testEnv,
       publicSubnets: foundationStack.publicSubnets,
-      stage,
-      stackName: `workops-${stage}-egress`,
       vpc: foundationStack.vpc,
     });
     const webAclStack = new WebAclStack(app, 'WebAclStack', {
@@ -109,15 +98,11 @@ describe('WorkOps CDK app', () => {
         account: testEnv.account,
         region: 'us-east-1',
       },
-      stage,
-      stackName: `workops-${stage}-web-acl`,
     });
     const webIngressStack = new WebIngressStack(app, 'WebIngressStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-web-ingress`,
       vpc: foundationStack.vpc,
     });
     const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
@@ -128,8 +113,6 @@ describe('WorkOps CDK app', () => {
       cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
       crossRegionReferences: true,
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-web-delivery`,
       webAclArn: webAclStack.webAclArn,
     });
     const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
@@ -150,8 +133,6 @@ describe('WorkOps CDK app', () => {
         vpc: foundationStack.vpc,
         webLogGroup: logsStack.webLogGroup,
       },
-      stage,
-      stackName: `workops-${stage}-app-runtime`,
       webImageTag: testWebImageTag,
     });
 
@@ -171,12 +152,10 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the FoundationStack network and cluster resources', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-foundation`,
     });
     const template = Template.fromStack(foundationStack);
 
@@ -253,8 +232,8 @@ describe('WorkOps CDK app', () => {
   });
 
   test('applies common WorkOps tags', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
 
     // CDK app tags mirror the entrypoint's local and CI deploy behavior.
     Tags.of(app).add('Project', 'WorkOps');
@@ -291,11 +270,9 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the RegistryStack repositories and lifecycle policies', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const registryStack = new RegistryStack(app, 'RegistryStack', {
-      stage,
-      stackName: `workops-${stage}-registry`,
     });
     const template = Template.fromStack(registryStack);
 
@@ -384,13 +361,11 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the DependencyStack CodeArtifact, ops topic, and non-secret parameters', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const dependencyStack = new DependencyStack(app, 'DependencyStack', {
       env: testEnv,
       notificationEmail: testOpsNotificationEmail,
-      stage,
-      stackName: `workops-${stage}-dependency`,
     });
     const template = Template.fromStack(dependencyStack);
     const templateText = JSON.stringify(template.toJSON());
@@ -451,14 +426,13 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the PipelineStack source, quality gate, image builds, migration run, and app runtime deploy', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const pipelineStack = new PipelineStack(app, 'PipelineStack', {
       env: testEnv,
       githubRepository: testGitHubRepository,
       notificationEmail: testOpsNotificationEmail,
       stage,
-      stackName: `workops-${stage}-pipeline`,
       webImageTag: testWebImageTag,
     });
     const template = Template.fromStack(pipelineStack);
@@ -727,7 +701,24 @@ describe('WorkOps CDK app', () => {
     expect(templateText).not.toContain('codeconnections:BranchName');
     expect(templateText).toContain(testGitHubRepository);
     expect(templateText).toContain('BranchName');
-    expect(templateText).toContain('main');
+    template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
+      Stages: Match.arrayWith([
+        Match.objectLike({
+          Actions: Match.arrayWith([
+            Match.objectLike({
+              Configuration: Match.objectLike({
+                BranchName: stage,
+                FullRepositoryId: testGitHubRepository,
+              }),
+              Name: 'GitHubSource',
+            }),
+          ]),
+          Name: 'Source',
+        }),
+      ]),
+    });
+    expect(templateText).toContain('WORKOPS_SOURCE_BRANCH');
+    expect(templateText).not.toContain('WORKOPS_STAGE');
     expect(templateText).toContain('BuildAndTest');
     expect(templateText).toContain('java -version');
     expect(templateText).toContain('python3 scripts/configure-codeartifact-npm.py');
@@ -824,25 +815,19 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the MigrationRunnerStack VPC CodeBuild project without an ECS task', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-foundation`,
     });
     const logsStack = new LogsStack(app, 'LogsStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-logs`,
     });
     const migrationRunnerStack = new MigrationRunnerStack(app, 'MigrationRunnerStack', {
       appSubnets: foundationStack.appSubnets,
       env: testEnv,
       migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       migrationLogGroup: logsStack.migrationLogGroup,
-      stage,
-      stackName: `workops-${stage}-migration-runner`,
       vpc: foundationStack.vpc,
     });
     const template = Template.fromStack(migrationRunnerStack);
@@ -982,11 +967,9 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the LogsStack log groups', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const logsStack = new LogsStack(app, 'LogsStack', {
-      stage,
-      stackName: `workops-${stage}-logs`,
     });
     const template = Template.fromStack(logsStack);
 
@@ -1070,18 +1053,14 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the DataPauseStack RDS event handlers and alarms', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const logsStack = new LogsStack(app, 'LogsStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-logs`,
     });
     const dataPauseStack = new DataPauseStack(app, 'DataPauseStack', {
       env: testEnv,
       markAutoRestartLogGroup: logsStack.dataPauseMarkAutoRestartLogGroup,
-      stage,
-      stackName: `workops-${stage}-data-pause`,
       stopMarkedDbLogGroup: logsStack.dataPauseStopMarkedDbLogGroup,
     });
     const template = Template.fromStack(dataPauseStack);
@@ -1250,19 +1229,15 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the P2-3 EgressStack NAT route for app subnets', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-foundation`,
     });
     const egressStack = new EgressStack(app, 'EgressStack', {
       appSubnets: foundationStack.appSubnets,
       env: testEnv,
       publicSubnets: foundationStack.publicSubnets,
-      stage,
-      stackName: `workops-${stage}-egress`,
       vpc: foundationStack.vpc,
     });
     const template = Template.fromStack(egressStack);
@@ -1284,17 +1259,13 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the P2-beta web ingress, delivery, and ACL stacks', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-foundation`,
     });
     const logsStack = new LogsStack(app, 'LogsStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-logs`,
     });
     const webAclStack = new WebAclStack(app, 'WebAclStack', {
       crossRegionReferences: true,
@@ -1302,15 +1273,11 @@ describe('WorkOps CDK app', () => {
         account: testEnv.account,
         region: 'us-east-1',
       },
-      stage,
-      stackName: `workops-${stage}-web-acl`,
     });
     const webIngressStack = new WebIngressStack(app, 'WebIngressStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-web-ingress`,
       vpc: foundationStack.vpc,
     });
     const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
@@ -1321,8 +1288,6 @@ describe('WorkOps CDK app', () => {
       cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
       crossRegionReferences: true,
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-web-delivery`,
       webAclArn: webAclStack.webAclArn,
     });
     const ingressTemplate = Template.fromStack(webIngressStack);
@@ -1511,11 +1476,9 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the P2-5 IdentityStack Cognito Hosted UI resources', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const identityStack = new IdentityStack(app, 'IdentityStack', {
-      stage,
-      stackName: `workops-${stage}-identity`,
     });
     const template = Template.fromStack(identityStack);
     const templateText = JSON.stringify(template.toJSON());
@@ -1667,27 +1630,19 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the P2-3 AppRuntimeStack web service', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-foundation`,
     });
     const identityStack = new IdentityStack(app, 'IdentityStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-identity`,
     });
     const registryStack = new RegistryStack(app, 'RegistryStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-registry`,
     });
     const logsStack = new LogsStack(app, 'LogsStack', {
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-logs`,
     });
     const webAclStack = new WebAclStack(app, 'WebAclStack', {
       crossRegionReferences: true,
@@ -1695,15 +1650,11 @@ describe('WorkOps CDK app', () => {
         account: testEnv.account,
         region: 'us-east-1',
       },
-      stage,
-      stackName: `workops-${stage}-web-acl`,
     });
     const webIngressStack = new WebIngressStack(app, 'WebIngressStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-web-ingress`,
       vpc: foundationStack.vpc,
     });
     const webDeliveryStack = new WebDeliveryStack(app, 'WebDeliveryStack', {
@@ -1714,8 +1665,6 @@ describe('WorkOps CDK app', () => {
       cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
       crossRegionReferences: true,
       env: testEnv,
-      stage,
-      stackName: `workops-${stage}-web-delivery`,
       webAclArn: webAclStack.webAclArn,
     });
     const appRuntimeStack = new AppRuntimeStack(app, 'AppRuntimeStack', {
@@ -1736,8 +1685,6 @@ describe('WorkOps CDK app', () => {
         vpc: foundationStack.vpc,
         webLogGroup: logsStack.webLogGroup,
       },
-      stage,
-      stackName: `workops-${stage}-app-runtime`,
       webImageTag: testWebImageTag,
     });
     const template = Template.fromStack(appRuntimeStack);
@@ -2004,19 +1951,15 @@ describe('WorkOps CDK app', () => {
   });
 
   test('creates the DataStack database resources', () => {
-    const app = new App();
     const stage = 'dev';
+    const app = createTestApp(stage);
     const foundationStack = new FoundationStack(app, 'FoundationStack', {
-      stage,
-      stackName: `workops-${stage}-foundation`,
     });
     const dataStack = new DataStack(app, 'DataStack', {
       appSecurityGroup: foundationStack.appSecurityGroup,
       dbSecurityGroup: foundationStack.dbSecurityGroup,
       dbSubnets: foundationStack.dbSubnets,
       migrationSecurityGroup: foundationStack.migrationSecurityGroup,
-      stage,
-      stackName: `workops-${stage}-data`,
       vpc: foundationStack.vpc,
     });
     const dataTemplate = Template.fromStack(dataStack);
@@ -2181,7 +2124,8 @@ describe('WorkOps CDK app', () => {
     expect(packageJsonText).not.toContain('diff:dev');
     expect(packageJsonText).not.toContain('deploy:dev');
     expect(packageJsonText).not.toContain('dotenv');
-    expect(cdkEntrypointText).toContain('WORKOPS_STAGE');
+    expect(cdkEntrypointText).toContain('WORKOPS_SOURCE_BRANCH');
+    expect(cdkEntrypointText).not.toContain('WORKOPS_STAGE');
     expect(cdkEntrypointText).not.toContain('tryGetContext');
     expect(cdkEntrypointText).not.toContain('dotenv');
     expect(cdkEntrypointText).not.toContain('.env.local');

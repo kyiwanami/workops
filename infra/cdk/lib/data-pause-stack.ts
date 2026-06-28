@@ -11,43 +11,47 @@ import { ITopic, Topic } from 'aws-cdk-lib/aws-sns';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { join } from 'path';
+import { readWorkopsStage, workopsStackName } from './environment';
 
 export interface DataPauseStackProps extends StackProps {
-  stage: string;
   markAutoRestartLogGroup: ILogGroup;
   stopMarkedDbLogGroup: ILogGroup;
 }
 
 export class DataPauseStack extends Stack {
   constructor(scope: Construct, id: string, props: DataPauseStackProps) {
-    super(scope, id, props);
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'data-pause'),
+    });
 
     const markerParameterArn = this.formatArn({
       service: 'ssm',
       resource: 'parameter',
-      resourceName: `workops/${props.stage}/data-pause/*`,
+      resourceName: `workops/${stage}/data-pause/*`,
     });
     const dbInstanceArn = this.formatArn({
       service: 'rds',
       resource: 'db',
-      resourceName: `workops-${props.stage}-db`,
+      resourceName: `workops-${stage}-db`,
       arnFormat: ArnFormat.COLON_RESOURCE_NAME,
     });
     const opsTopicArn = StringParameter.valueForStringParameter(
       this,
-      `/workops/${props.stage}/dependencies/notifications/ops-topic-arn`,
+      `/workops/${stage}/dependencies/notifications/ops-topic-arn`,
     );
     const opsTopic = Topic.fromTopicArn(this, 'OpsNotificationTopic', opsTopicArn);
 
     const markAutoRestartFunction = new NodejsFunction(this, 'MarkAutoRestartFunction', {
-      functionName: `workops-${props.stage}-data-pause-mark-auto-restart`,
+      functionName: `workops-${stage}-data-pause-mark-auto-restart`,
       runtime: Runtime.NODEJS_24_X,
       entry: join(__dirname, '..', 'lambda', 'data-pause', 'mark-auto-restart.ts'),
       handler: 'handler',
       timeout: Duration.minutes(1),
       logGroup: props.markAutoRestartLogGroup,
       environment: {
-        WORKOPS_STAGE: props.stage,
+        WORKOPS_STAGE: stage,
       },
       bundling: {
         bundleAwsSDK: true,
@@ -61,14 +65,14 @@ export class DataPauseStack extends Stack {
     );
 
     const stopMarkedDbFunction = new NodejsFunction(this, 'StopMarkedDbFunction', {
-      functionName: `workops-${props.stage}-data-pause-stop-marked-db`,
+      functionName: `workops-${stage}-data-pause-stop-marked-db`,
       runtime: Runtime.NODEJS_24_X,
       entry: join(__dirname, '..', 'lambda', 'data-pause', 'stop-marked-db.ts'),
       handler: 'handler',
       timeout: Duration.minutes(2),
       logGroup: props.stopMarkedDbLogGroup,
       environment: {
-        WORKOPS_STAGE: props.stage,
+        WORKOPS_STAGE: stage,
       },
       bundling: {
         bundleAwsSDK: true,
@@ -88,7 +92,7 @@ export class DataPauseStack extends Stack {
     );
 
     new Rule(this, 'MarkAutoRestartRule', {
-      ruleName: `workops-${props.stage}-data-pause-mark-auto-restart`,
+      ruleName: `workops-${stage}-data-pause-mark-auto-restart`,
       eventPattern: {
         source: ['aws.rds'],
         detailType: ['RDS DB Instance Event'],
@@ -100,7 +104,7 @@ export class DataPauseStack extends Stack {
       targets: [new LambdaFunction(markAutoRestartFunction)],
     });
     new Rule(this, 'StopMarkedDbRule', {
-      ruleName: `workops-${props.stage}-data-pause-stop-marked-db`,
+      ruleName: `workops-${stage}-data-pause-stop-marked-db`,
       eventPattern: {
         source: ['aws.rds'],
         detailType: ['RDS DB Instance Event'],
@@ -114,13 +118,13 @@ export class DataPauseStack extends Stack {
 
     this.createLambdaErrorAlarm(
       'MarkAutoRestartErrorsAlarm',
-      `workops-${props.stage}-data-pause-mark-auto-restart-errors`,
+      `workops-${stage}-data-pause-mark-auto-restart-errors`,
       markAutoRestartFunction,
       opsTopic,
     );
     this.createLambdaErrorAlarm(
       'StopMarkedDbErrorsAlarm',
-      `workops-${props.stage}-data-pause-stop-marked-db-errors`,
+      `workops-${stage}-data-pause-stop-marked-db-errors`,
       stopMarkedDbFunction,
       opsTopic,
     );

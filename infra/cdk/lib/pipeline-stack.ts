@@ -2,7 +2,6 @@ import {
   Aws,
   CfnOutput,
   Duration,
-  Environment,
   RemovalPolicy,
   Stack,
   StackProps,
@@ -50,6 +49,7 @@ import { RuntimeResources } from './app-runtime-stack';
 import { DataPauseStack } from './data-pause-stack';
 import { DataStack } from './data-stack';
 import { EgressStack } from './egress-stack';
+import { readWorkopsStage, workopsStackName } from './environment';
 import { FoundationStack } from './foundation-stack';
 import { IdentityStack } from './identity-stack';
 import { LogsStack } from './logs-stack';
@@ -60,16 +60,10 @@ import { WebDeliveryStack } from './web-delivery-stack';
 import { WebIngressStack } from './web-ingress-stack';
 
 export interface PipelineStackProps extends StackProps {
-  env: Environment;
   stage: string;
   githubRepository: string;
   notificationEmail: string;
   webImageTag: string;
-}
-
-interface RegistryDeployStageProps {
-  env: Environment;
-  stage: string;
 }
 
 interface BuildImageConfig {
@@ -88,8 +82,6 @@ interface CodeArtifactParameterNames {
 }
 
 interface DataNetworkMigrationDeployStageProps {
-  env: Environment;
-  stage: string;
   webImageTag: string;
 }
 
@@ -145,16 +137,15 @@ class MigrationActionStep extends Step implements ICodePipelineActionFactory {
 }
 
 class RegistryDeployStage extends Stage {
-  constructor(scope: Construct, id: string, props: RegistryDeployStageProps) {
+  constructor(scope: Construct, id: string) {
     super(scope, id, {
-      env: props.env,
+      env: {
+        account: Stack.of(scope).account,
+        region: Stack.of(scope).region,
+      },
     });
 
-    new RegistryStack(this, 'RegistryStack', {
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-registry`,
-    });
+    new RegistryStack(this, 'RegistryStack', {});
   }
 }
 
@@ -163,65 +154,44 @@ class DataNetworkMigrationDeployStage extends Stage {
   public readonly migrationRunnerStack: MigrationRunnerStack;
 
   constructor(scope: Construct, id: string, props: DataNetworkMigrationDeployStageProps) {
+    const stage = readWorkopsStage(scope);
     super(scope, id, {
-      env: props.env,
+      env: {
+        account: Stack.of(scope).account,
+        region: Stack.of(scope).region,
+      },
     });
 
     const foundationStack = new FoundationStack(this, 'FoundationStack', {
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-foundation`,
     });
     const dataStack = new DataStack(this, 'DataStack', {
       appSecurityGroup: foundationStack.appSecurityGroup,
       dbSecurityGroup: foundationStack.dbSecurityGroup,
       dbSubnets: foundationStack.dbSubnets,
-      env: props.env,
       migrationSecurityGroup: foundationStack.migrationSecurityGroup,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-data`,
       vpc: foundationStack.vpc,
     });
-    const identityStack = new IdentityStack(this, 'IdentityStack', {
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-identity`,
-    });
-    const logsStack = new LogsStack(this, 'LogsStack', {
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-logs`,
-    });
+    const identityStack = new IdentityStack(this, 'IdentityStack', {});
+    const logsStack = new LogsStack(this, 'LogsStack', {});
     const dataPauseStack = new DataPauseStack(this, 'DataPauseStack', {
-      env: props.env,
       markAutoRestartLogGroup: logsStack.dataPauseMarkAutoRestartLogGroup,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-data-pause`,
       stopMarkedDbLogGroup: logsStack.dataPauseStopMarkedDbLogGroup,
     });
     const egressStack = new EgressStack(this, 'EgressStack', {
       appSubnets: foundationStack.appSubnets,
-      env: props.env,
       publicSubnets: foundationStack.publicSubnets,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-egress`,
       vpc: foundationStack.vpc,
     });
     const webAclStack = new WebAclStack(this, 'WebAclStack', {
       crossRegionReferences: true,
       env: {
-        account: props.env.account,
+        account: Stack.of(scope).account,
         region: 'us-east-1',
       },
-      stage: props.stage,
-      stackName: `workops-${props.stage}-web-acl`,
     });
     const webIngressStack = new WebIngressStack(this, 'WebIngressStack', {
       albSecurityGroup: foundationStack.albSecurityGroup,
       appSubnets: foundationStack.appSubnets,
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-web-ingress`,
       vpc: foundationStack.vpc,
     });
     const webDeliveryStack = new WebDeliveryStack(this, 'WebDeliveryStack', {
@@ -231,25 +201,19 @@ class DataNetworkMigrationDeployStage extends Stage {
       cognitoClientUrlUpdaterLogGroup: logsStack.cognitoClientUrlUpdaterLogGroup,
       cognitoClientUrlUpdaterProviderLogGroup: logsStack.cognitoClientUrlUpdaterProviderLogGroup,
       crossRegionReferences: true,
-      env: props.env,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-web-delivery`,
       webAclArn: webAclStack.webAclArn,
     });
     const webRepository = Repository.fromRepositoryName(
       foundationStack,
       'WebRepository',
-      `workops-${props.stage}-web`,
+      `workops-${stage}-web`,
     );
 
     // MigrationRunnerStack owns the VPC-attached CodeBuild project that runs Flyway against RDS.
     this.migrationRunnerStack = new MigrationRunnerStack(this, 'MigrationRunnerStack', {
       appSubnets: foundationStack.appSubnets,
-      env: props.env,
       migrationSecurityGroup: foundationStack.migrationSecurityGroup,
       migrationLogGroup: logsStack.migrationLogGroup,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-migration-runner`,
       vpc: foundationStack.vpc,
     });
 
@@ -282,10 +246,7 @@ class DataNetworkMigrationDeployStage extends Stage {
 
     // AppRuntime consumes support resources through construct references within this CDK Stage.
     this.appRuntimeStack = new AppRuntimeStack(this, 'AppRuntimeStack', {
-      env: props.env,
       runtimeResources,
-      stage: props.stage,
-      stackName: `workops-${props.stage}-app-runtime`,
       webImageTag: props.webImageTag,
     });
 
@@ -295,7 +256,10 @@ class DataNetworkMigrationDeployStage extends Stage {
 
 export class PipelineStack extends Stack {
   constructor(scope: Construct, id: string, props: PipelineStackProps) {
-    super(scope, id, props);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'pipeline'),
+    });
 
     const buildEnvironment = this.createBuildEnvironment();
     const codeArtifactParameterNames = this.createCodeArtifactParameterNames(props.stage);
@@ -337,7 +301,7 @@ export class PipelineStack extends Stack {
     const sourceArtifact = new Artifact('SourceArtifact');
     const sourceAction = new CodeStarConnectionsSourceAction({
       actionName: 'GitHubSource',
-      branch: 'main',
+      branch: props.stage,
       connectionArn: githubConnection.attrConnectionArn,
       output: sourceArtifact,
       owner: githubRepositoryName.owner,
@@ -382,7 +346,7 @@ export class PipelineStack extends Stack {
           GITHUB_REPOSITORY: props.githubRepository,
           WORKOPS_IMAGE_TAG: commitSha,
           WORKOPS_OPS_NOTIFICATION_EMAIL: props.notificationEmail,
-          WORKOPS_STAGE: props.stage,
+          WORKOPS_SOURCE_BRANCH: props.stage,
         },
         input: source,
         partialBuildSpec: BuildSpec.fromObject({
@@ -461,10 +425,7 @@ export class PipelineStack extends Stack {
     manualApprovalStep.addStepDependency(buildAndTestStep);
 
     pipeline.addStage(
-      new RegistryDeployStage(this, 'DeployRegistry', {
-        env: props.env,
-        stage: props.stage,
-      }),
+      new RegistryDeployStage(this, 'DeployRegistry'),
       {
         pre: [buildAndTestStep, manualApprovalStep],
       },
@@ -487,8 +448,6 @@ export class PipelineStack extends Stack {
       this,
       'DeployDataNetworkMigration',
       {
-        env: props.env,
-        stage: props.stage,
         webImageTag: props.webImageTag,
       },
     );

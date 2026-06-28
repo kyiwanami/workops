@@ -1,9 +1,9 @@
 import { CfnEIP, CfnNatGateway, CfnRoute, ISubnet, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+import { readWorkopsStage, workopsStackName } from './environment';
 
 export interface EgressStackProps extends StackProps {
-  stage: string;
   vpc: Vpc;
   publicSubnets: ISubnet[];
   appSubnets: ISubnet[];
@@ -13,7 +13,11 @@ export class EgressStack extends Stack {
   public readonly natGateway: CfnNatGateway;
 
   constructor(scope: Construct, id: string, props: EgressStackProps) {
-    super(scope, id, props);
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'egress'),
+    });
 
     if (props.publicSubnets.length === 0) {
       throw new Error('EgressStack requires at least one public subnet');
@@ -26,7 +30,7 @@ export class EgressStack extends Stack {
       tags: [
         {
           key: 'Name',
-          value: `workops-${props.stage}-nat-eip`,
+          value: `workops-${stage}-nat-eip`,
         },
       ],
     });
@@ -37,7 +41,7 @@ export class EgressStack extends Stack {
       tags: [
         {
           key: 'Name',
-          value: `workops-${props.stage}-nat`,
+          value: `workops-${stage}-nat`,
         },
       ],
     });

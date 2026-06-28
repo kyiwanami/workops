@@ -36,6 +36,7 @@ import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { readWorkopsStage, workopsStackName } from './environment';
 
 export interface RuntimeResources {
   cluster: ICluster;
@@ -55,7 +56,6 @@ export interface RuntimeResources {
 }
 
 export interface AppRuntimeStackProps extends StackProps {
-  stage: string;
   webImageTag: string;
   runtimeResources: RuntimeResources;
 }
@@ -65,7 +65,11 @@ export class AppRuntimeStack extends Stack {
   public readonly taskDefinition: FargateTaskDefinition;
 
   constructor(scope: Construct, id: string, props: AppRuntimeStackProps) {
-    super(scope, id, props);
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'app-runtime'),
+    });
 
     const resources = props.runtimeResources;
 
@@ -82,21 +86,21 @@ export class AppRuntimeStack extends Stack {
     const dbUrlParameter = StringParameter.fromStringParameterName(
       this,
       'DbUrlParameter',
-      `/workops/${props.stage}/db/url`,
+      `/workops/${stage}/db/url`,
     );
     const springProfileParameter = StringParameter.fromStringParameterName(
       this,
       'SpringProfileParameter',
-      `/workops/${props.stage}/dependencies/runtime/spring-profile`,
+      `/workops/${stage}/dependencies/runtime/spring-profile`,
     );
     const dbMasterSecret = SecretsManagerSecret.fromSecretNameV2(
       this,
       'DbMasterSecret',
-      `/workops/${props.stage}/db/master`,
+      `/workops/${stage}/db/master`,
     );
 
     this.taskDefinition = new FargateTaskDefinition(this, 'WebTaskDefinition', {
-      family: `workops-${props.stage}-web`,
+      family: `workops-${stage}-web`,
       cpu: 512,
       memoryLimitMiB: 1024,
       runtimePlatform: {
@@ -157,13 +161,13 @@ export class AppRuntimeStack extends Stack {
 
     const blueTargetGroup = this.createTargetGroup(
       'WebBlueTargetGroup',
-      props.stage,
+      stage,
       resources,
       'blue',
     );
     const greenTargetGroup = this.createTargetGroup(
       'WebGreenTargetGroup',
-      props.stage,
+      stage,
       resources,
       'green',
     );
@@ -174,13 +178,13 @@ export class AppRuntimeStack extends Stack {
       action: ListenerAction.forward([blueTargetGroup]),
     });
     const target5xxAlarm = this.createTarget5xxAlarm(
-      props.stage,
+      stage,
       resources.loadBalancerFullName,
       blueTargetGroup,
       greenTargetGroup,
     );
     const unhealthyHostAlarm = this.createUnhealthyHostAlarm(
-      props.stage,
+      stage,
       resources.loadBalancerFullName,
       blueTargetGroup,
       greenTargetGroup,
@@ -188,7 +192,7 @@ export class AppRuntimeStack extends Stack {
 
     this.service = new FargateService(this, 'WebService', {
       cluster: resources.cluster,
-      serviceName: `workops-${props.stage}-web`,
+      serviceName: `workops-${stage}-web`,
       taskDefinition: this.taskDefinition,
       desiredCount: 1,
       assignPublicIp: false,

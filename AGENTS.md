@@ -30,7 +30,7 @@
 
 ## CDK Operation Rule
 
-- CDK 実行時は `WORKOPS_STAGE` を明示する。
+- CDK 実行時は `WORKOPS_SOURCE_BRANCH` を明示する。CDK app 内ではこの値を `stage` として扱う。
 - 同一 workspace / 同一 `infra/cdk` working directory で複数の `cdk synth` を並列実行しない。CDK は `cdk.out` に `synth.lock` と生成物を書き込むため、entrypoint が違っても lock rename や出力更新が競合し、Windows では `EPERM` で失敗し得る。
 - 複数 entrypoint の synth 確認が必要な場合は、`cdk:infra`、`cdk:runtime`、`cdk:pipeline` を逐次実行する。
 - `CDK_DEFAULT_ACCOUNT` は実行時に `aws sts get-caller-identity` から設定し、git 管理文書に実 account ID を書かない。

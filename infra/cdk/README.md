@@ -27,7 +27,7 @@ Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
 Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
 Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
 
-$env:WORKOPS_STAGE = "dev"
+$env:WORKOPS_SOURCE_BRANCH = "dev"
 $env:AWS_PROFILE = "your-profile"
 $env:AWS_SDK_LOAD_CONFIG = "1"
 $env:AWS_REGION = "ap-northeast-1"
@@ -37,13 +37,13 @@ $env:CDK_DEFAULT_REGION = "ap-northeast-1"
 $env:WORKOPS_OPS_NOTIFICATION_EMAIL = "ops@example.com"
 ```
 
-- `WORKOPS_STAGE` は CloudFormation stackName、resource name、tag の `Environment` に使います。
+- `WORKOPS_SOURCE_BRANCH` は CDK app の entrypoint で `stage` として扱い、CloudFormation stackName、resource name、tag の `Environment` に使います。
 - `AWS_PROFILE` と `AWS_REGION` は AWS CLI / CDK CLI の接続先指定です。
 - `CDK_DEFAULT_ACCOUNT` と `CDK_DEFAULT_REGION` は CDK stack の `env` と context lookup に使います。
 - `WORKOPS_OPS_NOTIFICATION_EMAIL` は ops notification topic の EmailSubscription に使います。
 - CDK app は AWS account、profile、region を固定しません。
 - CDK app は環境変数ファイルを読みません。
-- `stage` は CDK context ではなく `WORKOPS_STAGE` から渡します。
+- `stage` は CDK context ではなく `WORKOPS_SOURCE_BRANCH` から渡します。
 
 ## Commands
 
@@ -65,7 +65,7 @@ Remove-Item Env:AWS_ACCESS_KEY_ID -ErrorAction SilentlyContinue
 Remove-Item Env:AWS_SECRET_ACCESS_KEY -ErrorAction SilentlyContinue
 Remove-Item Env:AWS_SESSION_TOKEN -ErrorAction SilentlyContinue
 
-$env:WORKOPS_STAGE = "dev"
+$env:WORKOPS_SOURCE_BRANCH = "dev"
 $env:AWS_PROFILE = "your-profile"
 $env:AWS_SDK_LOAD_CONFIG = "1"
 $env:AWS_REGION = "ap-northeast-1"
@@ -96,7 +96,7 @@ CDK app は次の Stack を管理します。
 - `workops-{stage}-web-delivery`
 - `workops-{stage}-pipeline`
 
-`stage` は `WORKOPS_STAGE` の値です。
+`stage` は `WORKOPS_SOURCE_BRANCH` の値です。
 
 `workops-{stage}-dependency` は CodeArtifact domain / npm repository / Maven repository、ops notification topic、非 secret SSM parameters を所有する Top-level / Pipeline 基盤 Stack です。
 
@@ -131,7 +131,7 @@ npx cdk bootstrap
 ```
 
 `bootstrap` は CDK bootstrap stack を対象 account / region に作る操作です。
-WorkOps の `stage` resource name を生成しないため、`WORKOPS_STAGE` は使いません。
+WorkOps の `stage` resource name を生成しないため、`WORKOPS_SOURCE_BRANCH` は使いません。
 
 ## Deploy
 
@@ -139,7 +139,7 @@ WorkOps の `stage` resource name を生成しないため、`WORKOPS_STAGE` は
 
 ```powershell
 cd C:\git\workops\infra\cdk
-$env:WORKOPS_STAGE = "dev"
+$env:WORKOPS_SOURCE_BRANCH = "dev"
 $env:AWS_PROFILE = "your-profile"
 $env:AWS_REGION = "ap-northeast-1"
 $env:GITHUB_REPOSITORY = "owner/repo"
@@ -153,7 +153,7 @@ npx cdk deploy --all --profile $env:AWS_PROFILE
 
 ```powershell
 cd C:\git\workops\infra\cdk
-$env:WORKOPS_STAGE = "dev"
+$env:WORKOPS_SOURCE_BRANCH = "dev"
 $env:AWS_PROFILE = "your-profile"
 $env:AWS_REGION = "ap-northeast-1"
 $env:GITHUB_REPOSITORY = "owner/repo"

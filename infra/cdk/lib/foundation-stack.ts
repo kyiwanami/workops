@@ -2,11 +2,8 @@ import { CfnOutput, Fn, Stack, StackProps } from 'aws-cdk-lib';
 import { Cluster } from 'aws-cdk-lib/aws-ecs';
 import { IpAddresses, ISubnet, SecurityGroup, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
+import { readWorkopsStage, workopsStackName } from './environment';
 import { exportName } from './stack-exports';
-
-export interface FoundationStackProps extends StackProps {
-  stage: string;
-}
 
 export class FoundationStack extends Stack {
   public readonly vpc: Vpc;
@@ -19,15 +16,19 @@ export class FoundationStack extends Stack {
   public readonly migrationSecurityGroup: SecurityGroup;
   public readonly ecsCluster: Cluster;
 
-  constructor(scope: Construct, id: string, props: FoundationStackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string, props: StackProps) {
+    const stage = readWorkopsStage(scope);
+    super(scope, id, {
+      ...props,
+      stackName: workopsStackName(scope, 'foundation'),
+    });
 
     // Foundation networking is shared by later RDS, ECS, and Cognito-facing stacks.
     this.vpc = new Vpc(this, 'Vpc', {
       ipAddresses: IpAddresses.cidr('10.0.0.0/16'),
       maxAzs: 2,
       natGateways: 0,
-      vpcName: `workops-${props.stage}-vpc`,
+      vpcName: `workops-${stage}-vpc`,
       subnetConfiguration: [
         {
           name: 'public',
@@ -56,25 +57,25 @@ export class FoundationStack extends Stack {
     // Security groups are named now; traffic rules are added by resource-owning stacks.
     this.albSecurityGroup = new SecurityGroup(this, 'AlbSecurityGroup', {
       vpc: this.vpc,
-      securityGroupName: `workops-${props.stage}-alb-sg`,
+      securityGroupName: `workops-${stage}-alb-sg`,
       description: 'WorkOps ALB security group',
       allowAllOutbound: true,
     });
     this.appSecurityGroup = new SecurityGroup(this, 'AppSecurityGroup', {
       vpc: this.vpc,
-      securityGroupName: `workops-${props.stage}-app-sg`,
+      securityGroupName: `workops-${stage}-app-sg`,
       description: 'WorkOps app security group',
       allowAllOutbound: true,
     });
     this.dbSecurityGroup = new SecurityGroup(this, 'DbSecurityGroup', {
       vpc: this.vpc,
-      securityGroupName: `workops-${props.stage}-db-sg`,
+      securityGroupName: `workops-${stage}-db-sg`,
       description: 'WorkOps database security group',
       allowAllOutbound: true,
     });
     this.migrationSecurityGroup = new SecurityGroup(this, 'MigrationSecurityGroup', {
       vpc: this.vpc,
-      securityGroupName: `workops-${props.stage}-migration-sg`,
+      securityGroupName: `workops-${stage}-migration-sg`,
       description: 'WorkOps migration CodeBuild security group',
       allowAllOutbound: true,
     });
@@ -82,11 +83,11 @@ export class FoundationStack extends Stack {
     // The cluster is empty in P2-1; services and tasks arrive in later phases.
     this.ecsCluster = new Cluster(this, 'EcsCluster', {
       vpc: this.vpc,
-      clusterName: `workops-${props.stage}-cluster`,
+      clusterName: `workops-${stage}-cluster`,
     });
 
     new CfnOutput(this, 'vpcId', {
-      exportName: exportName(props.stage, 'foundation-vpc-id'),
+      exportName: exportName(stage, 'foundation-vpc-id'),
       value: this.vpc.vpcId,
     });
     new CfnOutput(this, 'publicSubnetIds', {
@@ -102,19 +103,19 @@ export class FoundationStack extends Stack {
       ),
     });
     new CfnOutput(this, 'appSubnetOneId', {
-      exportName: exportName(props.stage, 'foundation-app-subnet-one-id'),
+      exportName: exportName(stage, 'foundation-app-subnet-one-id'),
       value: appSubnetOne.subnetId,
     });
     new CfnOutput(this, 'appSubnetTwoId', {
-      exportName: exportName(props.stage, 'foundation-app-subnet-two-id'),
+      exportName: exportName(stage, 'foundation-app-subnet-two-id'),
       value: appSubnetTwo.subnetId,
     });
     new CfnOutput(this, 'appSubnetOneRouteTableId', {
-      exportName: exportName(props.stage, 'foundation-app-subnet-one-route-table-id'),
+      exportName: exportName(stage, 'foundation-app-subnet-one-route-table-id'),
       value: appSubnetOne.routeTable.routeTableId,
     });
     new CfnOutput(this, 'appSubnetTwoRouteTableId', {
-      exportName: exportName(props.stage, 'foundation-app-subnet-two-route-table-id'),
+      exportName: exportName(stage, 'foundation-app-subnet-two-route-table-id'),
       value: appSubnetTwo.routeTable.routeTableId,
     });
     new CfnOutput(this, 'dbSubnetIds', {
@@ -124,15 +125,15 @@ export class FoundationStack extends Stack {
       ),
     });
     new CfnOutput(this, 'ecsClusterName', {
-      exportName: exportName(props.stage, 'foundation-ecs-cluster-name'),
+      exportName: exportName(stage, 'foundation-ecs-cluster-name'),
       value: this.ecsCluster.clusterName,
     });
     new CfnOutput(this, 'albSecurityGroupId', {
-      exportName: exportName(props.stage, 'foundation-alb-security-group-id'),
+      exportName: exportName(stage, 'foundation-alb-security-group-id'),
       value: this.albSecurityGroup.securityGroupId,
     });
     new CfnOutput(this, 'appSecurityGroupId', {
-      exportName: exportName(props.stage, 'foundation-app-security-group-id'),
+      exportName: exportName(stage, 'foundation-app-security-group-id'),
       value: this.appSecurityGroup.securityGroupId,
     });
     new CfnOutput(this, 'dbSecurityGroupId', {
