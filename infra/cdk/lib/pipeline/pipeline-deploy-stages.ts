@@ -1,20 +1,20 @@
 import { Stack, Stage } from 'aws-cdk-lib';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
-import { AppRuntimeStack } from './app-runtime-stack';
-import { RuntimeResources } from './app-runtime-stack';
-import { DataPauseStack } from './data-pause-stack';
-import { DataStack } from './data-stack';
-import { EgressStack } from './egress-stack';
-import { readWorkopsStage } from './environment';
-import { FoundationStack } from './foundation-stack';
-import { IdentityStack } from './identity-stack';
-import { LogsStack } from './logs-stack';
-import { MigrationRunnerStack } from './migration-runner-stack';
-import { RegistryStack } from './registry-stack';
-import { WebAclStack } from './web-acl-stack';
-import { WebDeliveryStack } from './web-delivery-stack';
-import { WebIngressStack } from './web-ingress-stack';
+import { AppRuntimeStack } from '../runtime/app-runtime-stack';
+import { RuntimeResources } from '../runtime/app-runtime-stack';
+import { DataPauseStack } from '../data-pause/data-pause-stack';
+import { DataStack } from '../data/data-stack';
+import { EgressStack } from '../network/egress-stack';
+import { readWorkopsStage } from '../shared/environment';
+import { FoundationStack } from '../foundation/foundation-stack';
+import { IdentityStack } from '../identity/identity-stack';
+import { LogsStack } from '../logs/logs-stack';
+import { MigrationRunnerStack } from '../migration/migration-runner-stack';
+import { RegistryStack } from '../registry/registry-stack';
+import { WebAclStack } from '../web/web-acl-stack';
+import { WebDeliveryStack } from '../web/web-delivery-stack';
+import { WebIngressStack } from '../web/web-ingress-stack';
 
 interface DataNetworkMigrationDeployStageProps {
   webImageTag: string;

@@ -1,12 +1,12 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { AppRuntimeStack } from '../lib/app-runtime-stack';
-import { FoundationStack } from '../lib/foundation-stack';
-import { IdentityStack } from '../lib/identity-stack';
-import { LogsStack } from '../lib/logs-stack';
-import { RegistryStack } from '../lib/registry-stack';
-import { WebAclStack } from '../lib/web-acl-stack';
-import { WebDeliveryStack } from '../lib/web-delivery-stack';
-import { WebIngressStack } from '../lib/web-ingress-stack';
+import { AppRuntimeStack } from '../lib/runtime/app-runtime-stack';
+import { FoundationStack } from '../lib/foundation/foundation-stack';
+import { IdentityStack } from '../lib/identity/identity-stack';
+import { LogsStack } from '../lib/logs/logs-stack';
+import { RegistryStack } from '../lib/registry/registry-stack';
+import { WebAclStack } from '../lib/web/web-acl-stack';
+import { WebDeliveryStack } from '../lib/web/web-delivery-stack';
+import { WebIngressStack } from '../lib/web/web-ingress-stack';
 import { createTestApp, testEnv, testWebImageTag } from './workops-test-fixtures';
 
 describe('WorkOps CDK app runtime', () => {

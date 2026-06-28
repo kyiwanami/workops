@@ -1,19 +1,19 @@
 import { Tags } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { AppRuntimeStack } from '../lib/app-runtime-stack';
-import { DataPauseStack } from '../lib/data-pause-stack';
-import { DataStack } from '../lib/data-stack';
-import { DependencyStack } from '../lib/dependency-stack';
-import { EgressStack } from '../lib/egress-stack';
-import { FoundationStack } from '../lib/foundation-stack';
-import { IdentityStack } from '../lib/identity-stack';
-import { LogsStack } from '../lib/logs-stack';
-import { MigrationRunnerStack } from '../lib/migration-runner-stack';
-import { PipelineStack } from '../lib/pipeline-stack';
-import { RegistryStack } from '../lib/registry-stack';
-import { WebAclStack } from '../lib/web-acl-stack';
-import { WebDeliveryStack } from '../lib/web-delivery-stack';
-import { WebIngressStack } from '../lib/web-ingress-stack';
+import { AppRuntimeStack } from '../lib/runtime/app-runtime-stack';
+import { DataPauseStack } from '../lib/data-pause/data-pause-stack';
+import { DataStack } from '../lib/data/data-stack';
+import { DependencyStack } from '../lib/dependencies/dependency-stack';
+import { EgressStack } from '../lib/network/egress-stack';
+import { FoundationStack } from '../lib/foundation/foundation-stack';
+import { IdentityStack } from '../lib/identity/identity-stack';
+import { LogsStack } from '../lib/logs/logs-stack';
+import { MigrationRunnerStack } from '../lib/migration/migration-runner-stack';
+import { PipelineStack } from '../lib/pipeline/pipeline-stack';
+import { RegistryStack } from '../lib/registry/registry-stack';
+import { WebAclStack } from '../lib/web/web-acl-stack';
+import { WebDeliveryStack } from '../lib/web/web-delivery-stack';
+import { WebIngressStack } from '../lib/web/web-ingress-stack';
 import {
   TaggedResourceStack,
   createTestApp,

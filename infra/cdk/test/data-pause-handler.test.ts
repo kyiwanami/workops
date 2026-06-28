@@ -8,8 +8,8 @@ import {
 import { RDSClient, StopDBInstanceCommand } from '@aws-sdk/client-rds';
 import { EventBridgeEvent } from 'aws-lambda';
 import { mockClient } from 'aws-sdk-client-mock';
-import { handler as markAutoRestartHandler } from '../lambda/data-pause/mark-auto-restart';
-import { handler as stopMarkedDbHandler } from '../lambda/data-pause/stop-marked-db';
+import { handler as markAutoRestartHandler } from '../lib/data-pause/lambda/mark-auto-restart';
+import { handler as stopMarkedDbHandler } from '../lib/data-pause/lambda/stop-marked-db';
 
 const ssmMock = mockClient(SSMClient);
 const rdsMock = mockClient(RDSClient);

@@ -2,7 +2,7 @@ import { Stack, StackProps } from 'aws-cdk-lib';
 import { Cluster } from 'aws-cdk-lib/aws-ecs';
 import { IpAddresses, ISubnet, SecurityGroup, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from './environment';
+import { readWorkopsStage, workopsStackName } from '../shared/environment';
 
 export class FoundationStack extends Stack {
   public readonly vpc: Vpc;

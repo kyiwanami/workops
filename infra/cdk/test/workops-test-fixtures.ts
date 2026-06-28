@@ -1,7 +1,7 @@
 import { App, Stack } from 'aws-cdk-lib';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { Construct } from 'constructs';
-import { setWorkopsStage } from '../lib/environment';
+import { setWorkopsStage } from '../lib/shared/environment';
 
 export class TaggedResourceStack extends Stack {
   constructor(scope: Construct, id: string) {

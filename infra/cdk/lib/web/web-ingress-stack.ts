@@ -15,7 +15,7 @@ import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from './environment';
+import { readWorkopsStage, workopsStackName } from '../shared/environment';
 
 const CLOUD_FRONT_ORIGIN_PREFIX_LIST_NAME = 'com.amazonaws.global.cloudfront.origin-facing';
 

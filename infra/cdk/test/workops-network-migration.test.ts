@@ -1,9 +1,9 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { DataPauseStack } from '../lib/data-pause-stack';
-import { EgressStack } from '../lib/egress-stack';
-import { FoundationStack } from '../lib/foundation-stack';
-import { LogsStack } from '../lib/logs-stack';
-import { MigrationRunnerStack } from '../lib/migration-runner-stack';
+import { DataPauseStack } from '../lib/data-pause/data-pause-stack';
+import { EgressStack } from '../lib/network/egress-stack';
+import { FoundationStack } from '../lib/foundation/foundation-stack';
+import { LogsStack } from '../lib/logs/logs-stack';
+import { MigrationRunnerStack } from '../lib/migration/migration-runner-stack';
 import { createTestApp, testEnv } from './workops-test-fixtures';
 
 describe('WorkOps CDK network and migration support', () => {

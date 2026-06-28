@@ -11,7 +11,7 @@ import { ITopic, Topic } from 'aws-cdk-lib/aws-sns';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { join } from 'path';
-import { readWorkopsStage, workopsStackName } from './environment';
+import { readWorkopsStage, workopsStackName } from '../shared/environment';
 
 export interface DataPauseStackProps extends StackProps {
   markAutoRestartLogGroup: ILogGroup;
@@ -46,7 +46,7 @@ export class DataPauseStack extends Stack {
     const markAutoRestartFunction = new NodejsFunction(this, 'MarkAutoRestartFunction', {
       functionName: `workops-${stage}-data-pause-mark-auto-restart`,
       runtime: Runtime.NODEJS_24_X,
-      entry: join(__dirname, '..', 'lambda', 'data-pause', 'mark-auto-restart.ts'),
+      entry: join(__dirname, 'lambda', 'mark-auto-restart.ts'),
       handler: 'handler',
       timeout: Duration.minutes(1),
       logGroup: props.markAutoRestartLogGroup,
@@ -67,7 +67,7 @@ export class DataPauseStack extends Stack {
     const stopMarkedDbFunction = new NodejsFunction(this, 'StopMarkedDbFunction', {
       functionName: `workops-${stage}-data-pause-stop-marked-db`,
       runtime: Runtime.NODEJS_24_X,
-      entry: join(__dirname, '..', 'lambda', 'data-pause', 'stop-marked-db.ts'),
+      entry: join(__dirname, 'lambda', 'stop-marked-db.ts'),
       handler: 'handler',
       timeout: Duration.minutes(2),
       logGroup: props.stopMarkedDbLogGroup,

@@ -1,6 +1,6 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { DataStack } from '../lib/data-stack';
-import { FoundationStack } from '../lib/foundation-stack';
+import { DataStack } from '../lib/data/data-stack';
+import { FoundationStack } from '../lib/foundation/foundation-stack';
 import { createTestApp } from './workops-test-fixtures';
 
 describe('WorkOps CDK data stack', () => {

@@ -11,7 +11,7 @@ import {
   UserPoolDomain,
 } from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from './environment';
+import { readWorkopsStage, workopsStackName } from '../shared/environment';
 
 function managedLoginSettings(
   primaryColor: string,

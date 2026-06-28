@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { App, Environment, Tags } from 'aws-cdk-lib';
-import { DependencyStack } from '../lib/dependency-stack';
-import { readRequiredEnv, setWorkopsStage } from '../lib/environment';
-import { PipelineStack } from '../lib/pipeline-stack';
+import { DependencyStack } from '../lib/dependencies/dependency-stack';
+import { readRequiredEnv, setWorkopsStage } from '../lib/shared/environment';
+import { PipelineStack } from '../lib/pipeline/pipeline-stack';
 
 const app = new App();
 const stage = readRequiredEnv('WORKOPS_SOURCE_BRANCH');

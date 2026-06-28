@@ -36,7 +36,7 @@ import { ILogGroup } from 'aws-cdk-lib/aws-logs';
 import { Secret as SecretsManagerSecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from './environment';
+import { readWorkopsStage, workopsStackName } from '../shared/environment';
 
 export interface RuntimeResources {
   cluster: ICluster;

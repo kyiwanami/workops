@@ -1,7 +1,7 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { PipelineStack } from '../lib/pipeline-stack';
+import { PipelineStack } from '../lib/pipeline/pipeline-stack';
 import {
   createTestApp,
   testEnv,
@@ -24,7 +24,7 @@ describe('WorkOps CDK pipeline', () => {
     const template = Template.fromStack(pipelineStack);
     const templateText = JSON.stringify(template.toJSON());
     const appRuntimeStackText = readFileSync(
-      join(__dirname, '..', 'lib', 'app-runtime-stack.ts'),
+      join(__dirname, '..', 'lib', 'runtime', 'app-runtime-stack.ts'),
       'utf8',
     );
 

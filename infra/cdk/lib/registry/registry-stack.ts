@@ -1,7 +1,7 @@
 import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Repository, TagMutability, TagStatus } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from './environment';
+import { readWorkopsStage, workopsStackName } from '../shared/environment';
 
 export class RegistryStack extends Stack {
   public readonly webRepository: Repository;

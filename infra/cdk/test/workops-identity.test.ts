@@ -1,5 +1,5 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { IdentityStack } from '../lib/identity-stack';
+import { IdentityStack } from '../lib/identity/identity-stack';
 import { createTestApp } from './workops-test-fixtures';
 
 describe('WorkOps CDK identity', () => {

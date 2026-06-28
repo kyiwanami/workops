@@ -1,7 +1,7 @@
 import { CfnEIP, CfnNatGateway, CfnRoute, ISubnet, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from './environment';
+import { readWorkopsStage, workopsStackName } from '../shared/environment';
 
 export interface EgressStackProps extends StackProps {
   vpc: Vpc;

@@ -1,11 +1,11 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { FoundationStack } from '../lib/foundation-stack';
-import { LogsStack } from '../lib/logs-stack';
-import { WebAclStack } from '../lib/web-acl-stack';
-import { WebDeliveryStack } from '../lib/web-delivery-stack';
-import { WebIngressStack } from '../lib/web-ingress-stack';
+import { FoundationStack } from '../lib/foundation/foundation-stack';
+import { LogsStack } from '../lib/logs/logs-stack';
+import { WebAclStack } from '../lib/web/web-acl-stack';
+import { WebDeliveryStack } from '../lib/web/web-delivery-stack';
+import { WebIngressStack } from '../lib/web/web-ingress-stack';
 import {
   createTestApp,
   testCognitoPlatformUserPoolClientId,
@@ -54,7 +54,7 @@ describe('WorkOps CDK web delivery', () => {
     const ingressTemplateText = JSON.stringify(ingressTemplate.toJSON());
     const deliveryTemplateText = JSON.stringify(deliveryTemplate.toJSON());
     const ingressStackSource = readFileSync(
-      join(__dirname, '..', 'lib', 'web-ingress-stack.ts'),
+      join(__dirname, '..', 'lib', 'web', 'web-ingress-stack.ts'),
       'utf8',
     );
 

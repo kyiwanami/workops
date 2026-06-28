@@ -1,7 +1,7 @@
 import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
-import { readWorkopsStage, workopsStackName } from './environment';
+import { readWorkopsStage, workopsStackName } from '../shared/environment';
 
 export class LogsStack extends Stack {
   public readonly webLogGroup: LogGroup;

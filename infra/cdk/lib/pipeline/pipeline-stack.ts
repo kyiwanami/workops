@@ -25,7 +25,7 @@ import {
   ManualApprovalStep,
 } from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
-import { workopsStackName } from './environment';
+import { workopsStackName } from '../shared/environment';
 import {
   createBuildEnvironment,
   createBuildImageStep,

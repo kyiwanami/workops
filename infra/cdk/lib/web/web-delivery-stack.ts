@@ -19,7 +19,7 @@ import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Provider } from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
 import { join } from 'path';
-import { readWorkopsStage, workopsStackName } from './environment';
+import { readWorkopsStage, workopsStackName } from '../shared/environment';
 
 export interface WebDeliveryStackProps extends StackProps {
   webAclArn: string;
@@ -84,7 +84,7 @@ export class WebDeliveryStack extends Stack {
     const updaterFunction = new NodejsFunction(this, 'CognitoClientUrlUpdaterFunction', {
       functionName: `workops-${stage}-cognito-client-url-updater`,
       runtime: Runtime.NODEJS_24_X,
-      entry: join(__dirname, '..', 'lambda', 'cognito-client-url-updater', 'index.ts'),
+      entry: join(__dirname, 'lambda', 'cognito-client-url-updater.ts'),
       handler: 'handler',
       timeout: Duration.minutes(1),
       logGroup: props.cognitoClientUrlUpdaterLogGroup,
