@@ -237,7 +237,7 @@ Phase 2 AWS dev の deploy 単位は次の通りです。
 | --- | --- | --- |
 | 通常 CDK deploy | ローカル `npx cdk deploy '*'` | `DependencyStack`, `PipelineStack`, Pipeline 管理対象 Stack |
 | 初回先行 deploy 例外 | ローカル `npx cdk deploy DependencyStack PipelineStack` | `DependencyStack`, `PipelineStack`, CodeConnection, Artifact bucket |
-| Pipeline 自走 | CodePipeline | Source, Synth, Build & Test, ManualApproval, Registry, Images, Migration, AppRuntime |
+| Pipeline 自走 | CodePipeline | Source, Synth, BuildAndTest, DeployFoundation, BuildWebImage, ManualApproval, DeployRuntimeInfrastructure, RunMigration, DeployAppRuntime |
 | 実行確認 session | Pipeline の runtime stages | `DataStack`, `EgressStack`, `WebIngressStack`, `WebDeliveryStack`, `WebAclStack`, `AppRuntimeStack` |
 
 AWS 実環境の deploy、Cognito Hosted UI のブラウザ操作、CloudFront 経由の画面操作、CloudWatch Logs 確認はユーザー確認として扱います。
@@ -317,17 +317,21 @@ Phase 2β の Pipeline は次の順序で実行します。
 | --- | --- |
 | Source | CodeConnections で `WORKOPS_SOURCE_BRANCH` と同じ Git branch を取得 |
 | Synth | CDK Pipelines synth |
-| Build & Test | Java / CDK TypeScript 品質ゲート |
-| ManualApproval | Build Images 前の手動承認 |
-| Deploy Registry | Web / Web cache ECR repository を作成・更新 |
-| Build Images | Web image を commit SHA tag で build / scan / push |
-| Deploy Data / Network / Migration | DB、egress、WebIngressStack、WebDeliveryStack、WebAclStack、MigrationRunnerStack を deploy |
+| BuildAndTest | Java / CDK TypeScript 品質ゲート |
+| DeployFoundation | `FoundationStack`、`LogsStack`、`IdentityStack`、`RegistryStack`、`DataPauseStack` を deploy |
+| BuildWebImage | Web image を commit SHA tag で build / scan / push |
+| ManualApproval | 課金が始まる手前の手動承認 |
+| DeployRuntimeInfrastructure | `DataStack`、`EgressStack`、`WebAclStack`、`WebIngressStack`、`MigrationRunnerStack`、`WebDeliveryStack` を deploy |
 | RunMigration | MigrationRunnerStack の CodeBuild project で `cd db; mvn -Pdev flyway:migrate` を実行 |
-| Deploy AppRuntime | ECS native Blue/Green で Web runtime を deploy |
+| DeployAppRuntime | ECS native Blue/Green で Web runtime を deploy |
 
 RunMigration は RDS の起動 / 停止を行いません。RDS が停止中の場合、MigrationRunnerStack の CodeBuild は DB 接続で失敗するため、AWS dev 確認時は RDS instance の状態を先に確認します。
 
 CloudFront / VPC Origin / Cognito URL updater は `WebDeliveryStack` に分離します。旧 EdgeStack deploy の既存記録は約 15分11秒で、長時間・低頻度変更側を隔離するために ALB 側の `WebIngressStack` と分けています。
+
+CloudFormation Outputs は Stack 間連携の正本にしません。
+人間が実環境確認で直接使う値として、`cloudFrontHttpsUrl` と `rdsConsoleCloudShellSecurityGroupId` だけを残します。
+RDS endpoint、secret ARN、ALB DNS name、listener ARN、CloudFront domain name は、Outputs ではなく SSM contract、Secrets Manager、AWS CLI、または命名規約から確認します。
 
 ローカルで CDK synth だけ確認する場合は次を使います。
 

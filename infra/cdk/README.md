@@ -191,5 +191,5 @@ PipelineStack、DependencyStack、MigrationRunnerStack、WebDeliveryStack、WebA
 - DB に依存しない runtime config は `DependencyStack` の `/workops/{stage}/dependencies/...` に置きます。
 - Cognito User Pool、Hosted UI domain、App Client は `IdentityStack` に置きます。
 - `IdentityStack` は `WebDeliveryStack` を参照しません。
-- Stack 間参照は同一 CDK app 内の props 参照で渡し、cross-stack reference は `weak` に固定します。
-- `weak` により、生成 template は `Fn::ImportValue` ではなく `Fn::GetStackOutput` を使います。
+- Pipeline deploy stage 境界をまたぐ非 secret 値は、所有 Stack が SSM Parameter Store に公開し、consumer Stack が自分の Stack scope で deploy 時に読みます。
+- 同一 Stack 内で完結する値は construct 参照を使い、CloudFormation Outputs は Stack 間連携の正本にしません。

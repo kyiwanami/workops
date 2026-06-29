@@ -12,7 +12,10 @@ describe('WorkOps CDK entrypoints', () => {
 
     expect(packageJsonText).toContain('"build": "tsc"');
     expect(packageJsonText).toContain('"watch": "tsc -w"');
-    expect(packageJsonText).toContain('python3 -m unittest discover scripts -p \\"*_test.py\\"');
+    expect(packageJsonText).toContain('node scripts/run-python-unittest.cjs');
+    expect(packageJsonText).not.toContain(
+      'python3 -m unittest discover scripts -p \\"*_test.py\\"',
+    );
     expect(packageJsonText).not.toContain('"cdk:deploy-app"');
     expect(packageJsonText).not.toContain('"cdk' + ':infra"');
     expect(packageJsonText).not.toContain('"cdk' + ':runtime"');

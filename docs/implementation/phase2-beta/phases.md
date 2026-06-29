@@ -177,6 +177,21 @@ ADR-067 以降は deploy Stage 境界の非 secret 値も各所有Stackが SSM c
 /workops/${stage}/dependencies/notifications/ops-topic-arn
 ```
 
+### CloudFormation Outputs 方針
+
+CloudFormation Outputs は Stack 間連携の正本にしません。
+Phase 2β 完了時点で残す Outputs は、人間が実環境確認で直接使う次の2件だけに固定します。
+
+```text
+DataStack.rdsConsoleCloudShellSecurityGroupId
+WebDeliveryStack.cloudFrontHttpsUrl
+```
+
+- `rdsConsoleCloudShellSecurityGroupId` は RDS Console integrated CloudShell VPC で手動 SQL 確認を行うときの Security Group 選択に使う
+- `cloudFrontHttpsUrl` は Pipeline 完走後の CloudFront 経由アプリ到達確認に使う
+- RDS endpoint、RDS master secret ARN、DB名、port、DB subnet group、ALB DNS name、listener ARN、CloudFront domain name は Output にしない
+- 非 secret の Stack 間連携値は SSM contract、CDK内部値は props / construct参照、secretはSecrets Managerを使う
+
 ```mermaid
 flowchart LR
   Dependency["DependencyStack"] --> SpringProfile["/workops/${stage}/dependencies/runtime/spring-profile"]
