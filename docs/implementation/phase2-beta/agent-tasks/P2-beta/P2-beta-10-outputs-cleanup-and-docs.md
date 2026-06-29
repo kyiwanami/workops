@@ -100,6 +100,23 @@ Pipeline完走後の仕上げとして、CloudFormation Outputsを全Stackで棚
 - `npx cdk diff '*' --profile amazon-connect` は、既存deploy設定と同じ `GITHUB_REPOSITORY` / notification settingを使って再実行し、差分0件だった。
 - P2-beta-10では実deployを実行していない。
 
+## Post-completion pipeline and cleanup
+
+2026-06-29 に `docs(phase2-beta): complete p2-beta-10 outputs audit` のpush起点でPipelineが起動した。
+
+```text
+Start:    2026-06-29 11:11:29 +09:00
+End:      2026-06-29 11:50:58 +09:00
+Duration: 00:39:29
+Result:   Succeeded
+```
+
+- Pipeline完走後、RDS DB instanceを停止し、最終状態が `stopped` であることを確認した。
+- Runtime課金Stackとして `workops-dev-app-runtime`、`workops-dev-migration-runner`、`workops-dev-web-ingress`、`workops-dev-egress` を削除し、4Stackが active stack一覧から消えていることを確認した。
+- `workops-dev-data`、`workops-dev-web-delivery`、`workops-dev-web-acl`、`workops-dev-pipeline`、`workops-dev-dependency`、`workops-dev-foundation`、`workops-dev-logs`、`workops-dev-identity`、`workops-dev-registry`、`workops-dev-data-pause` は維持対象として残っていることを確認した。
+- `cdk destroy` は非TTY環境では確認入力を受け付けず停止するため、ユーザー明示許可後に対象Stackを限定して `--force` を付けた。`--force` は確認プロンプト省略のためだけに使い、削除対象を広げない。
+- `AppRuntimeStack` 初回削除はGreen target groupがlistener/ruleで使用中のため `DELETE_FAILED` になった。計画内の `MigrationRunnerStack` と `WebIngressStack` を先に削除して参照を外し、`AppRuntimeStack` を再削除して完了した。
+
 ## Assumptions
 
 - このtaskの再deployは差分内容を確認して判断する。
