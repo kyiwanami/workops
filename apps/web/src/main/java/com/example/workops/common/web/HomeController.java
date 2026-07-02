@@ -15,8 +15,13 @@ public class HomeController {
   private static final String TENANT_VIEWER = "TENANT_VIEWER";
   private static final String TENANT_EDITOR = "TENANT_EDITOR";
   private static final String TENANT_MANAGER = "TENANT_MANAGER";
-  /** Top page lead text is supplied by the controller so daily web copy changes exercise backend rendering. */
+
+  /**
+   * Top page lead text is supplied by the controller so daily web copy changes exercise backend
+   * rendering.
+   */
   private static final String HOME_LEAD_TEXT = "申請管理と資産管理の日常業務を一つの画面から始められます。";
+
   private static final Set<String> TENANT_VIEW_PERMISSIONS =
       Set.of(TENANT_VIEWER, TENANT_EDITOR, TENANT_MANAGER);
 
