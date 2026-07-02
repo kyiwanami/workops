@@ -46,6 +46,7 @@ class HomeControllerWebTests {
     mockMvc
         .perform(homeRequest())
         .andExpect(status().isOk())
+        .andExpect(content().string(containsString("申請管理と資産管理の日常業務を一つの画面から始められます。")))
         .andExpect(content().string(containsString("href=\"/admin/companies\"")))
         .andExpect(content().string(containsString("href=\"/admin/companies/1/departments\"")))
         .andExpect(content().string(containsString("href=\"/admin/users\"")))

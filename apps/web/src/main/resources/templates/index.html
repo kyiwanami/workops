@@ -8,7 +8,7 @@
     <section class="workops-page-title mb-4">
         <p class="text-secondary mb-1">MVP Local</p>
         <h1 class="h3 mb-2">WorkOps</h1>
-        <p class="text-secondary mb-0">申請管理と資産管理をローカル環境で実装していくための最小画面です。</p>
+        <p class="text-secondary mb-0" th:text="${homeLeadText}">申請管理と資産管理の日常業務を一つの画面から始められます。</p>
         <div class="mt-3">
             <a class="btn btn-primary btn-sm" th:if="${canViewRequests}" th:href="@{/requests}">申請一覧</a>
             <a class="btn btn-primary btn-sm ms-2" th:if="${canViewAssets}" th:href="@{/assets}">資産一覧</a>

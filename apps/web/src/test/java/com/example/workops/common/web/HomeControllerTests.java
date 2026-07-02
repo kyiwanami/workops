@@ -36,7 +36,8 @@ class HomeControllerTests {
         .containsEntry("canManageRequestTypes", false)
         .containsEntry("canManageAssetCategories", false)
         .containsEntry("canManageTenantDepartments", false)
-        .containsEntry("canManageTenantUsers", false);
+        .containsEntry("canManageTenantUsers", false)
+        .containsEntry("homeLeadText", "申請管理と資産管理の日常業務を一つの画面から始められます。");
   }
 
   @Test
