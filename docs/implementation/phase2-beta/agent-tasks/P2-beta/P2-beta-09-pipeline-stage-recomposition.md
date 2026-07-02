@@ -114,6 +114,10 @@ flowchart LR
 
 ## Failure records
 
+- 2026-07-02: 日常WEB修正の初回 push 起点 Pipeline execution は `DeployFoundation` の `BuildAndTest` で失敗した。原因は `apps/web/src/main/java/com/example/workops/common/web/HomeController.java` の Spotless formatting 違反をローカルの `spotless:check` で事前検出できていなかったため。対応として `mvn spotless:apply` 後に `mvn spotless:check '-Dtest=HomeControllerTests,HomeControllerWebTests' test` を成功させ、formatter 修正 commit を push して再実行した。
+- 2026-07-02: Pipeline CDK deploy 直後に作成起点の Pipeline execution が開始されたが、Source stage の `GitHubSource` で失敗した。原因は CodeConnection `workops-dev-github` が `PENDING` で、GitHub 認可が未完了だったため。次に必要な対応は、ユーザーが AWS Console で CodeConnection を認可してから Pipeline を再実行すること。
+- 2026-07-02: orphan bucket cleanup 後の Pipeline CDK deploy は `DependencyStack` が no changes まで進んだが、`workops-dev-pipeline-support-us-east-1` の security-sensitive update 承認で停止した。原因は非 TTY 実行環境で CDK の approval prompt に応答できず、`--require-approval never` を明示承認なしに使えないため。次に必要な対応は、`npx cdk deploy DependencyStack PipelineStack --profile $env:AWS_PROFILE --require-approval never` の実行可否を明示確認してから Pipeline CDK deploy を再実行すること。
+- 2026-07-02: Pipeline CDK deploy は `DependencyStack` 作成完了後、`PipelineStack` の前提となる `workops-dev-pipeline-support-us-east-1` の changeset 作成で失敗した。原因は cross-region replication bucket が CloudFormation 管理外の既存 bucket として残っており、同名 `AWS::S3::Bucket` を新規作成できなかったため。`workops-dev-dependency` は `CREATE_COMPLETE`。次に必要な対応は、既存 artifact 削除を伴う orphan bucket cleanup の明示承認を得たうえで、support stack 記録と該当 bucket を対象限定で削除し、Pipeline CDK deploy を再実行すること。
 - 2026-06-29: `workops-dev-pipeline-support-us-east-1` の `AWS::S3::BucketPolicy` 作成が `Invalid principal in policy` で失敗した。原因は `us-east-1` の CDK bootstrap が未実施で、cross-region support bucket policy が参照する CDK bootstrap deploy role が存在しなかったため。対応として、CloudFront / WAF / CDK Pipelines cross-region support を使う前提準備に `us-east-1` の CDK bootstrap を追加する。
 - 2026-06-29: `npx cdk bootstrap --profile ...` を `infra/cdk` で環境指定なしに実行し、`WORKOPS_SOURCE_BRANCH environment variable is required` で失敗した。原因は `cdk.json` の app synth が走り、bootstrap に不要な WorkOps app entrypoint の必須環境変数検証に入ったため。対応として、bootstrap は `aws://<AWS account>/<region>` の環境を明示して実行する。
 - 2026-06-29: `infra/cdk` で `aws://<AWS account>/us-east-1` を指定して `npx cdk bootstrap` を実行しても、`cdk.json` の app synth が走り `WORKOPS_SOURCE_BRANCH environment variable is required` で失敗した。原因は working directory の `cdk.json` が bootstrap 時にも読まれたため。対応として、bootstrap は `cdk.json` のない directory から CDK CLI 実体を直接呼ぶ。
@@ -133,40 +137,69 @@ flowchart LR
 
 ## Deployment records
 
-- 2026-06-29: `npx cdk deploy '*' --profile $env:AWS_PROFILE --require-approval never` は 01:04:18 +09:00 に開始し、01:06:00 +09:00 に完了した。所要時間は 00:01:41。`DependencyStack` と `workops-dev-pipeline-support-us-east-1` は no changes、`PipelineStack` の実 deploy は 71.71 秒だった。
-- 2026-06-29: Amazon Corretto / Amazon Linux 2023 へ変更後、ローカルで `linux/arm64` image の build と Pipeline 同等 Trivy scan を確認した。Trivy は OS / jar とも 0 件。ローカル実起動確認は `linux/amd64` image で実施し、`/actuator/health` が HTTP 200 を返すことを確認した。`linux/arm64` build は 287 秒、`linux/amd64` build は 135 秒だった。
-- 2026-06-29: portfolio / dev 環境として `workops-dev-data` を CloudFormation から削除し、DataStack を再作成する方針で Pipeline を再実行した。Pipeline execution は 09:30:31 +09:00 に開始し、10:13:55 +09:00 に成功した。所要時間は 00:43:24。`RunMigration` は成功し、`AppRuntimeStack` は作成完了した。ECS service は desired 1 / running 1、Blue/Green alarm は `WebHealthyHostAlarm` / `WebUnhealthyHostAlarm` の2本が作成完了した。
+- 再計測のため、過去の計測記録は削除した。
+- 2026-07-02: Pipeline CDK deploy は `npx cdk deploy DependencyStack PipelineStack --profile $env:AWS_PROFILE --require-approval never` を 21:40:11 +09:00 に開始し、21:42:21 +09:00 に完了した。所要時間は 00:02:10。`DependencyStack` は no changes、`workops-dev-pipeline-support-us-east-1` は作成完了し deploy time 25.75 秒、`PipelineStack` は作成完了し deploy time 71.81 秒だった。
+- 2026-07-02: Pipeline execution `f833d8a6-6d47-42f8-b346-ffd2f44ae598` は 21:45:46 +09:00 に開始し、22:36:01 +09:00 に成功した。wall clock は 00:50:15。ManualApproval は 22:04:18 +09:00 から 22:05:09 +09:00 までの 00:00:50 で、計測対象から除外する。ManualApproval 除外後の Pipeline 実行時間は 00:49:25。
+- 2026-07-02: 日常WEB修正の Pipeline execution `6c9c30af-a27e-4219-9606-cbfd48fc9fe8` は 22:54:07 +09:00 に開始し、23:20:17 +09:00 に成功した。wall clock は 00:26:10。ManualApproval は 23:07:26 +09:00 から 23:09:01 +09:00 までの 00:01:35 で、計測対象から除外する。ManualApproval 除外後の Pipeline 実行時間は 00:24:34。`BuildWebImage` は 00:03:36、`RunMigration` は 00:01:02、`workops-dev-app-runtime` deploy は 00:07:47 だった。
 
-### Pipeline action time
+### Pipeline execution phase time - 1st run
 
 | Stage / Action | Start | End | Duration | Result |
 | --- | --- | --- | --- | --- |
-| Source / GitHubSource | 09:30:31 | 09:30:35 | 00:00:05 | Succeeded |
-| Build / Synth | 09:30:36 | 09:32:40 | 00:02:04 | Succeeded |
-| UpdatePipeline / SelfMutate | 09:32:41 | 09:33:43 | 00:01:02 | Succeeded |
-| Assets | 09:33:44 | 09:34:48 | 00:01:04 | Succeeded |
-| DeployFoundation / BuildAndTest | 09:34:49 | 09:39:27 | 00:04:39 | Succeeded |
-| BuildWebImage / BuildWebImage | 09:40:41 | 09:42:46 | 00:02:04 | Succeeded |
-| DeployRuntimeInfrastructure / ManualApproval | 09:42:47 | 09:44:36 | 00:01:49 | Succeeded |
-| DeployAppRuntime / RunMigration | 10:07:37 | 10:09:10 | 00:01:33 | Succeeded |
+| Source / GitHubSource | 21:45:46 | 21:45:50 | 00:00:03 | Succeeded |
+| Build / Synth | 21:45:50 | 21:48:25 | 00:02:35 | Succeeded |
+| UpdatePipeline / SelfMutate | 21:48:26 | 21:50:30 | 00:02:04 | Succeeded |
+| Assets / File assets | 21:50:31 | 21:51:35 | 00:01:04 | Succeeded |
+| DeployFoundation / BuildAndTest | 21:51:36 | 21:55:43 | 00:04:07 | Succeeded |
+| DeployFoundation / workops-dev-foundation | 21:55:44 | 21:58:00 | 00:02:16 | Succeeded |
+| DeployFoundation / workops-dev-identity | 21:55:44 | 21:57:30 | 00:01:46 | Succeeded |
+| DeployFoundation / workops-dev-logs | 21:55:45 | 21:57:30 | 00:01:45 | Succeeded |
+| DeployFoundation / workops-dev-registry | 21:55:45 | 21:57:30 | 00:01:45 | Succeeded |
+| DeployFoundation / workops-dev-data-pause | 21:58:01 | 22:00:40 | 00:02:39 | Succeeded |
+| BuildWebImage / BuildWebImage | 22:00:41 | 22:04:18 | 00:03:36 | Succeeded |
+| DeployRuntimeInfrastructure / ManualApproval | 22:04:18 | 22:05:09 | 00:00:50 | Succeeded |
+| DeployRuntimeInfrastructure / workops-dev-data | 22:05:09 | 22:13:01 | 00:07:51 | Succeeded |
+| DeployRuntimeInfrastructure / workops-dev-egress | 22:05:10 | 22:07:51 | 00:02:41 | Succeeded |
+| DeployRuntimeInfrastructure / workops-dev-web-acl | 22:05:10 | 22:06:20 | 00:01:09 | Succeeded |
+| DeployRuntimeInfrastructure / workops-dev-migration-runner | 22:13:02 | 22:14:40 | 00:01:37 | Succeeded |
+| DeployRuntimeInfrastructure / workops-dev-web-ingress | 22:13:02 | 22:16:44 | 00:03:41 | Succeeded |
+| DeployRuntimeInfrastructure / workops-dev-web-delivery | 22:16:44 | 22:29:43 | 00:12:59 | Succeeded |
+| DeployAppRuntime / RunMigration | 22:29:44 | 22:31:17 | 00:01:33 | Succeeded |
+| DeployAppRuntime / workops-dev-app-runtime | 22:31:18 | 22:36:01 | 00:04:43 | Succeeded |
+
+### Pipeline execution phase time - 2nd run, daily web change
+
+| Stage / Action | Start | End | Duration | Result |
+| --- | --- | --- | --- | --- |
+| Source / GitHubSource | 22:54:07 | 22:54:14 | 00:00:06 | Succeeded |
+| Build / Synth | 22:54:15 | 22:56:50 | 00:02:35 | Succeeded |
+| UpdatePipeline / SelfMutate | 22:56:51 | 22:57:22 | 00:00:31 | Succeeded |
+| Assets / File assets | 22:57:23 | 22:58:27 | 00:01:04 | Succeeded |
+| DeployFoundation / BuildAndTest | 22:58:28 | 23:02:36 | 00:04:07 | Succeeded |
+| DeployFoundation / Foundation stacks | 23:02:36 | 23:03:48 | 00:01:12 | Succeeded |
+| BuildWebImage / BuildWebImage | 23:03:49 | 23:07:25 | 00:03:36 | Succeeded |
+| DeployRuntimeInfrastructure / ManualApproval | 23:07:26 | 23:09:01 | 00:01:35 | Succeeded |
+| DeployRuntimeInfrastructure / Runtime infrastructure stacks | 23:09:02 | 23:10:52 | 00:01:50 | Succeeded |
+| DeployAppRuntime / RunMigration | 23:10:53 | 23:11:55 | 00:01:02 | Succeeded |
+| DeployAppRuntime / workops-dev-app-runtime deploy | - | 23:20:17 | 00:07:47 | Succeeded |
 
 ### Stack deployment time
 
 | Stage | Stack | Prepare start | Deploy end | Duration | Result |
 | --- | --- | --- | --- | --- | --- |
-| DeployFoundation | `workops-dev-foundation` | 09:39:28 | 09:40:05 | 00:00:37 | No changes |
-| DeployFoundation | `workops-dev-identity` | 09:39:28 | 09:40:05 | 00:00:37 | No changes |
-| DeployFoundation | `workops-dev-logs` | 09:39:29 | 09:40:05 | 00:00:37 | No changes |
-| DeployFoundation | `workops-dev-registry` | 09:39:29 | 09:40:06 | 00:00:37 | No changes |
-| DeployFoundation | `workops-dev-data-pause` | 09:40:06 | 09:40:41 | 00:00:35 | No changes |
-| DeployRuntimeInfrastructure | `workops-dev-data` | 09:44:36 | 09:52:58 | 00:08:21 | Created |
-| DeployRuntimeInfrastructure | `workops-dev-egress` | 09:44:37 | 09:45:12 | 00:00:36 | No changes |
-| DeployRuntimeInfrastructure | `workops-dev-web-acl` | 09:44:37 | 09:45:14 | 00:00:37 | No changes |
-| DeployRuntimeInfrastructure | `workops-dev-migration-runner` | 09:52:58 | 09:54:05 | 00:01:07 | Updated |
-| DeployRuntimeInfrastructure | `workops-dev-web-ingress` | 09:52:58 | 09:54:05 | 00:01:06 | Updated |
-| DeployRuntimeInfrastructure | `workops-dev-web-delivery` | 09:54:05 | 10:07:36 | 00:13:31 | Created |
-| DeployAppRuntime | `workops-dev-app-runtime` | 10:09:11 | 10:13:55 | 00:04:44 | Created |
+| DeployFoundation | `workops-dev-foundation` | 21:55:44 | 21:58:00 | 00:02:16 | Succeeded |
+| DeployFoundation | `workops-dev-identity` | 21:55:44 | 21:57:30 | 00:01:46 | Succeeded |
+| DeployFoundation | `workops-dev-logs` | 21:55:45 | 21:57:30 | 00:01:45 | Succeeded |
+| DeployFoundation | `workops-dev-registry` | 21:55:45 | 21:57:30 | 00:01:45 | Succeeded |
+| DeployFoundation | `workops-dev-data-pause` | 21:58:01 | 22:00:40 | 00:02:39 | Succeeded |
+| DeployRuntimeInfrastructure | `workops-dev-data` | 22:05:09 | 22:13:01 | 00:07:51 | Succeeded |
+| DeployRuntimeInfrastructure | `workops-dev-egress` | 22:05:10 | 22:07:51 | 00:02:41 | Succeeded |
+| DeployRuntimeInfrastructure | `workops-dev-web-acl` | 22:05:10 | 22:06:20 | 00:01:09 | Succeeded |
+| DeployRuntimeInfrastructure | `workops-dev-migration-runner` | 22:13:02 | 22:14:40 | 00:01:37 | Succeeded |
+| DeployRuntimeInfrastructure | `workops-dev-web-ingress` | 22:13:02 | 22:16:44 | 00:03:41 | Succeeded |
+| DeployRuntimeInfrastructure | `workops-dev-web-delivery` | 22:16:44 | 22:29:43 | 00:12:59 | Succeeded |
+| DeployAppRuntime | `workops-dev-app-runtime` | 22:31:18 | 22:36:01 | 00:04:43 | Succeeded |
 
 ## Completion result
 
-- 2026-06-29: `P2-beta-09` の実デプロイは完了。CloudFront default domain から Cognito Hosted UI を経由し、platform login、platform user 作成、作成 user login までユーザー確認済み。Pipeline は `Succeeded`、`RunMigration` は `Succeeded`、`workops-dev-app-runtime` は `CREATE_COMPLETE`。実デプロイ計測時間は 09:30:31 +09:00 から 10:13:55 +09:00 までの 00:43:24。
+- 2026-07-02: `P2-beta-09` の Pipeline CDK deploy、初回 Pipeline 実行、日常WEB修正 Pipeline 実行計測は完了。初回 Pipeline execution は `Succeeded`、ManualApproval 除外後の Pipeline 実行時間は 00:49:25。日常WEB修正 Pipeline execution は `Succeeded`、ManualApproval 除外後の Pipeline 実行時間は 00:24:34。どちらも `RunMigration` は `Succeeded`、`workops-dev-app-runtime` deploy は `Succeeded`。CloudFront default domain 経由到達、Cognito Hosted UI、ブラウザ操作はユーザー確認として残る。
