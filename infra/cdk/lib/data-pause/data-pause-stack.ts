@@ -69,7 +69,7 @@ export class DataPauseStack extends Stack {
       runtime: Runtime.NODEJS_24_X,
       entry: join(__dirname, 'lambda', 'stop-marked-db.ts'),
       handler: 'handler',
-      timeout: Duration.minutes(2),
+      timeout: Duration.minutes(15),
       logGroup: props.stopMarkedDbLogGroup,
       environment: {
         WORKOPS_STAGE: stage,

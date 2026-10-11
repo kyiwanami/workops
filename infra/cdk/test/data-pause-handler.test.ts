@@ -5,7 +5,7 @@ import {
   PutParameterCommand,
   SSMClient,
 } from '@aws-sdk/client-ssm';
-import { RDSClient, StopDBInstanceCommand } from '@aws-sdk/client-rds';
+import { InvalidDBInstanceStateFault, RDSClient, StopDBInstanceCommand } from '@aws-sdk/client-rds';
 import { EventBridgeEvent } from 'aws-lambda';
 import { mockClient } from 'aws-sdk-client-mock';
 import { handler as markAutoRestartHandler } from '../lib/data-pause/lambda/mark-auto-restart';
@@ -42,6 +42,11 @@ describe('data-pause handlers', () => {
     process.env.WORKOPS_STAGE = 'dev';
     ssmMock.reset();
     rdsMock.reset();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   test('mark auto restart creates the SSM marker with overwrite enabled', async () => {
@@ -99,6 +104,40 @@ describe('data-pause handlers', () => {
     });
   });
 
+  test('stop marked DB retries InvalidDBInstanceStateFault and deletes the marker after success', async () => {
+    jest.useFakeTimers();
+    jest.spyOn(console, 'info').mockImplementation();
+    ssmMock.on(GetParameterCommand).resolves({
+      Parameter: {
+        Value: autoRestartMarkerValue,
+      },
+    });
+    rdsMock
+      .on(StopDBInstanceCommand)
+      .rejectsOnce(
+        new InvalidDBInstanceStateFault({
+          $metadata: {},
+          message: 'not available yet',
+        }),
+      )
+      .resolves({
+        DBInstance: {
+          DBInstanceIdentifier: 'workops-dev-db',
+        },
+      });
+    ssmMock.on(DeleteParameterCommand).resolves({});
+
+    const handlerPromise = stopMarkedDbHandler(event);
+    await jest.advanceTimersByTimeAsync(60_000);
+    await handlerPromise;
+
+    expect(rdsMock.commandCalls(StopDBInstanceCommand)).toHaveLength(2);
+    expect(ssmMock.commandCalls(DeleteParameterCommand)).toHaveLength(1);
+    expect(ssmMock.commandCalls(DeleteParameterCommand)[0].args[0].input).toEqual({
+      Name: '/workops/dev/data-pause/workops-dev-db/auto-restart-marker',
+    });
+  });
+
   test('stop marked DB does not stop when the marker value is not the auto restart event', async () => {
     ssmMock.on(GetParameterCommand).resolves({
       Parameter: {
@@ -121,6 +160,33 @@ describe('data-pause handlers', () => {
     rdsMock.on(StopDBInstanceCommand).rejects(new Error('stop failed'));
 
     await expect(stopMarkedDbHandler(event)).rejects.toThrow('stop failed');
+    expect(rdsMock.commandCalls(StopDBInstanceCommand)).toHaveLength(1);
+    expect(ssmMock.commandCalls(DeleteParameterCommand)).toHaveLength(0);
+  });
+
+  test('stop marked DB propagates InvalidDBInstanceStateFault when the retry budget is exhausted', async () => {
+    jest.useFakeTimers();
+    jest.spyOn(console, 'info').mockImplementation();
+    ssmMock.on(GetParameterCommand).resolves({
+      Parameter: {
+        Value: autoRestartMarkerValue,
+      },
+    });
+    rdsMock.on(StopDBInstanceCommand).rejects(
+      new InvalidDBInstanceStateFault({
+        $metadata: {},
+        message: 'not available yet',
+      }),
+    );
+
+    const handlerPromise = stopMarkedDbHandler(event);
+    const rejectionExpectation = expect(handlerPromise).rejects.toBeInstanceOf(
+      InvalidDBInstanceStateFault,
+    );
+    await jest.advanceTimersByTimeAsync(13 * 60 * 1000);
+
+    await rejectionExpectation;
+    expect(rdsMock.commandCalls(StopDBInstanceCommand).length).toBeGreaterThan(1);
     expect(ssmMock.commandCalls(DeleteParameterCommand)).toHaveLength(0);
   });
 

@@ -4,10 +4,20 @@ import {
   ParameterNotFound,
   SSMClient,
 } from '@aws-sdk/client-ssm';
-import { RDSClient, StopDBInstanceCommand } from '@aws-sdk/client-rds';
+import {
+  InvalidDBInstanceStateFault,
+  RDSClient,
+  StopDBInstanceCommand,
+  StopDBInstanceCommandOutput,
+} from '@aws-sdk/client-rds';
 import { EventBridgeEvent } from 'aws-lambda';
 
 const AUTO_RESTART_MARKER_VALUE = 'RDS-EVENT-0154';
+const STOP_DB_MAX_RETRY_TIME_MS = 12 * 60 * 1000;
+const STOP_DB_MIN_TIMEOUT_MS = 10 * 1000;
+const STOP_DB_MAX_TIMEOUT_MS = 60 * 1000;
+const STOP_DB_RETRY_FACTOR = 1.6;
+const STOP_DB_RETRIES = 100;
 
 interface RdsDbInstanceEventDetail {
   EventID?: string;
@@ -15,6 +25,39 @@ interface RdsDbInstanceEventDetail {
 }
 
 type RdsDbInstanceEvent = EventBridgeEvent<'RDS DB Instance Event', RdsDbInstanceEventDetail>;
+
+async function stopDbInstanceWithRetry(
+  rdsClient: RDSClient,
+  sourceIdentifier: string,
+): Promise<StopDBInstanceCommandOutput> {
+  const { default: pRetry } = await import('p-retry');
+
+  return pRetry(
+    () =>
+      rdsClient.send(
+        new StopDBInstanceCommand({
+          DBInstanceIdentifier: sourceIdentifier,
+        }),
+      ),
+    {
+      retries: STOP_DB_RETRIES,
+      maxRetryTime: STOP_DB_MAX_RETRY_TIME_MS,
+      minTimeout: STOP_DB_MIN_TIMEOUT_MS,
+      maxTimeout: STOP_DB_MAX_TIMEOUT_MS,
+      factor: STOP_DB_RETRY_FACTOR,
+      randomize: true,
+      shouldRetry: ({ error }) => error instanceof InvalidDBInstanceStateFault,
+      onFailedAttempt: ({ attemptNumber, retriesLeft, retryDelay }) => {
+        console.info('StopDBInstance is not accepted yet; retrying', {
+          sourceIdentifier,
+          attemptNumber,
+          retriesLeft,
+          retryDelay,
+        });
+      },
+    },
+  );
+}
 
 export async function handler(event: RdsDbInstanceEvent): Promise<void> {
   const stage = process.env.WORKOPS_STAGE ?? '';
@@ -49,11 +92,7 @@ export async function handler(event: RdsDbInstanceEvent): Promise<void> {
     throw error;
   }
 
-  const stopResponse = await rdsClient.send(
-    new StopDBInstanceCommand({
-      DBInstanceIdentifier: sourceIdentifier,
-    }),
-  );
+  const stopResponse = await stopDbInstanceWithRetry(rdsClient, sourceIdentifier);
   const stoppedIdentifier = stopResponse.DBInstance?.DBInstanceIdentifier;
   if (stoppedIdentifier === undefined || stoppedIdentifier.length === 0) {
     throw new Error('StopDBInstance did not return DBInstance.DBInstanceIdentifier');

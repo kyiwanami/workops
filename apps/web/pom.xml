@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.0.6</version>
+		<version>4.0.8</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.example</groupId>
@@ -29,9 +29,9 @@
 	<properties>
 		<java.version>25</java.version>
 		<aws.java.sdk.version>2.44.3</aws.java.sdk.version>
-		<jackson-bom.version>3.1.4</jackson-bom.version>
-		<netty.version>4.2.15.Final</netty.version>
-		<tomcat.version>11.0.22</tomcat.version>
+		<jackson-bom.version>3.1.7</jackson-bom.version>
+		<netty.version>4.2.19.Final</netty.version>
+		<tomcat.version>11.0.26</tomcat.version>
 		<spotless.maven.plugin.version>3.7.0</spotless.maven.plugin.version>
 		<google.java.format.version>1.35.0</google.java.format.version>
 		<spotbugs.maven.plugin.version>4.10.2.0</spotbugs.maven.plugin.version>

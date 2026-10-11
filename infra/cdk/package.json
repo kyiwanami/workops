@@ -4,7 +4,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "test": "jest && node scripts/run-python-unittest.cjs",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js && node scripts/run-python-unittest.cjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
@@ -32,6 +32,7 @@
     "@aws-sdk/client-rds": "^3.1075.0",
     "@aws-sdk/client-ssm": "^3.1075.0",
     "aws-cdk-lib": "^2.238.0",
-    "constructs": "^10.0.0"
+    "constructs": "^10.0.0",
+    "p-retry": "^8.0.0"
   }
 }

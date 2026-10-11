@@ -318,6 +318,7 @@ describe('WorkOps CDK network and migration support', () => {
       FunctionName: 'workops-dev-data-pause-stop-marked-db',
       Handler: 'index.handler',
       Runtime: 'nodejs24.x',
+      Timeout: 900,
       Environment: {
         Variables: {
           WORKOPS_STAGE: 'dev',
